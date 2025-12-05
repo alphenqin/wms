@@ -295,7 +295,12 @@ public class ReceiptOrderService {
             if (receiptOrder != null && receiptOrder.getOrderStatus() == 0) {
                 // 执行入库
                 ReceiptOrderBo bo = MapstructUtils.convert(receiptOrder, ReceiptOrderBo.class);
-                bo.setDetails(receiptOrderDetailService.queryByReceiptOrderId(receiptOrder.getId()));
+                // 将VO列表转换为BO列表
+                List<ReceiptOrderDetailVo> detailVos = receiptOrderDetailService.queryByReceiptOrderId(receiptOrder.getId());
+                List<ReceiptOrderDetailBo> detailBos = detailVos.stream()
+                    .map(vo -> MapstructUtils.convert(vo, ReceiptOrderDetailBo.class))
+                    .collect(Collectors.toList());
+                bo.setDetails(detailBos);
                 receive(bo);
             }
         }

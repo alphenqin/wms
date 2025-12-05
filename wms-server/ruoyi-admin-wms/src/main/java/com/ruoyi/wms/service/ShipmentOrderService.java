@@ -269,7 +269,12 @@ public class ShipmentOrderService {
             if (shipmentOrder != null && shipmentOrder.getOrderStatus() == 0) {
                 // 执行出库
                 ShipmentOrderBo bo = MapstructUtils.convert(shipmentOrder, ShipmentOrderBo.class);
-                bo.setDetails(shipmentOrderDetailService.queryByShipmentOrderId(shipmentOrder.getId()));
+                // 将VO列表转换为BO列表
+                List<ShipmentOrderDetailVo> detailVos = shipmentOrderDetailService.queryByShipmentOrderId(shipmentOrder.getId());
+                List<ShipmentOrderDetailBo> detailBos = detailVos.stream()
+                    .map(vo -> MapstructUtils.convert(vo, ShipmentOrderDetailBo.class))
+                    .collect(Collectors.toList());
+                bo.setDetails(detailBos);
                 shipment(bo);
             }
         }

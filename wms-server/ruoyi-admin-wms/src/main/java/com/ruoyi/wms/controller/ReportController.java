@@ -14,7 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Date;
+import java.time.LocalDateTime;
 import java.util.Map;
 
 /**
@@ -38,8 +38,8 @@ public class ReportController extends BaseController {
     @SaCheckPermission("wms:report:list")
     @GetMapping("/inbound")
     public TableDataInfo<Map<String, Object>> queryInboundReport(
-            @RequestParam(required = false) Date startDate,
-            @RequestParam(required = false) Date endDate,
+            @RequestParam(required = false) LocalDateTime startDate,
+            @RequestParam(required = false) LocalDateTime endDate,
             @RequestParam(required = false) String model,
             @RequestParam(required = false) String manufacturer,
             @RequestParam(required = false) Long warehouseId,
@@ -53,8 +53,8 @@ public class ReportController extends BaseController {
     @SaCheckPermission("wms:report:list")
     @GetMapping("/inbound/summary")
     public R<Map<String, Object>> queryInboundSummary(
-            @RequestParam(required = false) Date startDate,
-            @RequestParam(required = false) Date endDate,
+            @RequestParam(required = false) LocalDateTime startDate,
+            @RequestParam(required = false) LocalDateTime endDate,
             @RequestParam(required = false) Long warehouseId) {
         return R.ok(reportService.queryInboundSummary(startDate, endDate, warehouseId));
     }
@@ -65,8 +65,8 @@ public class ReportController extends BaseController {
     @SaCheckPermission("wms:report:list")
     @GetMapping("/outbound")
     public TableDataInfo<Map<String, Object>> queryOutboundReport(
-            @RequestParam(required = false) Date startDate,
-            @RequestParam(required = false) Date endDate,
+            @RequestParam(required = false) LocalDateTime startDate,
+            @RequestParam(required = false) LocalDateTime endDate,
             @RequestParam(required = false) String model,
             @RequestParam(required = false) String manufacturer,
             @RequestParam(required = false) Long warehouseId,
@@ -80,8 +80,8 @@ public class ReportController extends BaseController {
     @SaCheckPermission("wms:report:list")
     @GetMapping("/outbound/summary")
     public R<Map<String, Object>> queryOutboundSummary(
-            @RequestParam(required = false) Date startDate,
-            @RequestParam(required = false) Date endDate,
+            @RequestParam(required = false) LocalDateTime startDate,
+            @RequestParam(required = false) LocalDateTime endDate,
             @RequestParam(required = false) Long warehouseId) {
         return R.ok(reportService.queryOutboundSummary(startDate, endDate, warehouseId));
     }
@@ -92,8 +92,8 @@ public class ReportController extends BaseController {
     @SaCheckPermission("wms:report:list")
     @GetMapping("/check")
     public TableDataInfo<Map<String, Object>> queryCheckReport(
-            @RequestParam(required = false) Date startDate,
-            @RequestParam(required = false) Date endDate,
+            @RequestParam(required = false) LocalDateTime startDate,
+            @RequestParam(required = false) LocalDateTime endDate,
             @RequestParam(required = false) Long warehouseId,
             PageQuery pageQuery) {
         return reportService.queryCheckReport(startDate, endDate, warehouseId, pageQuery);

@@ -1486,11 +1486,11 @@ CREATE TABLE `wms_data_backup`  (
 -- 注意：菜单ID从2000开始，避免与系统菜单冲突
 
 -- WMS主菜单
-INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES
 (2000, 'WMS仓储管理', 0, 5, 'wms', NULL, '', 1, 0, 'M', '0', '0', '', 'warehouse', 'admin', NOW(), '', NULL, 'WMS仓储管理系统');
 
 -- 基础数据管理
-INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES
 (2001, '基础数据', 2000, 1, 'basic', NULL, '', 1, 0, 'M', '0', '0', '', 'dict', 'admin', NOW(), '', NULL, '基础数据管理'),
 (2010, '仓库管理', 2001, 1, 'warehouse', 'wms/basic/warehouse/index', '', 1, 0, 'C', '0', '0', 'wms:warehouse:list', 'warehouse', 'admin', NOW(), '', NULL, '仓库管理'),
 (2011, '货区管理', 2001, 2, 'area', 'wms/basic/area/index', '', 1, 0, 'C', '0', '0', 'wms:area:list', 'tree', 'admin', NOW(), '', NULL, '货区管理'),
@@ -1502,13 +1502,13 @@ INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`
 (2017, '库管员管理', 2001, 8, 'warehouseKeeper', 'wms/basic/warehouseKeeper/index', '', 1, 0, 'C', '0', '0', 'wms:warehouseKeeper:list', 'user', 'admin', NOW(), '', NULL, '库管员管理');
 
 -- 条码管理
-INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES
 (2020, '条码管理', 2000, 2, 'barcode', NULL, '', 1, 0, 'M', '0', '0', '', 'qrcode', 'admin', NOW(), '', NULL, '条码管理'),
 (2021, '条码信息', 2020, 1, 'barcode', 'wms/barcode/index', '', 1, 0, 'C', '0', '0', 'wms:barcode:list', 'qrcode', 'admin', NOW(), '', NULL, '条码信息管理'),
 (2022, '扫码任务', 2020, 2, 'scanTask', 'wms/scanTask/index', '', 1, 0, 'C', '0', '0', 'wms:scanTask:list', 'guide', 'admin', NOW(), '', NULL, '扫码任务管理');
 
 -- 订单管理
-INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES
 (2030, '订单管理', 2000, 3, 'order', NULL, '', 1, 0, 'M', '0', '0', '', 'shopping', 'admin', NOW(), '', NULL, '订单管理'),
 (2031, '入库单', 2030, 1, 'receipt', 'wms/order/receipt/index', '', 1, 0, 'C', '0', '0', 'wms:receipt:list', 'upload', 'admin', NOW(), '', NULL, '入库单管理'),
 (2032, '出库单', 2030, 2, 'shipment', 'wms/order/shipment/index', '', 1, 0, 'C', '0', '0', 'wms:shipment:list', 'download', 'admin', NOW(), '', NULL, '出库单管理'),
@@ -1516,29 +1516,29 @@ INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`
 (2034, '盘点单', 2030, 4, 'check', 'wms/order/check/index', '', 1, 0, 'C', '0', '0', 'wms:check:list', 'edit', 'admin', NOW(), '', NULL, '盘点单管理');
 
 -- 库存管理
-INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES
 (2040, '库存管理', 2000, 4, 'inventory', NULL, '', 1, 0, 'M', '0', '0', '', 'chart', 'admin', NOW(), '', NULL, '库存管理'),
 (2041, '库存统计', 2040, 1, 'statistic', 'wms/inventory/statistic', '', 1, 0, 'C', '0', '0', 'wms:inventory:list', 'chart', 'admin', NOW(), '', NULL, '库存统计'),
 (2042, '库存历史', 2040, 2, 'history', 'wms/inventory/history', '', 1, 0, 'C', '0', '0', 'wms:inventoryHistory:list', 'log', 'admin', NOW(), '', NULL, '库存历史'),
 (2043, '库存查询', 2040, 3, 'query', 'wms/inventory/query/index', '', 1, 0, 'C', '0', '0', 'wms:inventory:query', 'search', 'admin', NOW(), '', NULL, '库存查询');
 
 -- 任务管理
-INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES
 (2050, '任务管理', 2000, 5, 'task', NULL, '', 1, 0, 'M', '0', '0', '', 'guide', 'admin', NOW(), '', NULL, '任务管理'),
 (2051, 'AGV任务', 2050, 1, 'agvTask', 'wms/task/agvTask/index', '', 1, 0, 'C', '0', '0', 'wms:agvTask:list', 'guide', 'admin', NOW(), '', NULL, 'AGV任务管理');
 
 -- PDA管理
-INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES
 (2060, 'PDA管理', 2000, 6, 'pda', NULL, '', 1, 0, 'M', '0', '0', '', 'phone', 'admin', NOW(), '', NULL, 'PDA管理'),
 (2061, 'PDA操作记录', 2060, 1, 'operation', 'wms/pda/operation/index', '', 1, 0, 'C', '0', '0', 'wms:pdaOperation:list', 'list', 'admin', NOW(), '', NULL, 'PDA操作记录'),
 (2062, 'PDA日志', 2060, 2, 'log', 'wms/pda/log/index', '', 1, 0, 'C', '0', '0', 'wms:pdaLog:list', 'log', 'admin', NOW(), '', NULL, 'PDA日志');
 
 -- 报表查询
-INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES
 (2070, '报表查询', 2000, 7, 'report', 'wms/report/index', '', 1, 0, 'C', '0', '0', 'wms:report:list', 'chart', 'admin', NOW(), '', NULL, '报表查询');
 
 -- 系统配置
-INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES
 (2080, '系统配置', 2000, 8, 'config', NULL, '', 1, 0, 'M', '0', '0', '', 'system', 'admin', NOW(), '', NULL, '系统配置'),
 (2081, 'WMS配置', 2080, 1, 'wmsConfig', 'wms/config/index', '', 1, 0, 'C', '0', '0', 'wms:config:list', 'edit', 'admin', NOW(), '', NULL, 'WMS配置管理'),
 (2082, '数据备份', 2080, 2, 'dataBackup', 'wms/dataBackup/index', '', 1, 0, 'C', '0', '0', 'wms:backup:list', 'backup', 'admin', NOW(), '', NULL, '数据备份管理');

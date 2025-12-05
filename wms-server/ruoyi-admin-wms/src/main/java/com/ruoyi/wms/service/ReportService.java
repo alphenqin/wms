@@ -10,7 +10,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.util.Date;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -36,7 +36,7 @@ public class ReportService {
      * 入库报表
      * 按日期、型号、厂家统计
      */
-    public TableDataInfo<Map<String, Object>> queryInboundReport(Date startDate, Date endDate,
+    public TableDataInfo<Map<String, Object>> queryInboundReport(LocalDateTime startDate, LocalDateTime endDate,
                                                                   String model, String manufacturer,
                                                                   Long warehouseId, PageQuery pageQuery) {
         // 查询入库单
@@ -48,10 +48,10 @@ public class ReportService {
         if (startDate != null || endDate != null) {
             receiptOrders = receiptOrders.stream()
                 .filter(order -> {
-                    Date createTime = order.getCreateTime();
+                    LocalDateTime createTime = order.getCreateTime();
                     if (createTime == null) return false;
-                    if (startDate != null && createTime.before(startDate)) return false;
-                    if (endDate != null && createTime.after(endDate)) return false;
+                    if (startDate != null && createTime.isBefore(startDate)) return false;
+                    if (endDate != null && createTime.isAfter(endDate)) return false;
                     return true;
                 })
                 .toList();
@@ -65,7 +65,7 @@ public class ReportService {
     /**
      * 出库报表
      */
-    public TableDataInfo<Map<String, Object>> queryOutboundReport(Date startDate, Date endDate,
+    public TableDataInfo<Map<String, Object>> queryOutboundReport(LocalDateTime startDate, LocalDateTime endDate,
                                                                    String model, String manufacturer,
                                                                    Long warehouseId, PageQuery pageQuery) {
         // 查询出库单
@@ -77,10 +77,10 @@ public class ReportService {
         if (startDate != null || endDate != null) {
             shipmentOrders = shipmentOrders.stream()
                 .filter(order -> {
-                    Date createTime = order.getCreateTime();
+                    LocalDateTime createTime = order.getCreateTime();
                     if (createTime == null) return false;
-                    if (startDate != null && createTime.before(startDate)) return false;
-                    if (endDate != null && createTime.after(endDate)) return false;
+                    if (startDate != null && createTime.isBefore(startDate)) return false;
+                    if (endDate != null && createTime.isAfter(endDate)) return false;
                     return true;
                 })
                 .toList();
@@ -93,7 +93,7 @@ public class ReportService {
     /**
      * 盘存报表
      */
-    public TableDataInfo<Map<String, Object>> queryCheckReport(Date startDate, Date endDate,
+    public TableDataInfo<Map<String, Object>> queryCheckReport(LocalDateTime startDate, LocalDateTime endDate,
                                                                Long warehouseId, PageQuery pageQuery) {
         // 查询盘点单
         var bo = new com.ruoyi.wms.domain.bo.CheckOrderBo();
@@ -104,10 +104,10 @@ public class ReportService {
         if (startDate != null || endDate != null) {
             checkOrders = checkOrders.stream()
                 .filter(order -> {
-                    Date createTime = order.getCreateTime();
+                    LocalDateTime createTime = order.getCreateTime();
                     if (createTime == null) return false;
-                    if (startDate != null && createTime.before(startDate)) return false;
-                    if (endDate != null && createTime.after(endDate)) return false;
+                    if (startDate != null && createTime.isBefore(startDate)) return false;
+                    if (endDate != null && createTime.isAfter(endDate)) return false;
                     return true;
                 })
                 .toList();
@@ -137,7 +137,7 @@ public class ReportService {
     /**
      * 入库统计汇总
      */
-    public Map<String, Object> queryInboundSummary(Date startDate, Date endDate, Long warehouseId) {
+    public Map<String, Object> queryInboundSummary(LocalDateTime startDate, LocalDateTime endDate, Long warehouseId) {
         var bo = new com.ruoyi.wms.domain.bo.ReceiptOrderBo();
         bo.setWarehouseId(warehouseId);
         var orders = receiptOrderService.queryList(bo);
@@ -146,10 +146,10 @@ public class ReportService {
         if (startDate != null || endDate != null) {
             orders = orders.stream()
                 .filter(order -> {
-                    Date createTime = order.getCreateTime();
+                    LocalDateTime createTime = order.getCreateTime();
                     if (createTime == null) return false;
-                    if (startDate != null && createTime.before(startDate)) return false;
-                    if (endDate != null && createTime.after(endDate)) return false;
+                    if (startDate != null && createTime.isBefore(startDate)) return false;
+                    if (endDate != null && createTime.isAfter(endDate)) return false;
                     return true;
                 })
                 .toList();
@@ -174,7 +174,7 @@ public class ReportService {
     /**
      * 出库统计汇总
      */
-    public Map<String, Object> queryOutboundSummary(Date startDate, Date endDate, Long warehouseId) {
+    public Map<String, Object> queryOutboundSummary(LocalDateTime startDate, LocalDateTime endDate, Long warehouseId) {
         var bo = new com.ruoyi.wms.domain.bo.ShipmentOrderBo();
         bo.setWarehouseId(warehouseId);
         var orders = shipmentOrderService.queryList(bo);
@@ -183,10 +183,10 @@ public class ReportService {
         if (startDate != null || endDate != null) {
             orders = orders.stream()
                 .filter(order -> {
-                    Date createTime = order.getCreateTime();
+                    LocalDateTime createTime = order.getCreateTime();
                     if (createTime == null) return false;
-                    if (startDate != null && createTime.before(startDate)) return false;
-                    if (endDate != null && createTime.after(endDate)) return false;
+                    if (startDate != null && createTime.isBefore(startDate)) return false;
+                    if (endDate != null && createTime.isAfter(endDate)) return false;
                     return true;
                 })
                 .toList();
