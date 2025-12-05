@@ -1,0 +1,273 @@
+# ============================================
+# WMS项目 .gitignore 配置
+# ============================================
+
+# ==================== Java/Maven ====================
+# Maven编译输出
+**/target/
+**/classes/
+**/generated-sources/
+**/generated-test-sources/
+
+# Maven包装器
+.mvn/wrapper/maven-wrapper.jar
+.mvn/wrapper/maven-wrapper.properties
+
+# IDE - IntelliJ IDEA
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+
+# IDE - Eclipse
+.classpath
+.project
+.settings/
+bin/
+build/
+
+# IDE - NetBeans
+nbproject/
+nbbuild/
+dist/
+nbdist/
+.nb-gradle/
+
+# IDE - VS Code
+.vscode/
+*.code-workspace
+
+# ==================== Spring Boot ====================
+# 日志文件
+*.log
+logs/
+log/
+
+# 临时文件
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Spring Boot配置（包含敏感信息）
+application-local.yml
+application-local.properties
+application-prod.yml
+application-prod.properties
+
+# ==================== Node.js/Vue ====================
+# 依赖目录
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# 构建输出
+dist/
+dist-ssr/
+*.local
+
+# 环境变量文件（包含敏感信息）
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+
+# 编辑器目录和文件
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ==================== 前端构建产物 ====================
+# Vue构建输出
+wms-web/dist/
+wms-web/build/
+wms-web/.vite/
+wms-web/.output/
+
+# 缓存目录
+.cache/
+.parcel-cache/
+.nuxt/
+.next/
+.vuepress/dist/
+
+# ==================== 系统文件 ====================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ==================== 数据库相关 ====================
+# 注意：数据库脚本（wms-server/script/sql/）不忽略
+# 但忽略数据库备份文件和导出文件
+*.sql.bak
+*.sql.backup
+*.dump
+*.dmp
+*.sql.gz
+*.sql.zip
+
+# ==================== 文档和临时文件 ====================
+# 临时文档
+*.docx~
+*.xlsx~
+*.pptx~
+
+# 压缩文件（除了必要的）
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+# 但保留必要的压缩文件，如：
+# !wms-server/script/sql/*.zip
+
+# ==================== Docker相关 ====================
+# Docker构建缓存（可选，根据需求决定）
+# .dockerignore 已单独配置
+
+# ==================== 测试和覆盖率 ====================
+# 测试覆盖率报告
+coverage/
+.nyc_output/
+*.lcov
+*.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.tox/
+.hypothesis/
+
+# ==================== 密钥和证书 ====================
+# 密钥文件
+*.key
+*.pem
+*.p12
+*.jks
+*.keystore
+*.truststore
+*.cer
+*.crt
+*.csr
+*.der
+
+# 配置文件中的敏感信息（已在上面的application-*.yml中处理）
+secrets/
+credentials/
+*.secret
+*.password
+
+# ==================== 备份文件 ====================
+# 备份文件
+*.bak
+*.backup
+*.old
+*.orig
+*.save
+
+# ==================== 其他 ====================
+# 临时目录
+tmp/
+temp/
+.tmp/
+.temp/
+
+# 锁文件（根据团队需求决定是否忽略）
+# package-lock.json  # 通常应该提交
+# yarn.lock          # 通常应该提交
+# pnpm-lock.yaml     # 通常应该提交
+
+# 本地配置文件
+local/
+local.*
+*.local
+
+# 性能分析文件
+*.prof
+*.hprof
+
+# ==================== 特别注意 ====================
+# 数据库脚本目录不忽略（重要！）
+!wms-server/script/sql/
+!wms-server/script/sql/**
+!wms-server/script/sql/**/*.sql
+
+# 其他重要的脚本文件不忽略
+!wms-server/script/bin/
+!wms-server/script/bin/**
+!wms-server/script/bin/*.sh
+!wms-server/script/bin/*.bat
+
+# 清理脚本不忽略
+!cleanup.bat
+!cleanup.sh
+
+# 文档文件不忽略
+!*.md
+!docs/
+!docs/**
+
+# Docker配置文件不忽略
+!docker-compose.yml
+!Dockerfile
+!**/Dockerfile
+!.dockerignore
+
+# 配置文件模板不忽略
+!**/application.yml
+!**/application-dev.yml
+!**/application-test.yml
+!**/application-prod.yml.example
+
+# ==================== 项目特定 ====================
+# WMS项目特定的忽略规则
+# 如果有其他需要忽略的文件，在这里添加
+
