@@ -30,19 +30,19 @@ public class PdaOperationController extends BaseController {
 
     private final PdaOperationService pdaOperationService;
 
-    @SaCheckPermission("wms:pda:operation:list")
+    @SaCheckPermission("wms:pdaOperation:list")
     @GetMapping("/list")
     public TableDataInfo<PdaOperationVo> list(PdaOperationBo bo, PageQuery pageQuery) {
         return pdaOperationService.queryPageList(bo, pageQuery);
     }
 
-    @SaCheckPermission("wms:pda:operation:list")
+    @SaCheckPermission("wms:pdaOperation:list")
     @GetMapping("/listNoPage")
     public R<List<PdaOperationVo>> listNoPage(PdaOperationBo bo) {
         return R.ok(pdaOperationService.queryList(bo));
     }
 
-    @SaCheckPermission("wms:pda:operation:export")
+    @SaCheckPermission("wms:pdaOperation:export")
     @Log(title = "PDA操作", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
     public void export(PdaOperationBo bo, HttpServletResponse response) {
@@ -50,13 +50,13 @@ public class PdaOperationController extends BaseController {
         ExcelUtil.exportExcel(list, "PDA操作", PdaOperationVo.class, response);
     }
 
-    @SaCheckPermission("wms:pda:operation:list")
+    @SaCheckPermission("wms:pdaOperation:list")
     @GetMapping("/{id}")
     public R<PdaOperationVo> getInfo(@NotNull(message = "主键不能为空") @PathVariable Long id) {
         return R.ok(pdaOperationService.queryById(id));
     }
 
-    @SaCheckPermission("wms:pda:operation:edit")
+    @SaCheckPermission("wms:pdaOperation:edit")
     @Log(title = "PDA操作", businessType = BusinessType.INSERT)
     @RepeatSubmit()
     @PostMapping()
@@ -65,7 +65,7 @@ public class PdaOperationController extends BaseController {
         return R.ok();
     }
 
-    @SaCheckPermission("wms:pda:operation:edit")
+    @SaCheckPermission("wms:pdaOperation:edit")
     @Log(title = "PDA操作", businessType = BusinessType.UPDATE)
     @RepeatSubmit()
     @PutMapping()
@@ -74,7 +74,7 @@ public class PdaOperationController extends BaseController {
         return R.ok();
     }
 
-    @SaCheckPermission("wms:pda:operation:edit")
+    @SaCheckPermission("wms:pdaOperation:edit")
     @Log(title = "PDA操作", businessType = BusinessType.DELETE)
     @DeleteMapping("/{id}")
     public R<Void> remove(@NotNull(message = "主键不能为空") @PathVariable Long id) {

@@ -185,7 +185,7 @@
 </template>
 
 <script setup name="Report">
-import { queryInboundReport, queryOutboundReport, queryCheckReport, queryInventoryStatistics } from '@/api/wms/report';
+import { queryInboundReport as queryInboundReportApi, queryOutboundReport as queryOutboundReportApi, queryCheckReport as queryCheckReportApi, queryInventoryStatistics as queryInventoryStatisticsApi } from '@/api/wms/report';
 import { listWarehouseNoPage } from '@/api/wms/warehouse';
 import { ref, reactive, onMounted } from 'vue';
 
@@ -247,7 +247,7 @@ const getWarehouseList = async () => {
 const queryInboundReport = async () => {
   inboundLoading.value = true;
   try {
-    const res = await queryInboundReport(inboundParams);
+    const res = await queryInboundReportApi(inboundParams);
     inboundReportList.value = res.rows || [];
     inboundTotal.value = res.total || 0;
   } finally {
@@ -259,7 +259,7 @@ const queryInboundReport = async () => {
 const queryOutboundReport = async () => {
   outboundLoading.value = true;
   try {
-    const res = await queryOutboundReport(outboundParams);
+    const res = await queryOutboundReportApi(outboundParams);
     outboundReportList.value = res.rows || [];
     outboundTotal.value = res.total || 0;
   } finally {
@@ -271,7 +271,7 @@ const queryOutboundReport = async () => {
 const queryCheckReport = async () => {
   checkLoading.value = true;
   try {
-    const res = await queryCheckReport(checkParams);
+    const res = await queryCheckReportApi(checkParams);
     checkReportList.value = res.rows || [];
     checkTotal.value = res.total || 0;
   } finally {
@@ -283,7 +283,7 @@ const queryCheckReport = async () => {
 const queryInventoryStatistics = async () => {
   inventoryLoading.value = true;
   try {
-    const res = await queryInventoryStatistics(inventoryParams);
+    const res = await queryInventoryStatisticsApi(inventoryParams);
     inventoryStatisticsList.value = res.rows || [];
     inventoryTotal.value = res.total || 0;
   } finally {

@@ -1,4 +1,4 @@
-import { createApp } from 'vue'
+import { createApp, nextTick } from 'vue'
 
 import Cookies from 'js-cookie'
 
@@ -89,3 +89,12 @@ app.use(ElementPlus, {
 app._context.components.ElDialog.props.closeOnClickModal.default = false
 
 app.mount('#app')
+
+// 应用加载完成后，隐藏加载屏幕
+// 使用 nextTick 确保 DOM 已更新
+nextTick(() => {
+  // 延迟一点时间，确保所有资源加载完成
+  setTimeout(() => {
+    document.documentElement.classList.add('loaded')
+  }, 100)
+})

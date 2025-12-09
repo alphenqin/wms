@@ -2,7 +2,7 @@ import request from '@/utils/request'
 
 export function listPdaLog(query) {
   return request({
-    url: '/wms/pdaLog/list',
+    url: '/wms/pda/log/list',
     method: 'get',
     params: query
   });
@@ -10,7 +10,7 @@ export function listPdaLog(query) {
 
 export function getPdaLog(id) {
   return request({
-    url: '/wms/pdaLog/' + id,
+    url: '/wms/pda/log/' + id,
     method: 'get'
   });
 };

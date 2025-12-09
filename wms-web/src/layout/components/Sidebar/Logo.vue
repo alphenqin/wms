@@ -25,7 +25,7 @@ defineProps({
   }
 })
 
-const title = ref('ruoyi-wms');
+const title = ref('阿尔法管理系统');
 const settingsStore = useSettingsStore();
 const sideTheme = computed(() => settingsStore.sideTheme);
 </script>

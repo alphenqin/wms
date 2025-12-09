@@ -30,31 +30,31 @@ public class PdaLogController extends BaseController {
 
     private final PdaLogService pdaLogService;
 
-    @SaCheckPermission("wms:pda:log:list")
+    @SaCheckPermission("wms:pdaLog:list")
     @GetMapping("/list")
     public TableDataInfo<PdaLogVo> list(PdaLogBo bo, PageQuery pageQuery) {
         return pdaLogService.queryPageList(bo, pageQuery);
     }
 
-    @SaCheckPermission("wms:pda:log:list")
+    @SaCheckPermission("wms:pdaLog:list")
     @GetMapping("/listNoPage")
     public R<List<PdaLogVo>> listNoPage(PdaLogBo bo) {
         return R.ok(pdaLogService.queryList(bo));
     }
 
-    @SaCheckPermission("wms:pda:log:list")
+    @SaCheckPermission("wms:pdaLog:list")
     @GetMapping("/error")
     public R<List<PdaLogVo>> getErrorLogs(@RequestParam(required = false) String pdaDeviceNo) {
         return R.ok(pdaLogService.queryErrorLogs(pdaDeviceNo));
     }
 
-    @SaCheckPermission("wms:pda:log:list")
+    @SaCheckPermission("wms:pdaLog:list")
     @GetMapping("/networkFailure")
     public R<List<PdaLogVo>> getNetworkFailures(@RequestParam(required = false) String pdaDeviceNo) {
         return R.ok(pdaLogService.queryNetworkFailures(pdaDeviceNo));
     }
 
-    @SaCheckPermission("wms:pda:log:export")
+    @SaCheckPermission("wms:pdaLog:export")
     @Log(title = "PDA日志", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
     public void export(PdaLogBo bo, HttpServletResponse response) {
@@ -62,13 +62,13 @@ public class PdaLogController extends BaseController {
         ExcelUtil.exportExcel(list, "PDA日志", PdaLogVo.class, response);
     }
 
-    @SaCheckPermission("wms:pda:log:list")
+    @SaCheckPermission("wms:pdaLog:list")
     @GetMapping("/{id}")
     public R<PdaLogVo> getInfo(@NotNull(message = "主键不能为空") @PathVariable Long id) {
         return R.ok(pdaLogService.queryById(id));
     }
 
-    @SaCheckPermission("wms:pda:log:edit")
+    @SaCheckPermission("wms:pdaLog:edit")
     @Log(title = "PDA日志", businessType = BusinessType.INSERT)
     @RepeatSubmit()
     @PostMapping()
@@ -77,7 +77,7 @@ public class PdaLogController extends BaseController {
         return R.ok();
     }
 
-    @SaCheckPermission("wms:pda:log:edit")
+    @SaCheckPermission("wms:pdaLog:edit")
     @Log(title = "PDA日志", businessType = BusinessType.UPDATE)
     @RepeatSubmit()
     @PutMapping()
@@ -86,7 +86,7 @@ public class PdaLogController extends BaseController {
         return R.ok();
     }
 
-    @SaCheckPermission("wms:pda:log:edit")
+    @SaCheckPermission("wms:pdaLog:edit")
     @Log(title = "PDA日志", businessType = BusinessType.DELETE)
     @DeleteMapping("/{id}")
     public R<Void> remove(@NotNull(message = "主键不能为空") @PathVariable Long id) {

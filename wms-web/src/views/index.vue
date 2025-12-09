@@ -30,7 +30,7 @@
                 <span style="font-size: large;font-weight: bold">讲解视频：</span><a href="https://www.bilibili.com/video/BV1ys4y1q7uG/" target="_blank">https://www.bilibili.com/video/BV1ys4y1q7uG/</a>
               </div>
               <div>
-                <span style="font-size: large;font-weight: bold">若依实战视频：</span><a href="https://www.bilibili.com/video/BV1Fi4y1q74p/" target="_blank">https://www.bilibili.com/video/BV1Fi4y1q74p/</a>
+                <span style="font-size: large;font-weight: bold">阿尔法实战视频：</span><a href="https://www.bilibili.com/video/BV1Fi4y1q74p/" target="_blank">https://www.bilibili.com/video/BV1Fi4y1q74p/</a>
               </div>
             </div>
           </div>
@@ -48,7 +48,7 @@
           <div style="display: flex;align-items: center">
             <div class="first" style="font-size:20px;line-height: 50px;background: linear-gradient(to right, red, blue);-webkit-background-clip: text;color: transparent;">
               参与开发基于jdk17和vue3的ruoyi-mall、ruoyi-erp-进销存。<br>
-              要求：对若依框架和ruoyi-wms、ruoyi-mall 有一定的认知。并且有一定的空余时间。<br>
+              要求：对阿尔法框架和ruoyi-wms、ruoyi-mall 有一定的认知。并且有一定的空余时间。<br>
               全职、兼职、实习都可。我们在苏州，远程或现场参与开发都可。<br>
               有兴趣的可以在公众号内回复：应聘。<br>
             </div>

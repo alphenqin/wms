@@ -61,9 +61,9 @@ const routers = computed(() => permissionStore.topbarRouters);
 const topMenus = computed(() => {
   let topMenus = [];
   routers.value.map((menu) => {
-    if (menu.hidden !== true) {
+    if (menu && menu.hidden !== true) {
       // 兼容顶部栏一级菜单内部跳转
-      if (menu.path === "/") {
+      if (menu.path === "/" && menu.children && menu.children.length > 0) {
           topMenus.push(menu.children[0]);
       } else {
           topMenus.push(menu);
@@ -77,18 +77,27 @@ const topMenus = computed(() => {
 const childrenMenus = computed(() => {
   let childrenMenus = [];
   routers.value.map((router) => {
-    for (let item in router.children) {
-      if (router.children[item].parentPath === undefined) {
-        if(router.path === "/") {
-          router.children[item].path = "/" + router.children[item].path;
-        } else {
-          if(!isHttp(router.children[item].path)) {
-            router.children[item].path = router.path + "/" + router.children[item].path;
+    if (router && router.children && Array.isArray(router.children)) {
+      for (let item in router.children) {
+        const child = router.children[item];
+        if (child && child.parentPath === undefined) {
+          if(router.path === "/") {
+            if (child.path) {
+              child.path = "/" + child.path;
+            }
+          } else {
+            if(child.path && !isHttp(child.path)) {
+              child.path = router.path + "/" + child.path;
+            }
+          }
+          if (child.path) {
+            child.parentPath = router.path;
           }
         }
-        router.children[item].parentPath = router.path;
+        if (child) {
+          childrenMenus.push(child);
+        }
       }
-      childrenMenus.push(router.children[item]);
     }
   })
   return constantRoutes.concat(childrenMenus);

@@ -146,7 +146,7 @@
 </template>
 
 <script setup name="InventoryQuery">
-import { queryByDate, queryByBatch, queryByBin, queryByPallet, queryStatusSummary } from '@/api/wms/inventoryQuery';
+import { queryByDate as queryByDateApi, queryByBatch as queryByBatchApi, queryByBin as queryByBinApi, queryByPallet as queryByPalletApi, queryStatusSummary as queryStatusSummaryApi } from '@/api/wms/inventoryQuery';
 import { listWarehouseNoPage } from '@/api/wms/warehouse';
 import { ref, reactive, onMounted } from 'vue';
 
@@ -193,7 +193,7 @@ const getWarehouseList = async () => {
 const queryByDate = async () => {
   dateLoading.value = true;
   try {
-    const res = await queryByDate(dateParams);
+    const res = await queryByDateApi(dateParams);
     dateResultList.value = res.data || [];
   } finally {
     dateLoading.value = false;
@@ -204,7 +204,7 @@ const queryByDate = async () => {
 const queryByBatch = async () => {
   batchLoading.value = true;
   try {
-    const res = await queryByBatch(batchParams);
+    const res = await queryByBatchApi(batchParams);
     batchResultList.value = res.data || [];
   } finally {
     batchLoading.value = false;
@@ -215,7 +215,7 @@ const queryByBatch = async () => {
 const queryByBin = async () => {
   binLoading.value = true;
   try {
-    const res = await queryByBin(binParams);
+    const res = await queryByBinApi(binParams);
     binResultList.value = res.data || [];
   } finally {
     binLoading.value = false;
@@ -226,7 +226,7 @@ const queryByBin = async () => {
 const queryByPallet = async () => {
   palletLoading.value = true;
   try {
-    const res = await queryByPallet(palletParams);
+    const res = await queryByPalletApi(palletParams);
     palletResultList.value = res.data || [];
   } finally {
     palletLoading.value = false;
@@ -236,7 +236,7 @@ const queryByPallet = async () => {
 /** 查询状态统计 */
 const queryStatusSummary = async () => {
   try {
-    const res = await queryStatusSummary({});
+    const res = await queryStatusSummaryApi({});
     statusSummary.value = res.data;
   } catch (error) {
     console.error('查询状态统计失败', error);
