@@ -86,6 +86,27 @@ public class SysLoginService {
         return StpUtil.getTokenValue();
     }
 
+    /**
+     * PDA登录验证（不验证验证码）
+     *
+     * @param username 用户名
+     * @param password 密码
+     * @return Token
+     */
+    public String pdaLogin(String username, String password) {
+        // 框架登录不限制从什么表查询 只要最终构建出 LoginUser 即可
+        SysUserVo user = loadUserByUsername(username);
+        checkLogin(LoginType.PASSWORD, username, () -> !BCrypt.checkpw(password, user.getPassword()));
+        // 此处可根据登录用户的数据不同 自行创建 loginUser 属性不够用继承扩展就行了
+        LoginUser loginUser = buildLoginUser(user);
+        // 生成token
+        LoginHelper.loginByDevice(loginUser, DeviceType.APP);
+
+        recordLogininfor(username, Constants.LOGIN_SUCCESS, MessageUtils.message("user.login.success"));
+        recordLoginInfo(user.getUserId(), username);
+        return StpUtil.getTokenValue();
+    }
+
     public String smsLogin(String phonenumber, String smsCode) {
         // 通过手机号查找用户
         SysUserVo user = loadUserByPhonenumber(phonenumber);

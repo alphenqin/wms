@@ -59,6 +59,11 @@ public class Pallet extends BaseEntity {
     private Integer isBound;
 
     /**
+     * 条码是否启用（0:否 1:是）
+     */
+    private Integer barcodeEnabled;
+
+    /**
      * 状态（0:正常 1:禁用）
      */
     private String status;

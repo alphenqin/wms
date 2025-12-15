@@ -20,7 +20,7 @@ router.beforeEach((to, from, next) => {
     to.meta.title && useSettingsStore().setTitle(to.meta.title)
     /* has token*/
     if (to.path === '/login') {
-      next({ path: '/' })
+      next({ path: '/io/receiptOrder' })
       NProgress.done()
     } else {
       if (useUserStore().roles.length === 0) {
@@ -30,18 +30,26 @@ router.beforeEach((to, from, next) => {
           isRelogin.show = false
           usePermissionStore().generateRoutes().then(accessRoutes => {
             // 根据roles权限生成可访问的路由表
-            accessRoutes.forEach(route => {
-              // 确保 route 存在且有 path 属性，且不是外链
-              if (route && route.path && !isHttp(route.path)) {
-                router.addRoute(route) // 动态添加可访问路由表（Vue Router会自动处理children）
-              }
-            })
+            // 确保 accessRoutes 是数组
+            if (Array.isArray(accessRoutes)) {
+              accessRoutes.forEach(route => {
+                // 确保 route 存在且有 path 属性，且不是外链
+                if (route && route.path && !isHttp(route.path)) {
+                  router.addRoute(route) // 动态添加可访问路由表（Vue Router会自动处理children）
+                }
+              })
+            } else {
+              console.warn('accessRoutes 不是数组:', accessRoutes)
+            }
             next({ ...to, replace: true }) // hack方法 确保addRoutes已完成
+          }).catch(err => {
+            console.error('生成路由失败:', err)
+            next({ ...to, replace: true })
           })
         }).catch(err => {
           useUserStore().logOut().then(() => {
             ElMessage.error(err)
-            next({ path: '/' })
+            next({ path: '/io/receiptOrder' })
           })
         })
         initData()

@@ -28,6 +28,7 @@ public class PalletBo extends BaseEntity {
     private String currentBinCode;
     private Integer isEmpty;
     private Integer isBound;
+    private Integer barcodeEnabled;
     private String status;
     private String remark;
 }

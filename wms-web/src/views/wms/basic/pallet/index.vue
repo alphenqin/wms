@@ -72,6 +72,13 @@
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="条码是否启用" prop="barcodeEnabled">
+          <template #default="scope">
+            <el-tag :type="scope.row.barcodeEnabled === 1 ? 'success' : 'info'">
+              {{ scope.row.barcodeEnabled === 1 ? '是' : '否' }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="当前库位" prop="currentBinCode" />
         <el-table-column label="状态" prop="status">
           <template #default="scope">
@@ -114,6 +121,12 @@
         </el-form-item>
         <el-form-item label="是否空托" prop="isEmpty">
           <el-radio-group v-model="form.isEmpty">
+            <el-radio :label="1">是</el-radio>
+            <el-radio :label="0">否</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="条码是否启用" prop="barcodeEnabled">
+          <el-radio-group v-model="form.barcodeEnabled">
             <el-radio :label="1">是</el-radio>
             <el-radio :label="0">否</el-radio>
           </el-radio-group>
@@ -173,6 +186,7 @@ const initFormData = {
   palletCode: undefined,
   palletTypeId: undefined,
   isEmpty: 1,
+  barcodeEnabled: 1,
   currentBinId: undefined,
   currentBinCode: undefined,
   status: 0,

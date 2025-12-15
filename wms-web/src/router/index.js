@@ -60,15 +60,8 @@ export const constantRoutes = [
   {
     path: '',
     component: Layout,
-    redirect: '/index',
-    children: [
-      {
-        path: '/index',
-        component: () => import('@/views/dashboard/charts'),
-        name: 'Index',
-        meta: { title: '首页', icon: 'redis', affix: true }
-      }
-    ]
+    redirect: '/io/receiptOrder',
+    hidden: true
   },
   {
     path: '/system/dashboard',

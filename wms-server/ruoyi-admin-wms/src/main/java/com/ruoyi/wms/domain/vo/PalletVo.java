@@ -41,6 +41,9 @@ public class PalletVo extends BaseVo {
     @ExcelProperty(value = "是否绑定物料")
     private Integer isBound;
 
+    @ExcelProperty(value = "条码是否启用")
+    private Integer barcodeEnabled;
+
     @ExcelProperty(value = "状态")
     private String status;
 
