@@ -43,6 +43,7 @@ nbdist/
 *.log
 logs/
 log/
+!wms-server/ruoyi-common/ruoyi-common-log/**
 
 # 临时文件
 *.tmp
