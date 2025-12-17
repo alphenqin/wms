@@ -12,6 +12,10 @@ RUN npm install --registry=https://registry.npmmirror.com
 # 复制源代码
 COPY . .
 
+# 设置生产环境变量
+ENV VITE_APP_BASE_API=/prod-api
+ENV VITE_APP_CONTEXT_PATH=/
+
 # 构建生产版本
 RUN npm run build:prod
 
