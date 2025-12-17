@@ -60,6 +60,11 @@ services:
       - SPRING_DATA_REDIS_HOST=redis
       - SPRING_DATA_REDIS_PORT=6379
       - REDISSON_SINGLESERVERCONFIG_ADDRESS=redis://redis:6379
+      - SPRING_DATASOURCE_DYNAMIC_PRIMARY=master
+      - SPRING_DATASOURCE_DYNAMIC_DATASOURCE_MASTER_URL=jdbc:mysql://mysql:3306/wms?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=false&serverTimezone=GMT%2B8&autoReconnect=true&rewriteBatchedStatements=true
+      - SPRING_DATASOURCE_DYNAMIC_DATASOURCE_MASTER_USERNAME=root
+      - SPRING_DATASOURCE_DYNAMIC_DATASOURCE_MASTER_PASSWORD=123456
+      - SPRING_DATASOURCE_DYNAMIC_DATASOURCE_MASTER_DRIVER_CLASS_NAME=com.mysql.cj.jdbc.Driver
     volumes:
       - ./wms-server/ruoyi-admin-wms/src/main/resources/application-prod.yml:/app/config/application-prod.yml:ro
       - backend_logs:/app/logs

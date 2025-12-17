@@ -75,5 +75,5 @@ EXPOSE 8080
 # JVM参数优化
 ENV JAVA_OPTS="-Xms512m -Xmx1024m -XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=512m -Djava.security.egd=file:/dev/./urandom"
 
-# 启动应用
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
+# 启动应用（支持外部配置文件）
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar --spring.config.location=classpath:/application.yml,file:/app/config/application-prod.yml"]
