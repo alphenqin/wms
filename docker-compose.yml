@@ -9,7 +9,7 @@ services:
       MYSQL_DATABASE: wms
       TZ: Asia/Shanghai
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./wms-server/script/sql:/docker-entrypoint-initdb.d
@@ -53,10 +53,13 @@ services:
     container_name: wms-backend
     restart: always
     ports:
-      - "8080:8080"
+      - "9080:8080"
     environment:
       - SPRING_PROFILES_ACTIVE=prod
       - TZ=Asia/Shanghai
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - REDISSON_SINGLESERVERCONFIG_ADDRESS=redis://redis:6379
     volumes:
       - ./wms-server/ruoyi-admin-wms/src/main/resources/application-prod.yml:/app/config/application-prod.yml:ro
       - backend_logs:/app/logs
@@ -83,7 +86,7 @@ services:
     container_name: wms-frontend
     restart: always
     ports:
-      - "80:80"
+      - "90:80"
     depends_on:
       - wms-backend
     networks:
