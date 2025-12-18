@@ -135,7 +135,7 @@ sms:
 agv:
   open:
     # 调度系统基础地址（不含 /pt）
-    base-url: http://192.168.2.4:81
+    base-url: http://host.docker.internal:81
     # 连接超时时间（秒），默认10秒
     connect-timeout: 10
     # 读取超时时间（秒），默认30秒
