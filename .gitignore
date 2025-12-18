@@ -55,8 +55,8 @@ log/
 # Spring Boot配置（包含敏感信息）
 application-local.yml
 application-local.properties
-application-prod.yml
-application-prod.properties
+# application-prod.yml
+# application-prod.properties
 
 # ==================== Node.js/Vue ====================
 # 依赖目录
