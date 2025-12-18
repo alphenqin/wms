@@ -22,8 +22,10 @@ import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
+import jakarta.annotation.PostConstruct;
 import java.time.Duration;
 import java.util.*;
 
@@ -36,16 +38,28 @@ import java.util.*;
 public class AgvOpenTaskService extends ServiceImpl<AgvOpenTaskMapper, AgvOpenTask> {
 
     private final AgvOpenTaskMapper agvOpenTaskMapper;
-    private final RestTemplate restTemplate;
+    private final RestTemplateBuilder restTemplateBuilder;
+    private RestTemplate restTemplate;
 
     @Value("${agv.open.base-url:http://192.168.1.20:81}")
     private String agvBaseUrl;
 
+    @Value("${agv.open.connect-timeout:10}")
+    private int connectTimeout;
+
+    @Value("${agv.open.read-timeout:30}")
+    private int readTimeout;
+
     public AgvOpenTaskService(AgvOpenTaskMapper mapper, RestTemplateBuilder builder) {
         this.agvOpenTaskMapper = mapper;
-        this.restTemplate = builder
-            .setConnectTimeout(Duration.ofSeconds(5))
-            .setReadTimeout(Duration.ofSeconds(15))
+        this.restTemplateBuilder = builder;
+    }
+
+    @PostConstruct
+    private void initRestTemplate() {
+        this.restTemplate = restTemplateBuilder
+            .setConnectTimeout(Duration.ofSeconds(connectTimeout))
+            .setReadTimeout(Duration.ofSeconds(readTimeout))
             .build();
     }
 
@@ -189,11 +203,32 @@ public class AgvOpenTaskService extends ServiceImpl<AgvOpenTaskMapper, AgvOpenTa
         try {
             ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.POST, entity, Map.class);
             if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
-                throw new ServiceException("AGV接口调用失败: " + url);
+                throw new ServiceException("AGV接口调用失败: " + url + ", 状态码: " + response.getStatusCode());
             }
             return response.getBody();
-        } catch (Exception e) {
+        } catch (RestClientException e) {
+            String errorMsg = e.getMessage();
+            // 针对连接超时和读取超时的特殊处理
+            if (errorMsg != null) {
+                if (errorMsg.contains("timeout") || errorMsg.contains("timed out")) {
+                    log.error("AGV接口调用超时, url={}, 连接超时={}s, 读取超时={}s, payload={}", 
+                        url, connectTimeout, readTimeout, JsonUtils.toJsonString(payload), e);
+                    throw new ServiceException(String.format("AGV接口调用超时: %s (连接超时:%ds, 读取超时:%ds)", 
+                        url, connectTimeout, readTimeout));
+                } else if (errorMsg.contains("unexpected end of stream") || errorMsg.contains("Connection reset")) {
+                    log.error("AGV接口连接异常, url={}, 可能是服务端提前关闭连接或网络中断, payload={}", 
+                        url, JsonUtils.toJsonString(payload), e);
+                    throw new ServiceException("AGV接口连接异常: " + url + " (服务端可能提前关闭连接或网络中断，请检查AGV调度系统状态)");
+                } else if (errorMsg.contains("Connection refused") || errorMsg.contains("No route to host")) {
+                    log.error("AGV接口无法连接, url={}, 请检查网络连接和AGV调度系统是否启动, payload={}", 
+                        url, JsonUtils.toJsonString(payload), e);
+                    throw new ServiceException("AGV接口无法连接: " + url + " (请检查网络连接和AGV调度系统是否启动)");
+                }
+            }
             log.error("调用AGV接口失败, url={}, payload={}", url, JsonUtils.toJsonString(payload), e);
+            throw new ServiceException("AGV接口调用异常: " + errorMsg);
+        } catch (Exception e) {
+            log.error("调用AGV接口发生未知异常, url={}, payload={}", url, JsonUtils.toJsonString(payload), e);
             throw new ServiceException("AGV接口调用异常: " + e.getMessage());
         }
     }
