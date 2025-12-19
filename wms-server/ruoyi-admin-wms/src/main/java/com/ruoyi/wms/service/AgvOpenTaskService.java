@@ -139,11 +139,39 @@ public class AgvOpenTaskService extends ServiceImpl<AgvOpenTaskMapper, AgvOpenTa
     }
 
     public Map<String, Object> binInfo(String binCode) {
+        String normalizedBinCode = StrUtil.trimToNull(binCode);
         Map<String, Object> body = new HashMap<>();
-        if (StrUtil.isNotBlank(binCode)) {
-            body.put("binCode", binCode);
+        if (normalizedBinCode != null) {
+            body.put("binCode", normalizedBinCode);
         }
         Map<String, Object> agvResp = postForMap("/pt/binInfo", body);
+        if (normalizedBinCode != null) {
+            String matchToken = normalizedBinCode;
+            boolean wildcard = StrUtil.containsAny(matchToken, "%", "*");
+            if (wildcard) {
+                matchToken = matchToken.replace("*", "").replace("%", "");
+            }
+            Object dataObj = agvResp.get("data");
+            if (dataObj instanceof List<?> list) {
+                List<Object> filtered = new ArrayList<>();
+                for (Object item : list) {
+                    if (item instanceof Map) {
+                        String itemBinCode = MapUtil.getStr((Map<?, ?>) item, "binCode");
+                        boolean matched = StrUtil.contains(itemBinCode, matchToken);
+                        if (matched) {
+                            filtered.add(item);
+                        }
+                    }
+                }
+                agvResp.put("data", filtered);
+            } else if (dataObj instanceof Map) {
+                String itemBinCode = MapUtil.getStr((Map<?, ?>) dataObj, "binCode");
+                boolean matched = StrUtil.contains(itemBinCode, matchToken);
+                if (StrUtil.isNotBlank(itemBinCode) && !matched) {
+                    agvResp.put("data", Collections.emptyList());
+                }
+            }
+        }
         return agvResp;
     }
 
