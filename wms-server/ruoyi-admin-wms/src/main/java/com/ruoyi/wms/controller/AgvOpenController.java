@@ -47,42 +47,42 @@ public class AgvOpenController extends BaseController {
     @SaCheckPermission("wms:agvOpen:task:send")
     @Log(title = "AGV任务下发", businessType = BusinessType.OTHER)
     @PostMapping("/task/send")
-    public R<AgvOpenTaskVo> sendTask(@Validated(AddGroup.class) @RequestBody AgvOpenTaskBo bo) {
-        return R.ok(agvOpenTaskService.sendTask(bo));
+    public Map<String, Object> sendTask(@Validated(AddGroup.class) @RequestBody AgvOpenTaskBo bo) {
+        return agvOpenTaskService.sendTask(bo);
     }
 
     @SaCheckPermission("wms:agvOpen:task:result")
     @Log(title = "AGV任务结果查询", businessType = BusinessType.OTHER)
     @PostMapping("/task/result")
-    public R<AgvOpenTaskVo> queryResult(@Valid @RequestBody ResultQuery request) {
-        return R.ok(agvOpenTaskService.refreshTaskResult(request.getOutId()));
+    public Map<String, Object> queryResult(@Valid @RequestBody ResultQuery request) {
+        return agvOpenTaskService.refreshTaskResult(request.getOutId());
     }
 
     @SaCheckPermission("wms:agvOpen:bin:assign")
     @Log(title = "AGV库位分配", businessType = BusinessType.OTHER)
     @PostMapping("/bin/assign")
-    public R<Map<String, Object>> findBin(@RequestBody Map<String, Object> body) {
-        return R.ok(agvOpenTaskService.findBin(body));
+    public Map<String, Object> findBin(@RequestBody Map<String, Object> body) {
+        return agvOpenTaskService.findBin(body);
     }
 
     @SaCheckPermission("wms:agvOpen:bin:info")
     @PostMapping("/bin/info")
-    public R<Map<String, Object>> binInfo(@RequestBody(required = false) Map<String, Object> body) {
+    public Map<String, Object> binInfo(@RequestBody(required = false) Map<String, Object> body) {
         String binCode = body != null ? (String) body.get("binCode") : null;
-        return R.ok(agvOpenTaskService.binInfo(binCode));
+        return agvOpenTaskService.binInfo(binCode);
     }
 
     @SaCheckPermission("wms:agvOpen:bin:update")
     @Log(title = "AGV库位状态更新", businessType = BusinessType.OTHER)
     @PostMapping("/bin/status")
-    public R<Map<String, Object>> updateBinStatus(@RequestBody BinStatusReq req) {
-        return R.ok(agvOpenTaskService.updateBinStatus(req.getBinCode()));
+    public Map<String, Object> updateBinStatus(@RequestBody BinStatusReq req) {
+        return agvOpenTaskService.updateBinStatus(req.getBinCode());
     }
 
     @SaCheckPermission("wms:agvOpen:agvInfo")
     @PostMapping("/agv/info")
-    public R<Map<String, Object>> agvInfo() {
-        return R.ok(agvOpenTaskService.agvInfo());
+    public Map<String, Object> agvInfo() {
+        return agvOpenTaskService.agvInfo();
     }
 
     @Data

@@ -44,6 +44,13 @@ public class AgvTaskService extends ServiceImpl<AgvTaskMapper, AgvTask> {
         return task != null ? MapstructUtils.convert(task, AgvTaskVo.class) : null;
     }
 
+    public AgvTaskVo queryByAgvTaskId(String agvTaskId) {
+        LambdaQueryWrapper<AgvTask> wrapper = Wrappers.lambdaQuery();
+        wrapper.eq(AgvTask::getAgvTaskId, agvTaskId);
+        AgvTask task = agvTaskMapper.selectOne(wrapper);
+        return task != null ? MapstructUtils.convert(task, AgvTaskVo.class) : null;
+    }
+
     public TableDataInfo<AgvTaskVo> queryPageList(AgvTaskBo bo, PageQuery pageQuery) {
         LambdaQueryWrapper<AgvTask> lqw = buildQueryWrapper(bo);
         Page<AgvTaskVo> result = agvTaskMapper.selectVoPage(pageQuery.build(), lqw);
@@ -94,7 +101,9 @@ public class AgvTaskService extends ServiceImpl<AgvTaskMapper, AgvTask> {
     public void insertByBo(AgvTaskBo bo) {
         AgvTask add = MapstructUtils.convert(bo, AgvTask.class);
         if (add.getTaskNo() == null) {
-            add.setTaskNo(generateTaskNo(bo.getTaskType()));
+            String taskNo = generateTaskNo(bo.getTaskType());
+            add.setTaskNo(taskNo);
+            bo.setTaskNo(taskNo);
         }
         if (add.getStatus() == null) {
             add.setStatus(0); // 默认待处理

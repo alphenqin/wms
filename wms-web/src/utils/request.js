@@ -71,7 +71,7 @@ service.interceptors.response.use(res => {
     // 未设置状态码则默认成功状态
     const code = res.data.code || 200;
     // 获取错误信息
-    const msg = errorCode[code] || res.data.msg || errorCode['default']
+    const msg = errorCode[code] || res.data.msg || res.data.message || errorCode['default']
     // 二进制数据则直接返回
     if (res.request.responseType ===  'blob' || res.request.responseType ===  'arraybuffer') {
       return res.data
@@ -101,7 +101,7 @@ service.interceptors.response.use(res => {
     } else if (code === 601) {
       ElMessage({ message: msg, type: 'warning' })
       return Promise.reject(new Error(msg))
-    } else if (code !== 200) {
+    } else if (code !== 200 && code !== 20000 && code !== '20000' && code !== 90000 && code !== '90000') {
       ElNotification.error({ title: msg })
       return Promise.reject('error')
     } else {

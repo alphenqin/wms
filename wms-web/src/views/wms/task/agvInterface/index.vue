@@ -31,8 +31,8 @@
                 </el-form-item>
               </el-col>
               <el-col :span="12">
-                <el-form-item label="AGV范围" prop="agvRange">
-                  <el-input v-model="sendForm.agvRange" placeholder="充电/急停类任务必填，多个用逗号分隔" />
+                <el-form-item label="AGV范围" prop="agvRange" :required="isAgvRangeRequired">
+                  <el-input v-model="sendForm.agvRange" placeholder="充电/急停/解除急停/解除待命必填，多个用逗号分隔" />
                 </el-form-item>
               </el-col>
               <el-col :span="12">
@@ -53,47 +53,49 @@
                   type="info"
                   show-icon
                   :closable="false"
-                  title="取放货(type=01)需填写作业点；充电/急停/解除待命需填写AGV范围；清空任务需填写clearOutID。" />
+                  title="取放货(type=01)需填写作业点；充电/急停/解除急停/解除待命需填写AGV范围；清空任务需填写clearOutID。" />
               </el-col>
             </el-row>
 
-            <el-divider content-position="left">作业点</el-divider>
-            <el-space direction="vertical" fill style="width: 100%;">
-              <el-card
-                v-for="(point, index) in sendForm.points"
-                :key="index"
-                shadow="never"
-                body-style="padding: 12px 12px 0 12px">
-                <el-row :gutter="12">
-                  <el-col :span="4">
-                    <el-form-item :prop="'points.' + index + '.sn'" label="序号" label-width="50px" :rules="[{ required: true, message: '序号必填', trigger: 'blur' }]">
-                      <el-input v-model="point.sn" placeholder="如 01" />
-                    </el-form-item>
-                  </el-col>
-                  <el-col :span="6">
-                    <el-form-item :prop="'points.' + index + '.pointCode'" label="作业点" label-width="60px" :rules="[{ required: true, message: '作业点必填', trigger: 'blur' }]">
-                      <el-input v-model="point.pointCode" placeholder="如 S001" />
-                    </el-form-item>
-                  </el-col>
-                  <el-col :span="6">
-                    <el-form-item :prop="'points.' + index + '.pointType'" label="类型" label-width="50px" :rules="[{ required: true, message: '类型必填', trigger: 'change' }]">
-                      <el-select v-model="point.pointType" placeholder="请选择">
-                        <el-option v-for="pt in pointTypeOptions" :key="pt.value" :label="pt.label" :value="pt.value" />
-                      </el-select>
-                    </el-form-item>
-                  </el-col>
-                  <el-col :span="6">
-                    <el-form-item :prop="'points.' + index + '.matCode'" label="物料" label-width="50px">
-                      <el-input v-model="point.matCode" placeholder="可选" />
-                    </el-form-item>
-                  </el-col>
-                  <el-col :span="2" class="text-right">
-                    <el-button v-if="sendForm.points.length > 1" type="danger" link icon="Delete" @click="removePoint(index)">移除</el-button>
-                  </el-col>
-                </el-row>
-              </el-card>
-              <el-button type="primary" plain icon="Plus" @click="addPoint">新增作业点</el-button>
-            </el-space>
+            <template v-if="sendForm.taskType === '01'">
+              <el-divider content-position="left">作业点</el-divider>
+              <el-space direction="vertical" fill style="width: 100%;">
+                <el-card
+                  v-for="(point, index) in sendForm.points"
+                  :key="index"
+                  shadow="never"
+                  body-style="padding: 12px 12px 0 12px">
+                  <el-row :gutter="12">
+                    <el-col :span="4">
+                      <el-form-item :prop="'points.' + index + '.sn'" label="序号" label-width="50px" :rules="[{ required: true, message: '序号必填', trigger: 'blur' }]">
+                        <el-input v-model="point.sn" placeholder="如 01" />
+                      </el-form-item>
+                    </el-col>
+                    <el-col :span="6">
+                      <el-form-item :prop="'points.' + index + '.pointCode'" label="作业点" label-width="60px" :rules="[{ required: true, message: '作业点必填', trigger: 'blur' }]">
+                        <el-input v-model="point.pointCode" placeholder="如 S001" />
+                      </el-form-item>
+                    </el-col>
+                    <el-col :span="6">
+                      <el-form-item :prop="'points.' + index + '.pointType'" label="类型" label-width="50px" :rules="[{ required: true, message: '类型必填', trigger: 'change' }]">
+                        <el-select v-model="point.pointType" placeholder="请选择">
+                          <el-option v-for="pt in pointTypeOptions" :key="pt.value" :label="pt.label" :value="pt.value" />
+                        </el-select>
+                      </el-form-item>
+                    </el-col>
+                    <el-col :span="6">
+                      <el-form-item :prop="'points.' + index + '.matCode'" label="物料" label-width="50px">
+                        <el-input v-model="point.matCode" placeholder="可选" />
+                      </el-form-item>
+                    </el-col>
+                    <el-col :span="2" class="text-right">
+                      <el-button v-if="sendForm.points.length > 1" type="danger" link icon="Delete" @click="removePoint(index)">移除</el-button>
+                    </el-col>
+                  </el-row>
+                </el-card>
+                <el-button type="primary" plain icon="Plus" @click="addPoint">新增作业点</el-button>
+              </el-space>
+            </template>
 
             <div class="mt10">
               <el-button type="primary" icon="Promotion" @click="handleSend" v-hasPermi="['wms:agvOpen:task:send']">下发任务</el-button>
@@ -114,13 +116,13 @@
 
           <el-empty v-if="!resultData" description="未查询到数据" />
           <el-descriptions v-else :column="2" border>
-            <el-descriptions-item label="外部业务ID">{{ resultData.outId }}</el-descriptions-item>
-            <el-descriptions-item label="AGV编号">{{ resultData.agvCode || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="状态">
-              <el-tag :type="statusTag(resultData.status)">{{ renderStatus(resultData.status) }}</el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="返回消息">{{ resultData.responseMessage }}</el-descriptions-item>
-            <el-descriptions-item label="返回码">{{ resultData.responseCode }}</el-descriptions-item>
+          <el-descriptions-item label="外部业务ID">{{ resultForm.outId }}</el-descriptions-item>
+          <el-descriptions-item label="AGV编号">{{ resultData.agvCode || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="状态">
+            <el-tag :type="statusTag(resultData.status)">{{ renderStatus(resultData.status) }}</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="返回消息">{{ resultData.message }}</el-descriptions-item>
+          <el-descriptions-item label="返回码">{{ resultData.code }}</el-descriptions-item>
           </el-descriptions>
 
           <el-table v-if="resultData && resultPoints.length" class="mt10" :data="resultPoints" border>
@@ -164,7 +166,8 @@
                   <el-form-item>
                     <el-button type="primary" icon="Position" @click="handleFindBin" v-hasPermi="['wms:agvOpen:bin:assign']">申请库位</el-button>
                   </el-form-item>
-                  <el-alert v-if="findBinResult" type="success" show-icon :closable="false" :title="'分配结果：' + findBinResult" />
+                  <el-alert v-if="findBinResult" type="success" show-icon :closable="false" :title="findBinResult" />
+                  <el-alert v-if="findBinMessage" type="warning" show-icon :closable="false" class="mt10" :title="findBinMessage" />
                 </el-form>
               </el-card>
             </el-col>
@@ -199,12 +202,14 @@
                   </el-table-column>
                   <el-table-column label="物料" prop="matCode" />
                 </el-table>
+                <el-empty v-else-if="binInfoEmpty" class="mt10" description="未查询到库位信息" />
               </el-card>
             </el-col>
           </el-row>
 
           <el-card class="mt10" shadow="never" header="AGV状态">
             <el-button type="primary" icon="Refresh" @click="loadAgvInfo" v-hasPermi="['wms:agvOpen:agvInfo']">刷新</el-button>
+            <el-text v-if="agvInfoUpdatedAt" class="ml10" type="info">最后刷新：{{ agvInfoUpdatedAt }}</el-text>
             <el-table :data="agvInfoList" class="mt10" border>
               <el-table-column label="AGV编号" prop="agvCode" width="120" />
               <el-table-column label="状态" prop="agvState" />
@@ -271,7 +276,7 @@
 </template>
 
 <script setup name="AgvInterface">
-import { getCurrentInstance, reactive, ref, computed, onMounted } from 'vue';
+import { getCurrentInstance, reactive, ref, computed, onMounted, watch } from 'vue';
 import {
   sendAgvTask,
   listAgvOpenTask,
@@ -355,6 +360,22 @@ const sendRules = {
   }]
 };
 
+watch(() => sendForm.taskType, (val) => {
+  if (val === '01') {
+    if (!sendForm.points.length) {
+      sendForm.points = [
+        { sn: '01', pointCode: '', pointType: '02', matCode: '' },
+        { sn: '02', pointCode: '', pointType: '04', matCode: '' }
+      ];
+    }
+  } else {
+    sendForm.points = [];
+  }
+  sendFormRef.value?.clearValidate();
+});
+
+const isAgvRangeRequired = computed(() => ['05', '10', '12', '18'].includes(sendForm.taskType));
+
 const addPoint = () => {
   sendForm.points.push({
     sn: sendForm.points.length < 9 ? '0' + (sendForm.points.length + 1) : String(sendForm.points.length + 1),
@@ -383,8 +404,16 @@ const resetSendForm = () => {
 const handleSend = async () => {
   await sendFormRef.value.validate();
   const payload = JSON.parse(JSON.stringify(sendForm));
-  await sendAgvTask(payload);
-  proxy?.$modal.msgSuccess('任务下发成功');
+  if (payload.taskType !== '01') {
+    delete payload.points;
+  }
+  const res = await sendAgvTask(payload);
+  const code = res.code || res.data?.code;
+  if (code && code !== '20000' && code !== 20000) {
+    proxy?.$modal.msgError(res.message || res.data?.message || '任务下发失败');
+    return;
+  }
+  proxy?.$modal.msgSuccess(res.message || '任务下发成功');
   loadTaskList();
 };
 
@@ -399,10 +428,16 @@ const handleQueryResult = async () => {
     return;
   }
   const res = await queryAgvTaskResult({ outId: resultForm.outId });
-  resultData.value = res;
+  resultData.value = res.data || res;
   try {
-    const resultJson = res?.lastResult ? JSON.parse(res.lastResult) : {};
-    resultPoints.value = resultJson.points || [];
+    if (Array.isArray(resultData.value?.points)) {
+      resultPoints.value = resultData.value.points;
+    } else if (resultData.value?.lastResult) {
+      const resultJson = JSON.parse(resultData.value.lastResult);
+      resultPoints.value = resultJson.points || [];
+    } else {
+      resultPoints.value = [];
+    }
   } catch (e) {
     resultPoints.value = [];
   }
@@ -419,17 +454,37 @@ const findBinForm = reactive({
   moveBinCodeLikeStr: ''
 });
 const findBinResult = ref('');
+const findBinMessage = ref('');
 const handleFindBin = async () => {
+  findBinMessage.value = '';
   const res = await assignAgvBin({ ...findBinForm });
-  findBinResult.value = res.binCode || res.data?.binCode || '';
+  const code = res.code || res.data?.code;
+  if (code && code !== '20000' && code !== 20000) {
+    findBinResult.value = '';
+    findBinMessage.value = res.message || res.data?.message || '库位分配失败';
+    return;
+  }
+  const binCode = res.binCode || res.data?.binCode;
+  findBinResult.value = binCode ? `分配结果：${binCode}` : '';
 };
 
 const binInfoForm = reactive({ binCode: '' });
 const binInfoList = ref([]);
+const binInfoEmpty = ref(false);
 const handleBinInfo = async () => {
+  binInfoEmpty.value = false;
   const res = await fetchBinInfo({ ...binInfoForm });
-  const data = res.data || [];
-  binInfoList.value = Array.isArray(data) ? data : [data];
+  const code = res.code || res.data?.code;
+  if (code && code !== '20000' && code !== 20000) {
+    binInfoList.value = [];
+    binInfoEmpty.value = true;
+    proxy?.$modal.msgError(res.message || res.data?.message || '库位查询失败');
+    return;
+  }
+  const data = res.data || res.data?.data || [];
+  const list = Array.isArray(data) ? data : [data];
+  binInfoList.value = list;
+  binInfoEmpty.value = list.length === 0;
 };
 
 const binStatusForm = reactive({ binCode: '' });
@@ -444,9 +499,17 @@ const handleUpdateBinStatus = async () => {
 };
 
 const agvInfoList = ref([]);
+const agvInfoUpdatedAt = ref('');
 const loadAgvInfo = async () => {
   const res = await fetchAgvInfo();
-  agvInfoList.value = res.data || res || [];
+  const data = res.data || res.data?.data || res || [];
+  agvInfoList.value = Array.isArray(data)
+    ? data.map((item) => ({
+        ...item,
+        isGoods: item.isGoods ?? item.palletDetection ?? ''
+      }))
+    : [];
+  agvInfoUpdatedAt.value = new Date().toLocaleString();
 };
 
 // 任务记录

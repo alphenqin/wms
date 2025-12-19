@@ -7,11 +7,14 @@ import com.ruoyi.wms.domain.vo.AgvTaskVo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
+import jakarta.annotation.PostConstruct;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -28,7 +31,8 @@ import java.util.Map;
 public class AgvIntegrationService {
 
     private final AgvTaskService agvTaskService;
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplateBuilder restTemplateBuilder;
+    private RestTemplate restTemplate;
 
     @Value("${agv.api.url:http://localhost:8080/agv}")
     private String agvApiUrl;
@@ -38,6 +42,20 @@ public class AgvIntegrationService {
 
     @Value("${agv.api.token:}")
     private String agvApiToken;
+
+    @Value("${agv.api.connect-timeout:10}")
+    private int connectTimeout;
+
+    @Value("${agv.api.read-timeout:30}")
+    private int readTimeout;
+
+    @PostConstruct
+    private void initRestTemplate() {
+        this.restTemplate = restTemplateBuilder
+            .setConnectTimeout(Duration.ofSeconds(connectTimeout))
+            .setReadTimeout(Duration.ofSeconds(readTimeout))
+            .build();
+    }
 
     /**
      * 下发入库任务到AGV
@@ -63,6 +81,9 @@ public class AgvIntegrationService {
         agvTaskService.insertByBo(taskBo);
 
         AgvTaskVo task = agvTaskService.queryByTaskNo(taskBo.getTaskNo());
+        if (task == null) {
+            throw new ServiceException("创建AGV任务失败");
+        }
 
         // 调用AGV接口
         Map<String, Object> requestBody = new HashMap<>();
@@ -115,6 +136,9 @@ public class AgvIntegrationService {
         agvTaskService.insertByBo(taskBo);
 
         AgvTaskVo task = agvTaskService.queryByTaskNo(taskBo.getTaskNo());
+        if (task == null) {
+            throw new ServiceException("创建AGV任务失败");
+        }
 
         // 调用AGV接口
         Map<String, Object> requestBody = new HashMap<>();
@@ -160,6 +184,9 @@ public class AgvIntegrationService {
         agvTaskService.insertByBo(taskBo);
 
         AgvTaskVo task = agvTaskService.queryByTaskNo(taskBo.getTaskNo());
+        if (task == null) {
+            throw new ServiceException("创建AGV任务失败");
+        }
 
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("outID", task.getTaskNo());
@@ -203,6 +230,9 @@ public class AgvIntegrationService {
         agvTaskService.insertByBo(taskBo);
 
         AgvTaskVo task = agvTaskService.queryByTaskNo(taskBo.getTaskNo());
+        if (task == null) {
+            throw new ServiceException("创建AGV任务失败");
+        }
 
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("outID", task.getTaskNo());
@@ -242,7 +272,7 @@ public class AgvIntegrationService {
             callAgvApi("/task/cancel", requestBody);
             
             // 更新本地任务状态
-            AgvTaskVo task = agvTaskService.queryByTaskNo(agvTaskId);
+            AgvTaskVo task = agvTaskService.queryByAgvTaskId(agvTaskId);
             if (task != null) {
                 agvTaskService.cancelTask(task.getId());
             }
@@ -290,9 +320,15 @@ public class AgvIntegrationService {
             ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.POST, entity, Map.class);
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 Map<String, Object> body = response.getBody();
-                return (String) body.get("taskId");
+                String taskId = body.get("taskId") != null ? String.valueOf(body.get("taskId")) : null;
+                if (StrUtil.isBlank(taskId)) {
+                    throw new ServiceException("AGV接口返回任务ID为空");
+                }
+                return taskId;
             }
             throw new ServiceException("AGV接口返回错误");
+        } catch (ServiceException e) {
+            throw e;
         } catch (Exception e) {
             log.error("调用AGV接口失败: {}", url, e);
             throw new ServiceException("调用AGV接口失败: " + e.getMessage());
@@ -322,6 +358,8 @@ public class AgvIntegrationService {
                 return response.getBody();
             }
             throw new ServiceException("AGV接口返回错误");
+        } catch (ServiceException e) {
+            throw e;
         } catch (Exception e) {
             log.error("调用AGV接口失败: {}", url, e);
             throw new ServiceException("调用AGV接口失败: " + e.getMessage());

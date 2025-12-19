@@ -8,18 +8,18 @@
         <el-form-item label="任务类型" prop="taskType">
           <el-select v-model="queryParams.taskType" placeholder="请选择任务类型" clearable>
             <el-option label="入库" value="1" />
-            <el-option label="出库" value="2" />
-            <el-option label="送检" value="3" />
-            <el-option label="回库" value="4" />
+            <el-option label="送检" value="2" />
+            <el-option label="回库" value="3" />
+            <el-option label="出库" value="4" />
           </el-select>
         </el-form-item>
-        <el-form-item label="任务状态" prop="taskStatus">
-          <el-select v-model="queryParams.taskStatus" placeholder="请选择任务状态" clearable>
+        <el-form-item label="任务状态" prop="status">
+          <el-select v-model="queryParams.status" placeholder="请选择任务状态" clearable>
             <el-option label="待执行" value="0" />
             <el-option label="执行中" value="1" />
             <el-option label="已完成" value="2" />
-            <el-option label="已取消" value="3" />
-            <el-option label="失败" value="4" />
+            <el-option label="失败" value="3" />
+            <el-option label="已取消" value="4" />
           </el-select>
         </el-form-item>
         <el-form-item>
@@ -36,7 +36,7 @@
             icon="Close"
             :disabled="single"
             @click="handleCancel"
-            v-hasPermi="['wms:agvTask:cancel']"
+            v-hasPermi="['wms:agvTask:edit']"
           >取消任务</el-button>
         </el-col>
         <right-toolbar v-model:showSearch="showSearch" @queryTable="getList"></right-toolbar>
@@ -49,36 +49,36 @@
         <el-table-column label="任务类型" prop="taskType">
           <template #default="scope">
             <el-tag v-if="scope.row.taskType === 1" type="success">入库</el-tag>
-            <el-tag v-else-if="scope.row.taskType === 2" type="warning">出库</el-tag>
-            <el-tag v-else-if="scope.row.taskType === 3" type="info">送检</el-tag>
-            <el-tag v-else-if="scope.row.taskType === 4">回库</el-tag>
+            <el-tag v-else-if="scope.row.taskType === 2" type="info">送检</el-tag>
+            <el-tag v-else-if="scope.row.taskType === 3">回库</el-tag>
+            <el-tag v-else-if="scope.row.taskType === 4" type="warning">出库</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="托盘编号" prop="palletCode" />
         <el-table-column label="起始库位" prop="fromBinCode" />
         <el-table-column label="目标库位" prop="toBinCode" />
         <el-table-column label="业务单号" prop="bizOrderNo" />
-        <el-table-column label="任务状态" prop="taskStatus">
+        <el-table-column label="任务状态" prop="status">
           <template #default="scope">
-            <el-tag v-if="scope.row.taskStatus === 0" type="info">待执行</el-tag>
-            <el-tag v-else-if="scope.row.taskStatus === 1" type="warning">执行中</el-tag>
-            <el-tag v-else-if="scope.row.taskStatus === 2" type="success">已完成</el-tag>
-            <el-tag v-else-if="scope.row.taskStatus === 3">已取消</el-tag>
-            <el-tag v-else-if="scope.row.taskStatus === 4" type="danger">失败</el-tag>
+            <el-tag v-if="scope.row.status === 0" type="info">待执行</el-tag>
+            <el-tag v-else-if="scope.row.status === 1" type="warning">执行中</el-tag>
+            <el-tag v-else-if="scope.row.status === 2" type="success">已完成</el-tag>
+            <el-tag v-else-if="scope.row.status === 3" type="danger">失败</el-tag>
+            <el-tag v-else-if="scope.row.status === 4">已取消</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="创建时间" prop="createTime" width="180" />
-        <el-table-column label="完成时间" prop="completeTime" width="180" />
+        <el-table-column label="完成时间" prop="finishTime" width="180" />
         <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="120">
           <template #default="scope">
             <el-button link type="primary" icon="View" @click="handleView(scope.row)" v-hasPermi="['wms:agvTask:list']">查看</el-button>
             <el-button 
-              v-if="scope.row.taskStatus === 0 || scope.row.taskStatus === 1"
+              v-if="scope.row.status === 0 || scope.row.status === 1"
               link 
               type="danger" 
               icon="Close" 
               @click="handleCancel(scope.row)" 
-              v-hasPermi="['wms:agvTask:cancel']"
+              v-hasPermi="['wms:agvTask:edit']"
             >取消</el-button>
           </template>
         </el-table-column>
@@ -99,24 +99,24 @@
         <el-descriptions-item label="任务编号">{{ taskDetail.taskNo }}</el-descriptions-item>
         <el-descriptions-item label="任务类型">
           <el-tag v-if="taskDetail.taskType === 1" type="success">入库</el-tag>
-          <el-tag v-else-if="taskDetail.taskType === 2" type="warning">出库</el-tag>
-          <el-tag v-else-if="taskDetail.taskType === 3" type="info">送检</el-tag>
-          <el-tag v-else-if="taskDetail.taskType === 4">回库</el-tag>
+          <el-tag v-else-if="taskDetail.taskType === 2" type="info">送检</el-tag>
+          <el-tag v-else-if="taskDetail.taskType === 3">回库</el-tag>
+          <el-tag v-else-if="taskDetail.taskType === 4" type="warning">出库</el-tag>
         </el-descriptions-item>
         <el-descriptions-item label="托盘编号">{{ taskDetail.palletCode }}</el-descriptions-item>
         <el-descriptions-item label="任务状态">
-          <el-tag v-if="taskDetail.taskStatus === 0" type="info">待执行</el-tag>
-          <el-tag v-else-if="taskDetail.taskStatus === 1" type="warning">执行中</el-tag>
-          <el-tag v-else-if="taskDetail.taskStatus === 2" type="success">已完成</el-tag>
-          <el-tag v-else-if="taskDetail.taskStatus === 3">已取消</el-tag>
-          <el-tag v-else-if="taskDetail.taskStatus === 4" type="danger">失败</el-tag>
+          <el-tag v-if="taskDetail.status === 0" type="info">待执行</el-tag>
+          <el-tag v-else-if="taskDetail.status === 1" type="warning">执行中</el-tag>
+          <el-tag v-else-if="taskDetail.status === 2" type="success">已完成</el-tag>
+          <el-tag v-else-if="taskDetail.status === 3" type="danger">失败</el-tag>
+          <el-tag v-else-if="taskDetail.status === 4">已取消</el-tag>
         </el-descriptions-item>
         <el-descriptions-item label="起始库位">{{ taskDetail.fromBinCode }}</el-descriptions-item>
         <el-descriptions-item label="目标库位">{{ taskDetail.toBinCode }}</el-descriptions-item>
         <el-descriptions-item label="业务单号">{{ taskDetail.bizOrderNo }}</el-descriptions-item>
         <el-descriptions-item label="AGV任务ID">{{ taskDetail.agvTaskId }}</el-descriptions-item>
         <el-descriptions-item label="创建时间">{{ taskDetail.createTime }}</el-descriptions-item>
-        <el-descriptions-item label="完成时间">{{ taskDetail.completeTime }}</el-descriptions-item>
+        <el-descriptions-item label="完成时间">{{ taskDetail.finishTime }}</el-descriptions-item>
         <el-descriptions-item label="错误信息" :span="2" v-if="taskDetail.errorMsg">
           <el-text type="danger">{{ taskDetail.errorMsg }}</el-text>
         </el-descriptions-item>
@@ -148,7 +148,7 @@ const data = reactive({
     pageSize: 10,
     taskNo: undefined,
     taskType: undefined,
-    taskStatus: undefined,
+    status: undefined,
   }
 });
 
@@ -191,13 +191,13 @@ const handleView = async (row) => {
 
 /** 取消任务 */
 const handleCancel = async (row) => {
-  const taskNo = row?.taskNo || agvTaskList.value.find(t => ids.value.includes(t.id))?.taskNo;
-  if (!taskNo) {
+  const selected = row || agvTaskList.value.find(t => ids.value.includes(t.id));
+  if (!selected?.id) {
     proxy?.$modal.msgError('请选择要取消的任务');
     return;
   }
-  await proxy?.$modal.confirm('确认取消任务【' + taskNo + '】吗？');
-  await cancelAgvTask(taskNo);
+  await proxy?.$modal.confirm('确认取消任务【' + selected.taskNo + '】吗？');
+  await cancelAgvTask(selected.id);
   proxy?.$modal.msgSuccess("取消成功");
   await getList();
 };

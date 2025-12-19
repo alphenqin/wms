@@ -15,10 +15,10 @@ export function getAgvTask(id) {
   });
 };
 
-export function cancelAgvTask(taskNo) {
+export function cancelAgvTask(id) {
   return request({
-    url: '/wms/agvTask/cancel/' + taskNo,
-    method: 'post'
+    url: '/wms/agvTask/' + id + '/cancel',
+    method: 'put'
   });
 };
 
