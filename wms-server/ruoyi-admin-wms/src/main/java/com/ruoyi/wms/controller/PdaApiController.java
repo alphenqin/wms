@@ -3,6 +3,7 @@ package com.ruoyi.wms.controller;
 import cn.dev33.satoken.annotation.SaIgnore;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.core.date.DateUtil;
+import cn.hutool.core.map.MapUtil;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
@@ -58,6 +59,8 @@ public class PdaApiController {
     private final ValveService valveService;
     private final AgvTaskService agvTaskService;
     private final BinService binService;
+    private final AgvOpenTaskService agvOpenTaskService;
+    private final WmsConfigService wmsConfigService;
     private final PalletMapper palletMapper;
     private final ValveMapper valveMapper;
     private final AgvTaskMapper agvTaskMapper;
@@ -73,6 +76,8 @@ public class PdaApiController {
      */
     @Value("${wms.swap-station.default:WAREHOUSE_SWAP_1}")
     private String defaultSwapStation;
+
+    private static final String PALLET_SCAN_CONFIG_KEY = "pda.pallet_scan.enabled";
 
     /**
      * 登录接口
@@ -120,6 +125,16 @@ public class PdaApiController {
             log.error("PDA登录失败", e);
             return R.fail(400, "用户名或密码错误");
         }
+    }
+
+    /**
+     * 托盘扫码开关配置
+     */
+    @PostMapping("/pallet/scan/config")
+    public R<PdaPalletScanConfigResponse> palletScanConfig(@Valid @RequestBody PdaPalletScanConfigRequest request) {
+        PdaPalletScanConfigResponse response = new PdaPalletScanConfigResponse();
+        response.setEnabled(isPalletScanEnabled());
+        return R.ok(response);
     }
 
     /**
@@ -175,6 +190,32 @@ public class PdaApiController {
     }
 
     /**
+     * 获取可用库位（托盘扫码不启用时）
+     */
+    @PostMapping("/bin/available")
+    public R<PdaBinAvailableResponse> getAvailableBin(@RequestBody(required = false) PdaBinAvailableRequest request) {
+        try {
+            Map<String, Object> agvResp = agvOpenTaskService.binInfo(null);
+            String code = MapUtil.getStr(agvResp, "code");
+            if (!"20000".equals(code)) {
+                String message = MapUtil.getStr(agvResp, "message");
+                return R.fail(500, StrUtil.emptyToDefault(message, "查询库位信息失败"));
+            }
+            Object dataObj = agvResp.get("data");
+            String selectedBin = selectFirstAvailableBinCode(dataObj);
+            if (StrUtil.isBlank(selectedBin)) {
+                return R.fail(404, "无可用库位");
+            }
+            PdaBinAvailableResponse response = new PdaBinAvailableResponse();
+            response.setBinCode(selectedBin);
+            return R.ok(response);
+        } catch (Exception e) {
+            log.error("获取可用库位失败", e);
+            return R.fail(500, "获取可用库位失败: " + e.getMessage());
+        }
+    }
+
+    /**
      * 阀门绑定接口
      */
     @PostMapping("/valve/bind")
@@ -187,21 +228,45 @@ public class PdaApiController {
                 return R.fail(400, "阀门编号已存在");
             }
 
-            // 校验托盘是否存在
-            PalletVo palletVo = palletService.queryByPalletCode(request.getPalletNo());
-            if (palletVo == null) {
-                return R.fail(400, "托盘不存在");
-            }
-
-            // 校验库位号是否匹配
-            if (!request.getBinCode().equals(palletVo.getCurrentBinCode())) {
-                return R.fail(400, "托盘号和库位号不匹配");
-            }
-
             // 查询库位信息
             var binVo = binService.queryByBinCode(request.getBinCode());
             if (binVo == null) {
                 return R.fail(400, "库位不存在");
+            }
+
+            boolean palletScanEnabled = isPalletScanEnabled();
+            if (!palletScanEnabled && !Objects.equals(request.getBinCode(), request.getPalletNo())) {
+                return R.fail(400, "托盘扫码未启用时托盘号需与库位号一致");
+            }
+
+            // 校验托盘是否存在
+            PalletVo palletVo = palletService.queryByPalletCode(request.getPalletNo());
+            if (palletScanEnabled) {
+                if (palletVo == null) {
+                    return R.fail(400, "托盘不存在");
+                }
+                // 校验库位号是否匹配
+                if (!request.getBinCode().equals(palletVo.getCurrentBinCode())) {
+                    return R.fail(400, "托盘号和库位号不匹配");
+                }
+            } else {
+                if (palletVo == null) {
+                    var palletBo = new com.ruoyi.wms.domain.bo.PalletBo();
+                    palletBo.setPalletCode(request.getPalletNo());
+                    palletBo.setCurrentBinId(binVo.getId());
+                    palletBo.setCurrentBinCode(binVo.getBinCode());
+                    palletBo.setIsEmpty(1);
+                    palletBo.setIsBound(0);
+                    palletBo.setStatus("0");
+                    palletService.insertByBo(palletBo);
+                    palletVo = palletService.queryByPalletCode(request.getPalletNo());
+                } else if (!Objects.equals(palletVo.getCurrentBinCode(), request.getBinCode())) {
+                    palletService.updatePalletBin(palletVo.getId(), binVo.getId(), binVo.getBinCode());
+                    palletVo = palletService.queryByPalletCode(request.getPalletNo());
+                }
+                if (palletVo == null) {
+                    return R.fail(500, "托盘创建失败");
+                }
             }
 
             // 创建阀门实体
@@ -549,6 +614,31 @@ public class PdaApiController {
             default:
                 return null;
         }
+    }
+
+    private boolean isPalletScanEnabled() {
+        return wmsConfigService.getBooleanConfig(PALLET_SCAN_CONFIG_KEY, false);
+    }
+
+    private String selectFirstAvailableBinCode(Object dataObj) {
+        if (dataObj instanceof List<?> list) {
+            return list.stream()
+                .filter(item -> item instanceof Map)
+                .map(item -> (Map<?, ?>) item)
+                .filter(item -> "01".equals(MapUtil.getStr(item, "binState")))
+                .map(item -> MapUtil.getStr(item, "binCode"))
+                .filter(StrUtil::isNotBlank)
+                .sorted()
+                .findFirst()
+                .orElse(null);
+        }
+        if (dataObj instanceof Map<?, ?> map) {
+            String binState = MapUtil.getStr(map, "binState");
+            if ("01".equals(binState)) {
+                return MapUtil.getStr(map, "binCode");
+            }
+        }
+        return null;
     }
 }
 

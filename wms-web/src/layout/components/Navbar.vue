@@ -5,6 +5,11 @@
     <top-nav id="topmenu-container" class="topmenu-container" v-if="settingsStore.topNav" />
 
     <div class="right-menu">
+      <div class="right-menu-item scan-toggle" v-hasPermi="['wms:config:edit']">
+        <el-button size="small" :type="palletScanEnabled ? 'success' : 'info'" :loading="palletScanLoading" @click="togglePalletScan">
+          扫码{{ palletScanEnabled ? '开' : '关' }}
+        </el-button>
+      </div>
       <div class="avatar-container">
         <el-dropdown @command="handleCommand" class="right-menu-item hover-effect" trigger="click">
           <div class="avatar-wrapper">
@@ -28,7 +33,8 @@
 </template>
 
 <script setup>
-import { ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { onMounted, ref } from 'vue'
 import Breadcrumb from '@/components/Breadcrumb'
 import TopNav from '@/components/TopNav'
 import Hamburger from '@/components/Hamburger'
@@ -40,10 +46,76 @@ import RuoYiDoc from '@/components/RuoYi/Doc'
 import useAppStore from '@/store/modules/app'
 import useUserStore from '@/store/modules/user'
 import useSettingsStore from '@/store/modules/settings'
+import { addWmsConfig, getWmsConfigByKey, updateWmsConfig } from '@/api/wms/wmsConfig'
 
 const appStore = useAppStore()
 const userStore = useUserStore()
 const settingsStore = useSettingsStore()
+const palletScanEnabled = ref(false)
+const palletScanLoading = ref(false)
+const palletScanConfig = ref(null)
+
+const palletScanConfigKey = 'pda.pallet_scan.enabled'
+const palletScanConfigDesc = 'PDA托盘扫码开关'
+
+function parseConfigValue(value) {
+  if (value === true) {
+    return true
+  }
+  if (value === false || value === null || value === undefined) {
+    return false
+  }
+  const normalized = String(value).trim().toLowerCase()
+  return normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'y' || normalized === 'on'
+}
+
+async function loadPalletScanConfig() {
+  try {
+    const res = await getWmsConfigByKey(palletScanConfigKey)
+    const config = res?.data || null
+    palletScanConfig.value = config
+    palletScanEnabled.value = parseConfigValue(config?.configValue)
+  } catch (error) {
+    palletScanConfig.value = null
+  }
+}
+
+async function togglePalletScan() {
+  if (palletScanLoading.value) {
+    return
+  }
+  const nextValue = !palletScanEnabled.value
+  palletScanLoading.value = true
+  try {
+    if (palletScanConfig.value && palletScanConfig.value.id) {
+      await updateWmsConfig({
+        ...palletScanConfig.value,
+        configKey: palletScanConfigKey,
+        configValue: String(nextValue),
+        configType: palletScanConfig.value.configType ?? 4
+      })
+      palletScanConfig.value.configValue = String(nextValue)
+      palletScanEnabled.value = nextValue
+    } else {
+      await addWmsConfig({
+        configKey: palletScanConfigKey,
+        configValue: String(nextValue),
+        configType: 4,
+        configGroup: 'pda',
+        configDesc: palletScanConfigDesc,
+        status: '0'
+      })
+      await loadPalletScanConfig()
+      palletScanEnabled.value = nextValue
+    }
+    ElMessage.success(`托盘扫码已${nextValue ? '开启' : '关闭'}`)
+  } catch (error) {
+    ElMessage.error('托盘扫码开关更新失败')
+    await loadPalletScanConfig()
+  } finally {
+    palletScanLoading.value = false
+  }
+}
 
 function toggleSideBar() {
   appStore.toggleSideBar()
@@ -78,6 +150,10 @@ const emits = defineEmits(['setLayout'])
 function setLayout() {
   emits('setLayout');
 }
+
+onMounted(() => {
+  loadPalletScanConfig()
+})
 </script>
 
 <style lang='scss' scoped>
@@ -164,6 +240,12 @@ function setLayout() {
           font-size: 12px;
         }
       }
+    }
+
+    .scan-toggle {
+      display: flex;
+      align-items: center;
+      margin-right: 8px;
     }
   }
 }

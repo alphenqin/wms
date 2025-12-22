@@ -83,6 +83,20 @@ public class BinService extends ServiceImpl<BinMapper, Bin> {
         return binMapper.selectVoList(lqw);
     }
 
+    /**
+     * 获取最小可用库位（按库位号升序）
+     */
+    public BinVo queryFirstAvailableBin(Long warehouseId, Long areaId) {
+        LambdaQueryWrapper<Bin> lqw = Wrappers.lambdaQuery();
+        lqw.eq(warehouseId != null, Bin::getWarehouseId, warehouseId);
+        lqw.eq(areaId != null, Bin::getAreaId, areaId);
+        lqw.eq(Bin::getStatus, 0); // 0:空闲
+        lqw.orderByAsc(Bin::getBinCode);
+        lqw.last("limit 1");
+        Bin bin = binMapper.selectOne(lqw);
+        return bin != null ? MapstructUtils.convert(bin, BinVo.class) : null;
+    }
+
     private LambdaQueryWrapper<Bin> buildQueryWrapper(BinBo bo) {
         Map<String, Object> params = bo.getParams();
         LambdaQueryWrapper<Bin> lqw = Wrappers.lambdaQuery();

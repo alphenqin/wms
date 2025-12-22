@@ -44,6 +44,24 @@ public class WmsConfigService extends ServiceImpl<WmsConfigMapper, WmsConfig> {
     }
 
     /**
+     * 获取布尔类型配置
+     */
+    public boolean getBooleanConfig(String configKey, boolean defaultValue) {
+        WmsConfigVo config = queryByKey(configKey);
+        if (config == null || StrUtil.isBlank(config.getConfigValue())) {
+            return defaultValue;
+        }
+        String value = config.getConfigValue().trim();
+        if (StrUtil.equalsAnyIgnoreCase(value, "true", "1", "yes", "y", "on")) {
+            return true;
+        }
+        if (StrUtil.equalsAnyIgnoreCase(value, "false", "0", "no", "n", "off")) {
+            return false;
+        }
+        return defaultValue;
+    }
+
+    /**
      * 根据配置分组查询
      */
     public List<WmsConfigVo> queryByGroup(String configGroup) {

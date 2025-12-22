@@ -3,9 +3,13 @@ package com.ruoyi.common.core.utils;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.map.MapUtil;
 import cn.hutool.core.util.ObjectUtil;
+import io.github.linpeilie.ConvertException;
 import io.github.linpeilie.Converter;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
+import org.springframework.beans.BeanUtils;
+import org.springframework.beans.BeanWrapper;
+import org.springframework.beans.BeanWrapperImpl;
 
 import java.util.List;
 import java.util.Map;
@@ -36,7 +40,11 @@ public class MapstructUtils {
         if (ObjectUtil.isNull(desc)) {
             return null;
         }
-        return CONVERTER.convert(source, desc);
+        try {
+            return CONVERTER.convert(source, desc);
+        } catch (ConvertException e) {
+            return fallbackConvert(source, desc);
+        }
     }
 
     /**
@@ -53,7 +61,12 @@ public class MapstructUtils {
         if (ObjectUtil.isNull(desc)) {
             return null;
         }
-        return CONVERTER.convert(source, desc);
+        try {
+            return CONVERTER.convert(source, desc);
+        } catch (ConvertException e) {
+            BeanUtils.copyProperties(source, desc);
+            return desc;
+        }
     }
 
     /**
@@ -70,7 +83,11 @@ public class MapstructUtils {
         if (CollUtil.isEmpty(sourceList)) {
             return CollUtil.newArrayList();
         }
-        return CONVERTER.convert(sourceList, desc);
+        try {
+            return CONVERTER.convert(sourceList, desc);
+        } catch (ConvertException e) {
+            return sourceList.stream().map(item -> fallbackConvert(item, desc)).collect(java.util.stream.Collectors.toList());
+        }
     }
 
     /**
@@ -87,7 +104,32 @@ public class MapstructUtils {
         if (ObjectUtil.isNull(beanClass)) {
             return null;
         }
-        return CONVERTER.convert(map, beanClass);
+        try {
+            return CONVERTER.convert(map, beanClass);
+        } catch (ConvertException e) {
+            return fallbackConvert(map, beanClass);
+        }
+    }
+
+    private static <T, V> V fallbackConvert(T source, Class<V> desc) {
+        try {
+            V target = desc.getDeclaredConstructor().newInstance();
+            if (source instanceof Map) {
+                BeanWrapper wrapper = new BeanWrapperImpl(target);
+                @SuppressWarnings("unchecked")
+                Map<String, Object> values = (Map<String, Object>) source;
+                values.forEach((key, value) -> {
+                    if (wrapper.isWritableProperty(key)) {
+                        wrapper.setPropertyValue(key, value);
+                    }
+                });
+            } else {
+                BeanUtils.copyProperties(source, target);
+            }
+            return target;
+        } catch (Exception ex) {
+            throw new IllegalStateException("Fallback conversion failed for " + desc.getName(), ex);
+        }
     }
 
 }
