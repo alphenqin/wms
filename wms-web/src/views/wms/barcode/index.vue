@@ -12,6 +12,12 @@
             <el-option label="库位条码" value="3" />
           </el-select>
         </el-form-item>
+        <el-form-item label="状态" prop="status">
+          <el-select v-model="queryParams.status" placeholder="请选择状态" clearable>
+            <el-option label="正常" value="0" />
+            <el-option label="停用" value="1" />
+          </el-select>
+        </el-form-item>
         <el-form-item>
           <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
           <el-button icon="Refresh" @click="resetQuery">重置</el-button>
@@ -66,7 +72,9 @@
         <el-table-column label="关联对象ID" prop="relatedObjectId" />
         <el-table-column label="状态" prop="status">
           <template #default="scope">
-            <dict-tag :options="dict.type.sys_normal_disable" :value="scope.row.status" />
+            <el-tag v-if="scope.row.status === '0'" type="success">正常</el-tag>
+            <el-tag v-else-if="scope.row.status === '1'" type="danger">停用</el-tag>
+            <span v-else>{{ scope.row.status }}</span>
           </template>
         </el-table-column>
         <el-table-column label="创建时间" prop="createTime" width="180" />
@@ -129,10 +137,8 @@
 <script setup name="Barcode">
 import { listBarcode, getBarcode, delBarcode, addBarcode, updateBarcode } from '@/api/wms/barcode';
 import { getCurrentInstance, reactive, ref, toRefs, onMounted } from 'vue';
-import { useDict } from '@/utils/dict';
 
 const { proxy } = getCurrentInstance();
-const { sys_normal_disable } = useDict('sys_normal_disable');
 
 const barcodeList = ref([]);
 const buttonLoading = ref(false);
@@ -144,7 +150,6 @@ const multiple = ref(true);
 const total = ref(0);
 const queryFormRef = ref();
 const barcodeFormRef = ref();
-const dict = reactive({ type: { sys_normal_disable } });
 
 const dialog = reactive({
   visible: false,
@@ -168,6 +173,7 @@ const data = reactive({
     pageSize: 10,
     barcodeNo: undefined,
     barcodeType: undefined,
+    status: undefined,
   },
   rules: {
     barcodeNo: [

@@ -18,6 +18,12 @@
             />
           </el-select>
         </el-form-item>
+        <el-form-item label="状态" prop="status">
+          <el-select v-model="queryParams.status" placeholder="请选择状态" clearable>
+            <el-option label="正常" value="0" />
+            <el-option label="停用" value="1" />
+          </el-select>
+        </el-form-item>
         <el-form-item>
           <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
           <el-button icon="Refresh" @click="resetQuery">重置</el-button>
@@ -67,7 +73,9 @@
         <el-table-column label="入职日期" prop="joinDate" width="120" />
         <el-table-column label="状态" prop="status">
           <template #default="scope">
-            <dict-tag :options="dict.type.sys_normal_disable" :value="scope.row.status" />
+            <el-tag v-if="scope.row.status === '0'" type="success">正常</el-tag>
+            <el-tag v-else-if="scope.row.status === '1'" type="danger">停用</el-tag>
+            <span v-else>{{ scope.row.status }}</span>
           </template>
         </el-table-column>
         <el-table-column label="创建时间" prop="createTime" width="180" />
@@ -149,10 +157,8 @@
 import { listWarehouseKeeper, getWarehouseKeeper, delWarehouseKeeper, addWarehouseKeeper, updateWarehouseKeeper } from '@/api/wms/warehouseKeeper';
 import { listWarehouseNoPage } from '@/api/wms/warehouse';
 import { getCurrentInstance, reactive, ref, toRefs, onMounted } from 'vue';
-import { useDict } from '@/utils/dict';
 
 const { proxy } = getCurrentInstance();
-const { sys_normal_disable } = useDict('sys_normal_disable');
 
 const warehouseKeeperList = ref([]);
 const warehouseList = ref([]);
@@ -165,7 +171,6 @@ const multiple = ref(true);
 const total = ref(0);
 const queryFormRef = ref();
 const warehouseKeeperFormRef = ref();
-const dict = reactive({ type: { sys_normal_disable } });
 
 const dialog = reactive({
   visible: false,
@@ -192,6 +197,7 @@ const data = reactive({
     keeperCode: undefined,
     keeperName: undefined,
     warehouseId: undefined,
+    status: undefined,
   },
   rules: {
     keeperName: [
