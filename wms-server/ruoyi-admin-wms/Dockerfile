@@ -23,7 +23,6 @@ COPY ruoyi-common/ruoyi-common-excel/pom.xml ./ruoyi-common/ruoyi-common-excel/
 COPY ruoyi-common/ruoyi-common-idempotent/pom.xml ./ruoyi-common/ruoyi-common-idempotent/
 COPY ruoyi-common/ruoyi-common-json/pom.xml ./ruoyi-common/ruoyi-common-json/
 COPY ruoyi-common/ruoyi-common-log/pom.xml ./ruoyi-common/ruoyi-common-log/
-COPY ruoyi-common/ruoyi-common-mail/pom.xml ./ruoyi-common/ruoyi-common-mail/
 COPY ruoyi-common/ruoyi-common-mybatis/pom.xml ./ruoyi-common/ruoyi-common-mybatis/
 COPY ruoyi-common/ruoyi-common-oss/pom.xml ./ruoyi-common/ruoyi-common-oss/
 COPY ruoyi-common/ruoyi-common-ratelimiter/pom.xml ./ruoyi-common/ruoyi-common-ratelimiter/
