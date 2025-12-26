@@ -11,7 +11,7 @@ services:
     ports:
       - "3307:3306"
     volumes:
-      - mysql_data:/var/lib/mysql
+      - /opt/mysql-data:/var/lib/mysql
       - ./wms-server/script/sql:/docker-entrypoint-initdb.d
     command:
       - --character-set-server=utf8mb4
@@ -81,8 +81,6 @@ services:
 
 # 数据卷
 volumes:
-  mysql_data:
-    driver: local
   backend_logs:
     driver: local
 

@@ -7,17 +7,17 @@
         </el-form-item>
         <el-form-item label="任务类型" prop="taskType">
           <el-select v-model="queryParams.taskType" placeholder="请选择任务类型" clearable>
-            <el-option label="入库扫码" value="1" />
-            <el-option label="出库扫码" value="2" />
-            <el-option label="盘点扫码" value="3" />
+            <el-option label="托盘扫码" value="1" />
+            <el-option label="阀门扫码" value="2" />
+            <el-option label="库位扫码" value="3" />
           </el-select>
         </el-form-item>
-        <el-form-item label="任务状态" prop="taskStatus">
-          <el-select v-model="queryParams.taskStatus" placeholder="请选择任务状态" clearable>
-            <el-option label="待执行" value="0" />
-            <el-option label="执行中" value="1" />
+        <el-form-item label="任务状态" prop="status">
+          <el-select v-model="queryParams.status" placeholder="请选择任务状态" clearable>
+            <el-option label="待处理" value="0" />
+            <el-option label="处理中" value="1" />
             <el-option label="已完成" value="2" />
-            <el-option label="已取消" value="3" />
+            <el-option label="失败" value="3" />
           </el-select>
         </el-form-item>
         <el-form-item>
@@ -65,22 +65,22 @@
         <el-table-column label="任务编号" prop="taskNo" />
         <el-table-column label="任务类型" prop="taskType" width="120">
           <template #default="scope">
-            <el-tag v-if="scope.row.taskType === 1">入库扫码</el-tag>
-            <el-tag v-else-if="scope.row.taskType === 2" type="warning">出库扫码</el-tag>
-            <el-tag v-else-if="scope.row.taskType === 3" type="info">盘点扫码</el-tag>
+            <el-tag v-if="scope.row.taskType === 1">托盘扫码</el-tag>
+            <el-tag v-else-if="scope.row.taskType === 2" type="warning">阀门扫码</el-tag>
+            <el-tag v-else-if="scope.row.taskType === 3" type="info">库位扫码</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="业务单号" prop="bizOrderNo" />
-        <el-table-column label="任务状态" prop="taskStatus" width="100">
+        <el-table-column label="扫码条码" prop="barcode" />
+        <el-table-column label="操作人" prop="operator" />
+        <el-table-column label="PDA设备号" prop="pdaDeviceNo" />
+        <el-table-column label="任务状态" prop="status" width="100">
           <template #default="scope">
-            <el-tag v-if="scope.row.taskStatus === 0" type="info">待执行</el-tag>
-            <el-tag v-else-if="scope.row.taskStatus === 1" type="warning">执行中</el-tag>
-            <el-tag v-else-if="scope.row.taskStatus === 2" type="success">已完成</el-tag>
-            <el-tag v-else-if="scope.row.taskStatus === 3">已取消</el-tag>
+            <el-tag v-if="scope.row.status === 0" type="info">待处理</el-tag>
+            <el-tag v-else-if="scope.row.status === 1" type="warning">处理中</el-tag>
+            <el-tag v-else-if="scope.row.status === 2" type="success">已完成</el-tag>
+            <el-tag v-else-if="scope.row.status === 3" type="danger">失败</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="扫码数量" prop="scanCount" />
-        <el-table-column label="目标数量" prop="targetCount" />
         <el-table-column label="创建时间" prop="createTime" width="180" />
         <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="180">
           <template #default="scope">
@@ -102,28 +102,28 @@
     <!-- 添加或修改扫码任务对话框 -->
     <el-dialog :title="dialog.title" v-model="dialog.visible" width="600px" append-to-body :close-on-click-modal="false">
       <el-form ref="scanTaskFormRef" :model="form" :rules="rules" label-width="120px">
-        <el-form-item label="任务编号" prop="taskNo">
-          <el-input v-model="form.taskNo" placeholder="请输入任务编号" />
-        </el-form-item>
         <el-form-item label="任务类型" prop="taskType">
           <el-select v-model="form.taskType" placeholder="请选择任务类型" style="width: 100%">
-            <el-option label="入库扫码" :value="1" />
-            <el-option label="出库扫码" :value="2" />
-            <el-option label="盘点扫码" :value="3" />
+            <el-option label="托盘扫码" :value="1" />
+            <el-option label="阀门扫码" :value="2" />
+            <el-option label="库位扫码" :value="3" />
           </el-select>
         </el-form-item>
-        <el-form-item label="业务单号" prop="bizOrderNo">
-          <el-input v-model="form.bizOrderNo" placeholder="请输入业务单号" />
+        <el-form-item label="扫码条码" prop="barcode">
+          <el-input v-model="form.barcode" placeholder="请输入扫码条码" />
         </el-form-item>
-        <el-form-item label="目标数量" prop="targetCount">
-          <el-input-number v-model="form.targetCount" :min="0" style="width: 100%" />
+        <el-form-item label="操作人" prop="operator">
+          <el-input v-model="form.operator" placeholder="请输入操作人" />
         </el-form-item>
-        <el-form-item label="任务状态" prop="taskStatus">
-          <el-radio-group v-model="form.taskStatus">
-            <el-radio :label="0">待执行</el-radio>
-            <el-radio :label="1">执行中</el-radio>
+        <el-form-item label="PDA设备号" prop="pdaDeviceNo">
+          <el-input v-model="form.pdaDeviceNo" placeholder="请输入PDA设备号" />
+        </el-form-item>
+        <el-form-item label="任务状态" prop="status">
+          <el-radio-group v-model="form.status">
+            <el-radio :label="0">待处理</el-radio>
+            <el-radio :label="1">处理中</el-radio>
             <el-radio :label="2">已完成</el-radio>
-            <el-radio :label="3">已取消</el-radio>
+            <el-radio :label="3">失败</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="备注" prop="remark">
@@ -166,10 +166,10 @@ const initFormData = {
   id: undefined,
   taskNo: undefined,
   taskType: undefined,
-  bizOrderNo: undefined,
-  targetCount: undefined,
-  scanCount: 0,
-  taskStatus: 0,
+  barcode: undefined,
+  operator: undefined,
+  pdaDeviceNo: undefined,
+  status: 0,
   remark: undefined,
 };
 
@@ -180,14 +180,14 @@ const data = reactive({
     pageSize: 10,
     taskNo: undefined,
     taskType: undefined,
-    taskStatus: undefined,
+    status: undefined,
   },
   rules: {
-    taskNo: [
-      { required: true, message: "任务编号不能为空", trigger: "blur" }
-    ],
     taskType: [
       { required: true, message: "任务类型不能为空", trigger: "change" }
+    ],
+    barcode: [
+      { required: true, message: "条码不能为空", trigger: "blur" }
     ]
   }
 });
@@ -250,6 +250,7 @@ const handleUpdate = async (row) => {
   const res = await getScanTask(_id);
   Object.assign(form.value, res.data);
 };
+
 
 /** 提交按钮 */
 const submitForm = () => {

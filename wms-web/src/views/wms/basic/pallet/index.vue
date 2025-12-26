@@ -62,7 +62,7 @@
 
       <el-table v-loading="loading" :data="palletList" @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="55" align="center" />
-        <el-table-column label="ID" prop="id" width="80" />
+        <el-table-column label="ID" prop="id" width="200" />
         <el-table-column label="托盘编号" prop="palletCode" />
         <el-table-column label="托盘类型" prop="palletTypeName" />
         <el-table-column label="是否空托" prop="isEmpty">
@@ -82,7 +82,9 @@
         <el-table-column label="当前库位" prop="currentBinCode" />
         <el-table-column label="状态" prop="status">
           <template #default="scope">
-            <dict-tag :options="dict.type.wms_pallet_status" :value="scope.row.status" />
+            <el-tag :type="scope.row.status === '0' || scope.row.status === 0 ? 'success' : 'info'">
+              {{ scope.row.status === '0' || scope.row.status === 0 ? '正常' : '禁用' }}
+            </el-tag>
           </template>
         </el-table-column>
         <el-table-column label="创建时间" prop="createTime" width="180" />
@@ -136,8 +138,8 @@
         </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-radio-group v-model="form.status">
-            <el-radio :label="0">正常</el-radio>
-            <el-radio :label="1">禁用</el-radio>
+            <el-radio :label="'0'">正常</el-radio>
+            <el-radio :label="'1'">禁用</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="备注" prop="remark">
@@ -158,10 +160,8 @@
 import { listPallet, getPallet, delPallet, addPallet, updatePallet } from '@/api/wms/pallet';
 import { listPalletTypeNoPage } from '@/api/wms/palletType';
 import { getCurrentInstance, reactive, ref, toRefs, onMounted } from 'vue';
-import { useDict } from '@/utils/dict';
 
 const { proxy } = getCurrentInstance();
-const { wms_pallet_status } = useDict('wms_pallet_status');
 
 const palletList = ref([]);
 const palletTypeList = ref([]);
@@ -174,7 +174,6 @@ const multiple = ref(true);
 const total = ref(0);
 const queryFormRef = ref();
 const palletFormRef = ref();
-const dict = reactive({ type: { wms_pallet_status } });
 
 const dialog = reactive({
   visible: false,
@@ -189,7 +188,7 @@ const initFormData = {
   barcodeEnabled: 1,
   currentBinId: undefined,
   currentBinCode: undefined,
-  status: 0,
+  status: '0',
   remark: undefined,
 };
 
@@ -275,6 +274,9 @@ const handleUpdate = async (row) => {
   const _id = row.id || ids.value[0];
   const res = await getPallet(_id);
   Object.assign(form.value, res.data);
+  if (form.value.status !== undefined && form.value.status !== null) {
+    form.value.status = String(form.value.status);
+  }
 };
 
 /** 提交按钮 */

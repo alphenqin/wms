@@ -12,9 +12,11 @@ import com.ruoyi.common.mybatis.core.page.PageQuery;
 import com.ruoyi.common.mybatis.core.page.TableDataInfo;
 import com.ruoyi.wms.domain.bo.PalletBo;
 import com.ruoyi.wms.domain.entity.Pallet;
+import com.ruoyi.wms.domain.entity.PalletType;
 import com.ruoyi.wms.domain.vo.PalletVo;
 import com.ruoyi.wms.mapper.BinMapper;
 import com.ruoyi.wms.mapper.PalletMapper;
+import com.ruoyi.wms.mapper.PalletTypeMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +25,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 托盘Service业务层处理
@@ -36,27 +40,35 @@ public class PalletService extends ServiceImpl<PalletMapper, Pallet> {
 
     private final PalletMapper palletMapper;
     private final BinMapper binMapper;
+    private final PalletTypeMapper palletTypeMapper;
 
     public PalletVo queryById(Long id) {
-        return palletMapper.selectVoById(id);
+        PalletVo vo = palletMapper.selectVoById(id);
+        fillPalletTypeName(vo);
+        return vo;
     }
 
     public PalletVo queryByPalletCode(String palletCode) {
         LambdaQueryWrapper<Pallet> wrapper = Wrappers.lambdaQuery();
         wrapper.eq(Pallet::getPalletCode, palletCode);
         Pallet pallet = palletMapper.selectOne(wrapper);
-        return pallet != null ? MapstructUtils.convert(pallet, PalletVo.class) : null;
+        PalletVo vo = pallet != null ? MapstructUtils.convert(pallet, PalletVo.class) : null;
+        fillPalletTypeName(vo);
+        return vo;
     }
 
     public TableDataInfo<PalletVo> queryPageList(PalletBo bo, PageQuery pageQuery) {
         LambdaQueryWrapper<Pallet> lqw = buildQueryWrapper(bo);
         Page<PalletVo> result = palletMapper.selectVoPage(pageQuery.build(), lqw);
+        fillPalletTypeName(result.getRecords());
         return TableDataInfo.build(result);
     }
 
     public List<PalletVo> queryList(PalletBo bo) {
         LambdaQueryWrapper<Pallet> lqw = buildQueryWrapper(bo);
-        return palletMapper.selectVoList(lqw);
+        List<PalletVo> list = palletMapper.selectVoList(lqw);
+        fillPalletTypeName(list);
+        return list;
     }
 
     /**
@@ -69,7 +81,9 @@ public class PalletService extends ServiceImpl<PalletMapper, Pallet> {
         if (warehouseId != null) {
             // 可以通过currentBinId关联查询仓库
         }
-        return palletMapper.selectVoList(lqw);
+        List<PalletVo> list = palletMapper.selectVoList(lqw);
+        fillPalletTypeName(list);
+        return list;
     }
 
     private LambdaQueryWrapper<Pallet> buildQueryWrapper(PalletBo bo) {
@@ -174,6 +188,38 @@ public class PalletService extends ServiceImpl<PalletMapper, Pallet> {
         pallet.setIsBound(0);
         pallet.setIsEmpty(1);
         palletMapper.updateById(pallet);
+    }
+
+    private void fillPalletTypeName(PalletVo vo) {
+        if (vo == null || vo.getPalletTypeId() == null) {
+            return;
+        }
+        PalletType type = palletTypeMapper.selectById(vo.getPalletTypeId());
+        if (type != null) {
+            vo.setPalletTypeName(type.getTypeName());
+        }
+    }
+
+    private void fillPalletTypeName(List<PalletVo> list) {
+        if (list == null || list.isEmpty()) {
+            return;
+        }
+        Set<Long> typeIds = list.stream()
+            .map(PalletVo::getPalletTypeId)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
+        if (typeIds.isEmpty()) {
+            return;
+        }
+        Map<Long, String> typeNameMap = palletTypeMapper.selectList(Wrappers.<PalletType>lambdaQuery()
+                .in(PalletType::getId, typeIds))
+            .stream()
+            .collect(Collectors.toMap(PalletType::getId, PalletType::getTypeName, (a, b) -> a));
+        for (PalletVo vo : list) {
+            if (vo.getPalletTypeId() != null) {
+                vo.setPalletTypeName(typeNameMap.get(vo.getPalletTypeId()));
+            }
+        }
     }
 }
 

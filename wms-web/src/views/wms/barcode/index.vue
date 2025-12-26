@@ -2,8 +2,8 @@
   <div class="app-container">
     <el-card>
       <el-form :model="queryParams" ref="queryFormRef" :inline="true" v-show="showSearch" label-width="68px">
-        <el-form-item label="条码编号" prop="barcodeNo">
-          <el-input v-model="queryParams.barcodeNo" placeholder="请输入条码编号" clearable @keyup.enter="handleQuery" />
+        <el-form-item label="条码编号" prop="barcode">
+          <el-input v-model="queryParams.barcode" placeholder="请输入条码编号" clearable @keyup.enter="handleQuery" />
         </el-form-item>
         <el-form-item label="条码类型" prop="barcodeType">
           <el-select v-model="queryParams.barcodeType" placeholder="请选择条码类型" clearable>
@@ -60,7 +60,7 @@
       <el-table v-loading="loading" :data="barcodeList" @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="55" align="center" />
         <el-table-column label="ID" prop="id" width="80" />
-        <el-table-column label="条码编号" prop="barcodeNo" />
+        <el-table-column label="条码编号" prop="barcode" />
         <el-table-column label="条码类型" prop="barcodeType" width="120">
           <template #default="scope">
             <el-tag v-if="scope.row.barcodeType === 1">托盘条码</el-tag>
@@ -68,8 +68,9 @@
             <el-tag v-else-if="scope.row.barcodeType === 3" type="info">库位条码</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="关联对象" prop="relatedObject" />
-        <el-table-column label="关联对象ID" prop="relatedObjectId" />
+        <el-table-column label="关联对象类型" prop="objectType" />
+        <el-table-column label="关联对象编号" prop="objectCode" />
+        <el-table-column label="关联对象ID" prop="objectId" />
         <el-table-column label="状态" prop="status">
           <template #default="scope">
             <el-tag v-if="scope.row.status === '0'" type="success">正常</el-tag>
@@ -98,8 +99,8 @@
     <!-- 添加或修改条码对话框 -->
     <el-dialog :title="dialog.title" v-model="dialog.visible" width="600px" append-to-body :close-on-click-modal="false">
       <el-form ref="barcodeFormRef" :model="form" :rules="rules" label-width="120px">
-        <el-form-item label="条码编号" prop="barcodeNo">
-          <el-input v-model="form.barcodeNo" placeholder="请输入条码编号" />
+        <el-form-item label="条码编号" prop="barcode">
+          <el-input v-model="form.barcode" placeholder="请输入条码编号" />
         </el-form-item>
         <el-form-item label="条码类型" prop="barcodeType">
           <el-select v-model="form.barcodeType" placeholder="请选择条码类型" style="width: 100%">
@@ -108,11 +109,18 @@
             <el-option label="库位条码" :value="3" />
           </el-select>
         </el-form-item>
-        <el-form-item label="关联对象" prop="relatedObject">
-          <el-input v-model="form.relatedObject" placeholder="请输入关联对象" />
+        <el-form-item label="关联对象类型" prop="objectType">
+          <el-select v-model="form.objectType" placeholder="请选择关联对象类型" style="width: 100%">
+            <el-option label="托盘" value="pallet" />
+            <el-option label="阀门" value="valve" />
+            <el-option label="库位" value="bin" />
+          </el-select>
         </el-form-item>
-        <el-form-item label="关联对象ID" prop="relatedObjectId">
-          <el-input-number v-model="form.relatedObjectId" :min="0" style="width: 100%" />
+        <el-form-item label="关联对象编号" prop="objectCode">
+          <el-input v-model="form.objectCode" placeholder="请输入关联对象编号" />
+        </el-form-item>
+        <el-form-item label="关联对象ID" prop="objectId">
+          <el-input-number v-model="form.objectId" :min="0" style="width: 100%" />
         </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-radio-group v-model="form.status">
@@ -158,10 +166,11 @@ const dialog = reactive({
 
 const initFormData = {
   id: undefined,
-  barcodeNo: undefined,
+  barcode: undefined,
   barcodeType: undefined,
-  relatedObject: undefined,
-  relatedObjectId: undefined,
+  objectType: undefined,
+  objectId: undefined,
+  objectCode: undefined,
   status: '0',
   remark: undefined,
 };
@@ -171,12 +180,12 @@ const data = reactive({
   queryParams: {
     pageNum: 1,
     pageSize: 10,
-    barcodeNo: undefined,
+    barcode: undefined,
     barcodeType: undefined,
     status: undefined,
   },
   rules: {
-    barcodeNo: [
+    barcode: [
       { required: true, message: "条码编号不能为空", trigger: "blur" }
     ],
     barcodeType: [

@@ -13,9 +13,13 @@ import com.ruoyi.common.core.utils.MapstructUtils;
 import com.ruoyi.common.mybatis.core.page.PageQuery;
 import com.ruoyi.common.mybatis.core.page.TableDataInfo;
 import com.ruoyi.wms.domain.bo.BinBo;
+import com.ruoyi.wms.domain.entity.Area;
 import com.ruoyi.wms.domain.entity.Bin;
+import com.ruoyi.wms.domain.entity.Warehouse;
 import com.ruoyi.wms.domain.vo.BinVo;
+import com.ruoyi.wms.mapper.AreaMapper;
 import com.ruoyi.wms.mapper.BinMapper;
+import com.ruoyi.wms.mapper.WarehouseMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +28,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 货位Service业务层处理
@@ -36,12 +42,16 @@ import java.util.Objects;
 public class BinService extends ServiceImpl<BinMapper, Bin> {
 
     private final BinMapper binMapper;
+    private final WarehouseMapper warehouseMapper;
+    private final AreaMapper areaMapper;
 
     /**
      * 查询货位
      */
     public BinVo queryById(Long id) {
-        return binMapper.selectVoById(id);
+        BinVo vo = binMapper.selectVoById(id);
+        fillNames(vo);
+        return vo;
     }
 
     /**
@@ -51,7 +61,9 @@ public class BinService extends ServiceImpl<BinMapper, Bin> {
         LambdaQueryWrapper<Bin> wrapper = Wrappers.lambdaQuery();
         wrapper.eq(Bin::getBinCode, binCode);
         Bin bin = binMapper.selectOne(wrapper);
-        return bin != null ? MapstructUtils.convert(bin, BinVo.class) : null;
+        BinVo vo = bin != null ? MapstructUtils.convert(bin, BinVo.class) : null;
+        fillNames(vo);
+        return vo;
     }
 
     /**
@@ -60,6 +72,7 @@ public class BinService extends ServiceImpl<BinMapper, Bin> {
     public TableDataInfo<BinVo> queryPageList(BinBo bo, PageQuery pageQuery) {
         LambdaQueryWrapper<Bin> lqw = buildQueryWrapper(bo);
         Page<BinVo> result = binMapper.selectVoPage(pageQuery.build(), lqw);
+        fillNames(result.getRecords());
         return TableDataInfo.build(result);
     }
 
@@ -68,7 +81,9 @@ public class BinService extends ServiceImpl<BinMapper, Bin> {
      */
     public List<BinVo> queryList(BinBo bo) {
         LambdaQueryWrapper<Bin> lqw = buildQueryWrapper(bo);
-        return binMapper.selectVoList(lqw);
+        List<BinVo> list = binMapper.selectVoList(lqw);
+        fillNames(list);
+        return list;
     }
 
     /**
@@ -80,7 +95,9 @@ public class BinService extends ServiceImpl<BinMapper, Bin> {
         lqw.eq(areaId != null, Bin::getAreaId, areaId);
         lqw.eq(Bin::getStatus, 0); // 0:空闲
         lqw.orderByAsc(Bin::getOrderNum);
-        return binMapper.selectVoList(lqw);
+        List<BinVo> list = binMapper.selectVoList(lqw);
+        fillNames(list);
+        return list;
     }
 
     /**
@@ -94,7 +111,59 @@ public class BinService extends ServiceImpl<BinMapper, Bin> {
         lqw.orderByAsc(Bin::getBinCode);
         lqw.last("limit 1");
         Bin bin = binMapper.selectOne(lqw);
-        return bin != null ? MapstructUtils.convert(bin, BinVo.class) : null;
+        BinVo vo = bin != null ? MapstructUtils.convert(bin, BinVo.class) : null;
+        fillNames(vo);
+        return vo;
+    }
+
+    private void fillNames(BinVo vo) {
+        if (vo == null) {
+            return;
+        }
+        if (vo.getWarehouseId() != null && vo.getWarehouseName() == null) {
+            Warehouse warehouse = warehouseMapper.selectById(vo.getWarehouseId());
+            if (warehouse != null) {
+                vo.setWarehouseName(warehouse.getWarehouseName());
+            }
+        }
+        if (vo.getAreaId() != null && vo.getAreaName() == null) {
+            Area area = areaMapper.selectById(vo.getAreaId());
+            if (area != null) {
+                vo.setAreaName(area.getAreaName());
+            }
+        }
+    }
+
+    private void fillNames(List<BinVo> list) {
+        if (list == null || list.isEmpty()) {
+            return;
+        }
+        Set<Long> warehouseIds = list.stream()
+            .map(BinVo::getWarehouseId)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
+        Set<Long> areaIds = list.stream()
+            .map(BinVo::getAreaId)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
+        Map<Long, String> warehouseNameMap = warehouseIds.isEmpty()
+            ? Map.of()
+            : warehouseMapper.selectList(Wrappers.<Warehouse>lambdaQuery().in(Warehouse::getId, warehouseIds))
+                .stream()
+                .collect(Collectors.toMap(Warehouse::getId, Warehouse::getWarehouseName, (a, b) -> a));
+        Map<Long, String> areaNameMap = areaIds.isEmpty()
+            ? Map.of()
+            : areaMapper.selectList(Wrappers.<Area>lambdaQuery().in(Area::getId, areaIds))
+                .stream()
+                .collect(Collectors.toMap(Area::getId, Area::getAreaName, (a, b) -> a));
+        for (BinVo vo : list) {
+            if (vo.getWarehouseId() != null && vo.getWarehouseName() == null) {
+                vo.setWarehouseName(warehouseNameMap.get(vo.getWarehouseId()));
+            }
+            if (vo.getAreaId() != null && vo.getAreaName() == null) {
+                vo.setAreaName(areaNameMap.get(vo.getAreaId()));
+            }
+        }
     }
 
     private LambdaQueryWrapper<Bin> buildQueryWrapper(BinBo bo) {

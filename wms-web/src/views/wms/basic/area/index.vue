@@ -74,7 +74,9 @@
         <el-table-column label="所属仓库" prop="warehouseName" />
         <el-table-column label="货区类型" prop="areaType">
           <template #default="scope">
-            <dict-tag :options="dict.type.wms_area_type" :value="scope.row.areaType" />
+            <el-tag v-if="scope.row.areaType === 1">普通货区</el-tag>
+            <el-tag v-else-if="scope.row.areaType === 2" type="warning">置换区</el-tag>
+            <el-tag v-else-if="scope.row.areaType === 3" type="info">其他</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="创建时间" prop="createTime" width="180" />
@@ -139,10 +141,8 @@
 import { listArea, getArea, delArea, addArea, updateArea, exportArea, listAreaNoPage } from '@/api/wms/area';
 import { listWarehouseNoPage } from '@/api/wms/warehouse';
 import { getCurrentInstance, reactive, ref, toRefs, onMounted } from 'vue';
-import { useDict } from '@/utils/dict';
 
 const { proxy } = getCurrentInstance();
-const { wms_area_type } = useDict('wms_area_type');
 
 const areaList = ref([]);
 const warehouseList = ref([]);
@@ -155,7 +155,6 @@ const multiple = ref(true);
 const total = ref(0);
 const queryFormRef = ref();
 const areaFormRef = ref();
-const dict = reactive({ type: { wms_area_type } });
 
 const dialog = reactive({
   visible: false,

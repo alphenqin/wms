@@ -14,9 +14,11 @@ import com.ruoyi.common.mybatis.core.page.PageQuery;
 import com.ruoyi.common.mybatis.core.page.TableDataInfo;
 import com.ruoyi.wms.domain.bo.AreaBo;
 import com.ruoyi.wms.domain.entity.Area;
+import com.ruoyi.wms.domain.entity.Warehouse;
 import com.ruoyi.wms.domain.vo.AreaVo;
 import com.ruoyi.wms.mapper.AreaMapper;
 import com.ruoyi.wms.mapper.BinMapper;
+import com.ruoyi.wms.mapper.WarehouseMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +27,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 货区Service业务层处理
@@ -38,16 +42,14 @@ public class AreaService extends ServiceImpl<AreaMapper, Area> {
 
     private final AreaMapper areaMapper;
     private final BinMapper binMapper;
+    private final WarehouseMapper warehouseMapper;
 
     /**
      * 查询货区
      */
     public AreaVo queryById(Long id) {
         AreaVo vo = areaMapper.selectVoById(id);
-        // 填充仓库名称
-        if (vo != null && vo.getWarehouseId() != null) {
-            // 这里可以调用WarehouseService获取仓库名称，暂时先不实现
-        }
+        fillWarehouseName(vo);
         return vo;
     }
 
@@ -57,6 +59,7 @@ public class AreaService extends ServiceImpl<AreaMapper, Area> {
     public TableDataInfo<AreaVo> queryPageList(AreaBo bo, PageQuery pageQuery) {
         LambdaQueryWrapper<Area> lqw = buildQueryWrapper(bo);
         Page<AreaVo> result = areaMapper.selectVoPage(pageQuery.build(), lqw);
+        fillWarehouseName(result.getRecords());
         return TableDataInfo.build(result);
     }
 
@@ -65,7 +68,41 @@ public class AreaService extends ServiceImpl<AreaMapper, Area> {
      */
     public List<AreaVo> queryList(AreaBo bo) {
         LambdaQueryWrapper<Area> lqw = buildQueryWrapper(bo);
-        return areaMapper.selectVoList(lqw);
+        List<AreaVo> list = areaMapper.selectVoList(lqw);
+        fillWarehouseName(list);
+        return list;
+    }
+
+    private void fillWarehouseName(AreaVo vo) {
+        if (vo == null || vo.getWarehouseId() == null || vo.getWarehouseName() != null) {
+            return;
+        }
+        Warehouse warehouse = warehouseMapper.selectById(vo.getWarehouseId());
+        if (warehouse != null) {
+            vo.setWarehouseName(warehouse.getWarehouseName());
+        }
+    }
+
+    private void fillWarehouseName(List<AreaVo> list) {
+        if (list == null || list.isEmpty()) {
+            return;
+        }
+        Set<Long> warehouseIds = list.stream()
+            .map(AreaVo::getWarehouseId)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
+        if (warehouseIds.isEmpty()) {
+            return;
+        }
+        Map<Long, String> warehouseNameMap = warehouseMapper
+            .selectList(Wrappers.<Warehouse>lambdaQuery().in(Warehouse::getId, warehouseIds))
+            .stream()
+            .collect(Collectors.toMap(Warehouse::getId, Warehouse::getWarehouseName, (a, b) -> a));
+        for (AreaVo vo : list) {
+            if (vo.getWarehouseId() != null && vo.getWarehouseName() == null) {
+                vo.setWarehouseName(warehouseNameMap.get(vo.getWarehouseId()));
+            }
+        }
     }
 
     private LambdaQueryWrapper<Area> buildQueryWrapper(AreaBo bo) {

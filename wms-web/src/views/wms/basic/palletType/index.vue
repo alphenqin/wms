@@ -49,7 +49,7 @@
         <el-table-column label="ID" prop="id" width="80" />
         <el-table-column label="类型名称" prop="typeName" />
         <el-table-column label="类型编码" prop="typeCode" />
-        <el-table-column label="容量" prop="capacity" />
+        <el-table-column label="载重" prop="loadCapacity" />
         <el-table-column label="备注" prop="remark" />
         <el-table-column label="创建时间" prop="createTime" width="180" />
         <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="180">
@@ -78,8 +78,8 @@
         <el-form-item label="类型编码" prop="typeCode">
           <el-input v-model="form.typeCode" placeholder="请输入类型编码" />
         </el-form-item>
-        <el-form-item label="容量" prop="capacity">
-          <el-input-number v-model="form.capacity" :min="0" :precision="2" style="width: 100%" />
+        <el-form-item label="载重" prop="loadCapacity">
+          <el-input-number v-model="form.loadCapacity" :min="0" :precision="2" style="width: 100%" />
         </el-form-item>
         <el-form-item label="备注" prop="remark">
           <el-input v-model="form.remark" type="textarea" placeholder="请输入备注" />
@@ -121,7 +121,7 @@ const initFormData = {
   id: undefined,
   typeName: undefined,
   typeCode: undefined,
-  capacity: undefined,
+  loadCapacity: undefined,
   remark: undefined,
 };
 
