@@ -54,13 +54,6 @@
                 <version>${revision}</version>
             </dependency>
 
-            <!-- redis -->
-            <dependency>
-                <groupId>com.ruoyi</groupId>
-                <artifactId>ruoyi-common-redis</artifactId>
-                <version>${revision}</version>
-            </dependency>
-
             <!-- satoken -->
             <dependency>
                 <groupId>com.ruoyi</groupId>
@@ -83,12 +76,6 @@
             <dependency>
                 <groupId>com.ruoyi</groupId>
                 <artifactId>ruoyi-common-mybatis</artifactId>
-                <version>${revision}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.ruoyi</groupId>
-                <artifactId>ruoyi-common-mail</artifactId>
                 <version>${revision}</version>
             </dependency>
 

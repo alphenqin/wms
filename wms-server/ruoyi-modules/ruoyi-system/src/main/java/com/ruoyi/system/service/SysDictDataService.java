@@ -4,7 +4,6 @@ import cn.hutool.core.util.ObjectUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.ruoyi.common.core.constant.CacheNames;
 import com.ruoyi.common.core.utils.MapstructUtils;
 import com.ruoyi.common.mybatis.core.page.PageQuery;
 import com.ruoyi.system.domain.bo.SysDictDataBo;
@@ -12,11 +11,9 @@ import com.ruoyi.system.domain.entity.SysDictData;
 import com.ruoyi.common.mybatis.core.page.TableDataInfo;
 import com.ruoyi.common.core.exception.ServiceException;
 import com.ruoyi.common.core.utils.StringUtils;
-import com.ruoyi.common.redis.utils.CacheUtils;
 import com.ruoyi.system.domain.vo.SysDictDataVo;
 import com.ruoyi.system.mapper.SysDictDataMapper;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.CachePut;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -77,7 +74,6 @@ public class SysDictDataService {
         for (Long dictCode : dictCodes) {
             SysDictData data = dictDataMapper.selectById(dictCode);
             dictDataMapper.deleteById(dictCode);
-            CacheUtils.evict(CacheNames.SYS_DICT, data.getDictType());
         }
     }
 
@@ -87,7 +83,6 @@ public class SysDictDataService {
      * @param bo 字典数据信息
      * @return 结果
      */
-    @CachePut(cacheNames = CacheNames.SYS_DICT, key = "#bo.dictType")
     public List<SysDictDataVo> insertDictData(SysDictDataBo bo) {
         SysDictData data = MapstructUtils.convert(bo, SysDictData.class);
         int row = dictDataMapper.insert(data);
@@ -103,7 +98,6 @@ public class SysDictDataService {
      * @param bo 字典数据信息
      * @return 结果
      */
-    @CachePut(cacheNames = CacheNames.SYS_DICT, key = "#bo.dictType")
     public List<SysDictDataVo> updateDictData(SysDictDataBo bo) {
         SysDictData data = MapstructUtils.convert(bo, SysDictData.class);
         int row = dictDataMapper.updateById(data);

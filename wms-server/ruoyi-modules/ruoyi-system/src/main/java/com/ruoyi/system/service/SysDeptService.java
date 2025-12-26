@@ -6,7 +6,6 @@ import cn.hutool.core.lang.tree.Tree;
 import cn.hutool.core.util.ObjectUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
-import com.ruoyi.common.core.constant.CacheNames;
 import com.ruoyi.common.core.constant.UserConstants;
 import com.ruoyi.common.core.service.DeptService;
 import com.ruoyi.common.core.utils.MapstructUtils;
@@ -19,15 +18,11 @@ import com.ruoyi.common.mybatis.helper.DataBaseHelper;
 import com.ruoyi.common.satoken.utils.LoginHelper;
 import com.ruoyi.common.core.utils.StringUtils;
 import com.ruoyi.common.core.utils.TreeBuildUtils;
-import com.ruoyi.common.redis.utils.CacheUtils;
-import com.ruoyi.common.core.utils.SpringUtils;
 import com.ruoyi.system.domain.vo.SysDeptVo;
 import com.ruoyi.system.mapper.SysDeptMapper;
 import com.ruoyi.system.mapper.SysRoleMapper;
 import com.ruoyi.system.mapper.SysUserMapper;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -112,7 +107,6 @@ public class SysDeptService implements DeptService {
      * @param deptId 部门ID
      * @return 部门信息
      */
-    @Cacheable(cacheNames = CacheNames.SYS_DEPT, key = "#deptId")
     public SysDeptVo selectDeptById(Long deptId) {
         SysDeptVo dept = deptMapper.selectVoById(deptId);
         if (ObjectUtil.isNull(dept)) {
@@ -134,7 +128,7 @@ public class SysDeptService implements DeptService {
     public String selectDeptNameByIds(String deptIds) {
         List<String> list = new ArrayList<>();
         for (Long id : StringUtils.splitTo(deptIds, Convert::toLong)) {
-            SysDeptVo dept = SpringUtils.getAopProxy(this).selectDeptById(id);
+            SysDeptVo dept = selectDeptById(id);
             if (ObjectUtil.isNotNull(dept)) {
                 list.add(dept.getDeptName());
             }
@@ -229,7 +223,6 @@ public class SysDeptService implements DeptService {
      * @param bo 部门信息
      * @return 结果
      */
-    @CacheEvict(cacheNames = CacheNames.SYS_DEPT, key = "#dept.deptId")
     public int updateDept(SysDeptBo bo) {
         SysDept dept = MapstructUtils.convert(bo, SysDept.class);
         SysDept newParentDept = deptMapper.selectById(dept.getParentId());
@@ -281,7 +274,7 @@ public class SysDeptService implements DeptService {
         }
         if (CollUtil.isNotEmpty(list)) {
             if (deptMapper.updateBatchById(list)) {
-                list.forEach(dept -> CacheUtils.evict(CacheNames.SYS_DEPT, dept.getDeptId()));
+                // Redis 缓存移除后不再清理缓存
             }
         }
     }
@@ -292,7 +285,6 @@ public class SysDeptService implements DeptService {
      * @param deptId 部门ID
      * @return 结果
      */
-    @CacheEvict(cacheNames = CacheNames.SYS_DEPT, key = "#deptId")
     public int deleteDeptById(Long deptId) {
         return deptMapper.deleteById(deptId);
     }

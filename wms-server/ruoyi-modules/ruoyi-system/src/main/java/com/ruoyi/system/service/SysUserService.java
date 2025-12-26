@@ -9,7 +9,6 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.ruoyi.common.core.constant.CacheNames;
 import com.ruoyi.common.core.constant.UserConstants;
 import com.ruoyi.common.core.exception.ServiceException;
 import com.ruoyi.common.core.service.UserService;
@@ -29,8 +28,6 @@ import com.ruoyi.system.domain.vo.SysUserVo;
 import com.ruoyi.system.mapper.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -340,7 +337,6 @@ public class SysUserService implements UserService {
      * @param user 用户信息
      * @return 结果
      */
-    @CacheEvict(cacheNames = CacheNames.SYS_NICKNAME, key = "#user.userId")
     public int updateUserProfile(SysUserBo user) {
         return userMapper.update(null,
             new LambdaUpdateWrapper<SysUser>()
@@ -461,7 +457,6 @@ public class SysUserService implements UserService {
         return userMapper.deleteBatchIds(ids);
     }
 
-    @Cacheable(cacheNames = CacheNames.SYS_USER_NAME, key = "#userId")
     public String selectUserNameById(Long userId) {
         SysUser sysUser = userMapper.selectOne(new LambdaQueryWrapper<SysUser>()
             .select(SysUser::getUserName).eq(SysUser::getUserId, userId));

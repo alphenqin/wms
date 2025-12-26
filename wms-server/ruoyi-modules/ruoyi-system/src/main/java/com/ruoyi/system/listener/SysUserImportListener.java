@@ -14,7 +14,6 @@ import com.ruoyi.common.satoken.utils.LoginHelper;
 import com.ruoyi.system.domain.bo.SysUserBo;
 import com.ruoyi.system.domain.vo.SysUserImportVo;
 import com.ruoyi.system.domain.vo.SysUserVo;
-import com.ruoyi.system.service.SysConfigService;
 import com.ruoyi.system.service.SysUserService;
 import lombok.extern.slf4j.Slf4j;
 
@@ -42,7 +41,7 @@ public class SysUserImportListener extends AnalysisEventListener<SysUserImportVo
     private final StringBuilder failureMsg = new StringBuilder();
 
     public SysUserImportListener(Boolean isUpdateSupport) {
-        String initPassword = SpringUtils.getBean(SysConfigService.class).selectConfigByKey("sys.user.initPassword");
+        String initPassword = "123456";
         this.userService = SpringUtils.getBean(SysUserService.class);
         this.password = BCrypt.hashpw(initPassword);
         this.isUpdateSupport = isUpdateSupport;

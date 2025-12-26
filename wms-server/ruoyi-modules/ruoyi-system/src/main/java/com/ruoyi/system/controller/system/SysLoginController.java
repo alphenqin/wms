@@ -3,10 +3,8 @@ package com.ruoyi.system.controller.system;
 import cn.dev33.satoken.annotation.SaIgnore;
 import com.ruoyi.common.core.constant.Constants;
 import com.ruoyi.common.core.domain.R;
-import com.ruoyi.common.core.domain.bo.EmailLoginBody;
 import com.ruoyi.common.core.domain.bo.LoginBody;
 import com.ruoyi.common.core.domain.bo.LoginUser;
-import com.ruoyi.common.core.domain.bo.SmsLoginBody;
 import com.ruoyi.common.satoken.utils.LoginHelper;
 import com.ruoyi.system.domain.entity.SysMenu;
 import com.ruoyi.system.domain.vo.RouterVo;
@@ -52,33 +50,6 @@ public class SysLoginController {
         // 生成令牌
         String token = loginService.login(loginBody.getUsername(), loginBody.getPassword(), loginBody.getCode(),
             loginBody.getUuid());
-        return R.ok(Map.of(Constants.TOKEN, token));
-    }
-
-    /**
-     * 短信登录
-     *
-     * @param smsLoginBody 登录信息
-     * @return 结果
-     */
-    @SaIgnore
-    @PostMapping("/smsLogin")
-    public R<Map<String, Object>> smsLogin(@Validated @RequestBody SmsLoginBody smsLoginBody) {
-        // 生成令牌
-        String token = loginService.smsLogin(smsLoginBody.getPhonenumber(), smsLoginBody.getSmsCode());
-        return R.ok(Map.of(Constants.TOKEN, token));
-    }
-
-    /**
-     * 邮件登录
-     *
-     * @param body 登录信息
-     * @return 结果
-     */
-    @PostMapping("/emailLogin")
-    public R<Map<String, Object>> emailLogin(@Validated @RequestBody EmailLoginBody body) {
-        // 生成令牌
-        String token = loginService.emailLogin(body.getEmail(), body.getEmailCode());
         return R.ok(Map.of(Constants.TOKEN, token));
     }
 

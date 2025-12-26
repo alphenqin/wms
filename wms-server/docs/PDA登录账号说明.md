@@ -214,16 +214,12 @@ $2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2
 
 ### 1. 验证码
 
-- **PDA登录**：不验证验证码（传入空字符串）
-- **Web登录**：根据配置决定是否验证验证码
+- **PDA登录**：不验证验证码
+- **Web登录**：不验证验证码（已移除）
 
 ### 2. 密码错误次数限制
 
-系统会记录密码错误次数，达到上限后会锁定账号：
-
-- **配置项**：`user.password.maxRetryCount`（默认值需要查看配置）
-- **锁定时间**：`user.password.lockTime`（默认值需要查看配置）
-- **存储位置**：Redis缓存，key格式：`pwd_err_cnt:{username}:{ip}`
+已移除登录错误次数锁定与相关缓存逻辑。
 
 ### 3. 登录日志
 

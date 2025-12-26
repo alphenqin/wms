@@ -2,8 +2,6 @@ package com.ruoyi.system.runner;
 
 import com.ruoyi.common.core.config.RuoYiConfig;
 import com.ruoyi.system.service.SysConfigService;
-import com.ruoyi.system.service.SysDictTypeService;
-import com.ruoyi.system.service.SysOssConfigService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
@@ -22,20 +20,14 @@ public class SystemApplicationRunner implements ApplicationRunner {
 
     private final RuoYiConfig ruoyiConfig;
     private final SysConfigService configService;
-    private final SysDictTypeService dictTypeService;
-    private final SysOssConfigService ossConfigService;
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
-        ossConfigService.init();
-        log.info("初始化OSS配置成功");
         if (ruoyiConfig.isCacheLazy()) {
             return;
         }
         configService.loadingConfigCache();
-        log.info("加载参数缓存数据成功");
-        dictTypeService.loadingDictCache();
-        log.info("加载字典缓存数据成功");
+        log.debug("参数缓存加载完成（Redis 已移除）");
     }
 
 }

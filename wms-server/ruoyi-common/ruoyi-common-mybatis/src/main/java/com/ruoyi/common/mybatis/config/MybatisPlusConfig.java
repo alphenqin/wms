@@ -15,6 +15,7 @@ import com.ruoyi.common.mybatis.interceptor.PlusDataPermissionInterceptor;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.PropertySource;
+import org.springframework.core.env.Environment;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 /**
@@ -23,9 +24,11 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
  * @author Lion Li
  */
 @EnableTransactionManagement(proxyTargetClass = true)
-@MapperScan("${mybatis-plus.mapperPackage}")
+@MapperScan("${mybatis-plus.mapperPackage:com.ruoyi.**.mapper}")
 @PropertySource(value = "classpath:common-mybatis.yml", factory = YmlPropertySourceFactory.class)
 public class MybatisPlusConfig {
+
+    private static final String DEFAULT_MAPPER_PACKAGE = "com.ruoyi.**.mapper";
 
     @Bean
     public MybatisPlusInterceptor mybatisPlusInterceptor() {
@@ -43,7 +46,9 @@ public class MybatisPlusConfig {
      * 数据权限拦截器
      */
     public PlusDataPermissionInterceptor dataPermissionInterceptor() {
-        return new PlusDataPermissionInterceptor(SpringUtils.getProperty("mybatis-plus.mapperPackage"));
+        Environment environment = SpringUtils.getBean(Environment.class);
+        String mapperPackage = environment.getProperty("mybatis-plus.mapperPackage", DEFAULT_MAPPER_PACKAGE);
+        return new PlusDataPermissionInterceptor(mapperPackage);
     }
 
     /**

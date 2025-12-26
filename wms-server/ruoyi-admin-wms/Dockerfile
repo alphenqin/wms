@@ -27,7 +27,6 @@ COPY ruoyi-common/ruoyi-common-mail/pom.xml ./ruoyi-common/ruoyi-common-mail/
 COPY ruoyi-common/ruoyi-common-mybatis/pom.xml ./ruoyi-common/ruoyi-common-mybatis/
 COPY ruoyi-common/ruoyi-common-oss/pom.xml ./ruoyi-common/ruoyi-common-oss/
 COPY ruoyi-common/ruoyi-common-ratelimiter/pom.xml ./ruoyi-common/ruoyi-common-ratelimiter/
-COPY ruoyi-common/ruoyi-common-redis/pom.xml ./ruoyi-common/ruoyi-common-redis/
 COPY ruoyi-common/ruoyi-common-satoken/pom.xml ./ruoyi-common/ruoyi-common-satoken/
 COPY ruoyi-common/ruoyi-common-security/pom.xml ./ruoyi-common/ruoyi-common-security/
 COPY ruoyi-common/ruoyi-common-sensitive/pom.xml ./ruoyi-common/ruoyi-common-sensitive/

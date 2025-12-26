@@ -16,33 +16,11 @@ PDA登录时返回400错误："用户名或密码错误"
 
 ---
 
-## 已修复的问题
+## 已移除的功能
 
-### ✅ 验证码问题（已修复）
+### ✅ 验证码（已移除）
 
-**问题原因**：
-- 当系统验证码开关开启时，即使PDA传入空字符串，系统仍会检查Redis中的验证码
-- 如果Redis中没有对应的验证码，会抛出`CaptchaExpireException`异常
-- 异常被统一捕获后返回"用户名或密码错误"，掩盖了真正的问题
-
-**修复方案**：
-- 在`SysLoginService`中新增了`pdaLogin()`方法，专门用于PDA登录
-- 该方法跳过验证码检查，直接验证用户名和密码
-- PDA登录接口现在调用`pdaLogin()`而不是`login()`
-
-**修复后的代码**：
-```java
-// SysLoginService.java
-public String pdaLogin(String username, String password) {
-    // 跳过验证码检查，直接验证用户名和密码
-    SysUserVo user = loadUserByUsername(username);
-    checkLogin(LoginType.PASSWORD, username, () -> !BCrypt.checkpw(password, user.getPassword()));
-    LoginUser loginUser = buildLoginUser(user);
-    LoginHelper.loginByDevice(loginUser, DeviceType.APP);
-    // ...
-    return StpUtil.getTokenValue();
-}
-```
+PDA/Web 登录不再进行验证码校验，相关逻辑已删除。
 
 ---
 
@@ -84,16 +62,8 @@ SET password = '$2a$10$...'  -- 使用上面生成的加密密码
 WHERE user_name = 'admin';
 ```
 
-**步骤4：检查密码错误次数限制**
-- 系统会记录密码错误次数
-- 达到上限后会锁定账号一段时间
-- 检查Redis中的错误次数：
-  ```bash
-  # 查看错误次数（key格式：pwd_err_cnt:{username}:{ip}）
-  redis-cli
-  GET pwd_err_cnt:admin:10.0.2.2
-  ```
-- 如果达到上限，需要等待锁定时间过后再试，或清除Redis中的错误记录
+**步骤4：密码错误次数限制**
+- 已移除登录错误次数锁定与相关缓存逻辑
 
 ### 2. 用户不存在
 
@@ -136,18 +106,6 @@ WHERE user_name = 'admin';
 **解决方法**：
 - 确认MySQL服务正常运行
 - 检查数据库连接配置
-
-### 5. Redis连接问题
-
-**检查方法**：
-- 查看后端日志，确认Redis连接是否正常
-- 检查`docker-compose.yml`中的Redis配置
-
-**解决方法**：
-- 确认Redis服务正常运行
-- 检查Redis连接配置
-
----
 
 ## 调试方法
 

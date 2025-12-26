@@ -350,7 +350,7 @@ const title = ref("");
 const dateRange = ref([]);
 const deptName = ref("");
 const deptOptions = ref(undefined);
-const initPassword = ref(undefined);
+const initPassword = ref("123456");
 const postOptions = ref([]);
 const roleOptions = ref([]);
 /*** 用户导入参数 */
@@ -605,7 +605,4 @@ function submitForm() {
 
 getDeptTree();
 getList();
-proxy.getConfigKey("sys.user.initPassword").then(response => {
-  initPassword.value = response.msg;
-});
 </script>

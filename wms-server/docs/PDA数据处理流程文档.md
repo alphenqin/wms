@@ -145,7 +145,7 @@ PDA请求 → 参数校验 → 业务逻辑处理 → 数据转换 → 数据库
 
 ### 2.4 数据存储
 
-- **Token存储**：存储在Redis中，由Sa-Token框架管理
+- **Token存储**：Sa-Token默认存储（内存），不使用Redis
 - **用户会话**：存储在Sa-Token的Session中
 - **登录日志**：由`SysLoginService`记录到系统日志表
 
@@ -1023,7 +1023,7 @@ PDA请求
   ↓
 参数校验 (@Valid)
   ↓
-调用登录服务 (SysLoginService.login)
+调用登录服务 (SysLoginService.pdaLogin)
   ↓
 查询用户表 (sys_user)
   ↓
@@ -1031,7 +1031,7 @@ PDA请求
   ↓
 生成Token (Sa-Token)
   ↓
-存储Token到Redis
+Sa-Token默认存储（内存）
   ↓
 查询用户信息 (SysUserService)
   ↓

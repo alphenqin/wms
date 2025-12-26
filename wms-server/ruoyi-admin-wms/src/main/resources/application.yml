@@ -3,7 +3,7 @@ ruoyi:
   # 名称
   name: ruoyi-wms-service
   # 版本
-  version: ${revision}
+  version: ${project.version:5.2.0}
   # 版权年份
   copyrightYear: 2024
   # 缓存懒加载
@@ -46,8 +46,9 @@ server:
 # 日志配置
 logging:
   level:
-    com.ruoyi: @logging.level@
+    com.ruoyi: ${logging.level:info}
     org.springframework: warn
+    "org.springframework.context.support.PostProcessorRegistrationDelegate$BeanPostProcessorChecker": error
   config: classpath:logback-plus.xml
 
 # 用户配置
@@ -67,7 +68,7 @@ spring:
     # 国际化资源文件路径
     basename: i18n/messages
   profiles:
-    active: @profiles.active@
+    active: ${SPRING_PROFILES_ACTIVE:dev}
   # 文件上传
   servlet:
     multipart:
@@ -235,8 +236,6 @@ springdoc:
 xss:
   # 过滤开关
   enabled: true
-  # 排除链接（多个用逗号分隔）
-  excludes: /system/notice
   # 匹配链接
   urlPatterns: /system/*,/monitor/*,/tool/*
 

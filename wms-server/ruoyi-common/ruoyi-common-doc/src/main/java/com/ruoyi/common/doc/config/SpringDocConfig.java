@@ -2,6 +2,7 @@ package com.ruoyi.common.doc.config;
 
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.Paths;
+import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
@@ -54,13 +55,16 @@ public class SpringDocConfig {
         openApi.externalDocs(properties.getExternalDocs());
         openApi.tags(properties.getTags());
         openApi.paths(properties.getPaths());
-        openApi.components(properties.getComponents());
-        Set<String> keySet = properties.getComponents().getSecuritySchemes().keySet();
-        List<SecurityRequirement> list = new ArrayList<>();
-        SecurityRequirement securityRequirement = new SecurityRequirement();
-        keySet.forEach(securityRequirement::addList);
-        list.add(securityRequirement);
-        openApi.security(list);
+        Components components = Optional.ofNullable(properties.getComponents()).orElseGet(Components::new);
+        openApi.components(components);
+        if (components.getSecuritySchemes() != null && !components.getSecuritySchemes().isEmpty()) {
+            Set<String> keySet = components.getSecuritySchemes().keySet();
+            List<SecurityRequirement> list = new ArrayList<>();
+            SecurityRequirement securityRequirement = new SecurityRequirement();
+            keySet.forEach(securityRequirement::addList);
+            list.add(securityRequirement);
+            openApi.security(list);
+        }
 
         return openApi;
     }

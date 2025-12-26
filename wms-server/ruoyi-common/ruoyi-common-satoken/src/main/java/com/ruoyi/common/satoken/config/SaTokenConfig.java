@@ -1,11 +1,9 @@
 package com.ruoyi.common.satoken.config;
 
-import cn.dev33.satoken.dao.SaTokenDao;
 import cn.dev33.satoken.jwt.StpLogicJwtForSimple;
 import cn.dev33.satoken.stp.StpInterface;
 import cn.dev33.satoken.stp.StpLogic;
 import com.ruoyi.common.core.factory.YmlPropertySourceFactory;
-import com.ruoyi.common.satoken.core.dao.PlusSaTokenDao;
 import com.ruoyi.common.satoken.core.service.SaPermissionImpl;
 import com.ruoyi.common.satoken.handler.SaTokenExceptionHandler;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -33,14 +31,6 @@ public class SaTokenConfig {
     @Bean
     public StpInterface stpInterface() {
         return new SaPermissionImpl();
-    }
-
-    /**
-     * 自定义dao层存储
-     */
-    @Bean
-    public SaTokenDao saTokenDao() {
-        return new PlusSaTokenDao();
     }
 
     /**

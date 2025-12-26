@@ -5,7 +5,6 @@ import com.baomidou.dynamic.datasource.annotation.DS;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.ruoyi.common.core.constant.CacheNames;
 import com.ruoyi.common.core.constant.UserConstants;
 import com.ruoyi.common.core.utils.MapstructUtils;
 import com.ruoyi.common.mybatis.core.page.PageQuery;
@@ -13,15 +12,11 @@ import com.ruoyi.common.mybatis.core.page.TableDataInfo;
 import com.ruoyi.common.core.service.ConfigService;
 import com.ruoyi.common.core.exception.ServiceException;
 import com.ruoyi.common.core.utils.StringUtils;
-import com.ruoyi.common.redis.utils.CacheUtils;
-import com.ruoyi.common.core.utils.SpringUtils;
 import com.ruoyi.system.domain.bo.SysConfigBo;
 import com.ruoyi.system.domain.entity.SysConfig;
 import com.ruoyi.system.domain.vo.SysConfigVo;
 import com.ruoyi.system.mapper.SysConfigMapper;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.CachePut;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.Arrays;
@@ -62,7 +57,6 @@ public class SysConfigService implements ConfigService {
      * @param configKey 参数key
      * @return 参数键值
      */
-    @Cacheable(cacheNames = CacheNames.SYS_CONFIG, key = "#configKey")
     public String selectConfigByKey(String configKey) {
         SysConfig retConfig = configMapper.selectOne(new LambdaQueryWrapper<SysConfig>()
             .eq(SysConfig::getConfigKey, configKey));
@@ -101,7 +95,6 @@ public class SysConfigService implements ConfigService {
      * @param bo 参数配置信息
      * @return 结果
      */
-    @CachePut(cacheNames = CacheNames.SYS_CONFIG, key = "#bo.configKey")
     public String insertConfig(SysConfigBo bo) {
         SysConfig config = MapstructUtils.convert(bo, SysConfig.class);
         int row = configMapper.insert(config);
@@ -117,15 +110,11 @@ public class SysConfigService implements ConfigService {
      * @param bo 参数配置信息
      * @return 结果
      */
-    @CachePut(cacheNames = CacheNames.SYS_CONFIG, key = "#bo.configKey")
     public String updateConfig(SysConfigBo bo) {
         int row = 0;
         SysConfig config = MapstructUtils.convert(bo, SysConfig.class);
         if (config.getConfigId() != null) {
             SysConfig temp = configMapper.selectById(config.getConfigId());
-            if (!StringUtils.equals(temp.getConfigKey(), config.getConfigKey())) {
-                CacheUtils.evict(CacheNames.SYS_CONFIG, temp.getConfigKey());
-            }
             row = configMapper.updateById(config);
         } else {
             row = configMapper.update(config, new LambdaQueryWrapper<SysConfig>()
@@ -148,7 +137,6 @@ public class SysConfigService implements ConfigService {
             if (StringUtils.equals(UserConstants.YES, config.getConfigType())) {
                 throw new ServiceException(String.format("内置参数【%1$s】不能删除 ", config.getConfigKey()));
             }
-            CacheUtils.evict(CacheNames.SYS_CONFIG, config.getConfigKey());
         }
         configMapper.deleteBatchIds(Arrays.asList(configIds));
     }
@@ -157,24 +145,21 @@ public class SysConfigService implements ConfigService {
      * 加载参数缓存数据
      */
     public void loadingConfigCache() {
-        List<SysConfigVo> configsList = selectConfigList(new SysConfigBo());
-        configsList.forEach(config ->
-            CacheUtils.put(CacheNames.SYS_CONFIG, config.getConfigKey(), config.getConfigValue()));
+        // Redis 缓存移除后不再加载缓存
     }
 
     /**
      * 清空参数缓存数据
      */
     public void clearConfigCache() {
-        CacheUtils.clear(CacheNames.SYS_CONFIG);
+        // Redis 缓存移除后不再清理缓存
     }
 
     /**
      * 重置参数缓存数据
      */
     public void resetConfigCache() {
-        clearConfigCache();
-        loadingConfigCache();
+        // Redis 缓存移除后不再重置缓存
     }
 
     /**
@@ -200,7 +185,7 @@ public class SysConfigService implements ConfigService {
      */
     @Override
     public String getConfigValue(String configKey) {
-        return SpringUtils.getAopProxy(this).selectConfigByKey(configKey);
+        return selectConfigByKey(configKey);
     }
 
 }

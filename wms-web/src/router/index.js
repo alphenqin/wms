@@ -114,34 +114,6 @@ export const dynamicRoutes = [
       }
     ]
   },
-  {
-    path: '/system/dict-data',
-    component: Layout,
-    hidden: true,
-    permissions: ['system:dict:list'],
-    children: [
-      {
-        path: 'index/:dictId(\\d+)',
-        component: () => import('@/views/system/dict/data'),
-        name: 'Data',
-        meta: { title: '字典数据', activeMenu: '/system/dict' }
-      }
-    ]
-  },
-  {
-    path: '/system/oss-config',
-    component: Layout,
-    hidden: true,
-    permissions: ['system:oss:list'],
-    children: [
-      {
-        path: 'index',
-        component: () => import('@/views/system/oss/config'),
-        name: 'OssConfig',
-        meta: { title: '配置管理', activeMenu: '/system/oss'}
-      }
-    ]
-  },
 ]
 
 const router = createRouter({
