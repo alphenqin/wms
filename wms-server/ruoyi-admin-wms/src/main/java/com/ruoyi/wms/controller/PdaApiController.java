@@ -18,8 +18,11 @@ import com.ruoyi.common.core.domain.bo.LoginUser;
 import com.ruoyi.system.service.SysLoginService;
 import com.ruoyi.system.service.SysUserService;
 import com.ruoyi.system.domain.vo.SysUserVo;
+import com.ruoyi.wms.domain.bo.AgvOpenTaskBo;
+import com.ruoyi.wms.domain.bo.AgvTaskBo;
 import com.ruoyi.wms.domain.dto.pda.*;
 import com.ruoyi.wms.domain.entity.*;
+import com.ruoyi.wms.domain.vo.AgvTaskVo;
 import com.ruoyi.wms.domain.vo.PalletVo;
 import com.ruoyi.wms.domain.vo.ValveVo;
 import com.ruoyi.wms.mapper.*;
@@ -78,6 +81,9 @@ public class PdaApiController {
     private String defaultSwapStation;
 
     private static final String PALLET_SCAN_CONFIG_KEY = "pda.pallet_scan.enabled";
+    private static final String AGV_TASK_TYPE_PICK_AND_DROP = "01";
+    private static final String AGV_TASK_LEVEL_NORMAL = "2";
+    private static final String TASK_SOURCE_PDA = "PDA";
 
     /**
      * 登录接口
@@ -138,6 +144,31 @@ public class PdaApiController {
     }
 
     /**
+     * 托盘类型列表（仅返回启用的类型）
+     */
+    @PostMapping("/pallet/type/list")
+    public R<List<PdaPalletTypeResponse>> listPalletTypes() {
+        try {
+            List<PalletType> typeList = palletTypeService.list(Wrappers.<PalletType>lambdaQuery()
+                .eq(PalletType::getStatus, "0")
+                .orderByAsc(PalletType::getTypeCode));
+            List<PdaPalletTypeResponse> result = typeList.stream()
+                .map(type -> {
+                    PdaPalletTypeResponse item = new PdaPalletTypeResponse();
+                    item.setId(type.getId());
+                    item.setTypeCode(type.getTypeCode());
+                    item.setTypeName(type.getTypeName());
+                    return item;
+                })
+                .collect(Collectors.toList());
+            return R.ok(result);
+        } catch (Exception e) {
+            log.error("获取托盘类型失败", e);
+            return R.fail(500, "获取托盘类型失败: " + e.getMessage());
+        }
+    }
+
+    /**
      * 托盘扫码接口
      */
     @PostMapping("/pallet/scan")
@@ -190,6 +221,29 @@ public class PdaApiController {
     }
 
     /**
+     * 获取可用托盘（按托盘编号升序）
+     */
+    @PostMapping("/pallet/available")
+    public R<PdaPalletAvailableResponse> getAvailablePallet(@Valid @RequestBody PdaPalletAvailableRequest request) {
+        try {
+            PalletVo palletVo = palletService.queryFirstAvailableByType(request.getPalletTypeId());
+            if (palletVo == null) {
+                return R.fail(404, "无可用托盘");
+            }
+            if (StrUtil.isBlank(palletVo.getCurrentBinCode())) {
+                return R.fail(404, "托盘库位为空");
+            }
+            PdaPalletAvailableResponse response = new PdaPalletAvailableResponse();
+            response.setPalletNo(palletVo.getPalletCode());
+            response.setBinCode(palletVo.getCurrentBinCode());
+            return R.ok(response);
+        } catch (Exception e) {
+            log.error("获取可用托盘失败", e);
+            return R.fail(500, "获取可用托盘失败: " + e.getMessage());
+        }
+    }
+
+    /**
      * 获取可用库位（托盘扫码不启用时）
      */
     @PostMapping("/bin/available")
@@ -235,9 +289,6 @@ public class PdaApiController {
             }
 
             boolean palletScanEnabled = isPalletScanEnabled();
-            if (!palletScanEnabled && !Objects.equals(request.getBinCode(), request.getPalletNo())) {
-                return R.fail(400, "托盘扫码未启用时托盘号需与库位号一致");
-            }
 
             // 校验托盘是否存在
             PalletVo palletVo = palletService.queryByPalletCode(request.getPalletNo());
@@ -396,6 +447,8 @@ public class PdaApiController {
         try {
             // 构建查询条件
             LambdaQueryWrapper<AgvTask> wrapper = Wrappers.lambdaQuery();
+            wrapper.eq(AgvTask::getTaskSource, TASK_SOURCE_PDA);
+            wrapper.eq(AgvTask::getPdaDeviceNo, StrUtil.trimToNull(request.getDeviceCode()));
             
             // 日期范围
             if (StrUtil.isNotBlank(request.getStartDate()) || StrUtil.isNotBlank(request.getEndDate())) {
@@ -483,6 +536,133 @@ public class PdaApiController {
         } catch (Exception e) {
             log.error("任务查询失败", e);
             return R.fail(500, "任务查询失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 任务下发（PDA → WMS → AGV）
+     */
+    @PostMapping("/task/dispatch")
+    public R<PdaTaskDispatchResponse> dispatchTask(@Valid @RequestBody PdaTaskDispatchRequest request) {
+        String taskTypeName = request.getTaskType();
+        Integer taskType = convertTaskType(taskTypeName);
+        if (taskType == null) {
+            return R.fail(400, "任务类型不合法");
+        }
+        if (taskType != 1 && hasActiveInboundTask()) {
+            return R.fail(409, "入库任务执行中，请稍后再试");
+        }
+        String fromBinCode = StrUtil.trimToNull(request.getFromBinCode());
+        String toBinCode = StrUtil.trimToNull(request.getToBinCode());
+        if (fromBinCode == null || toBinCode == null) {
+            return R.fail(400, "起始/目标站点不能为空");
+        }
+
+        String deviceCode = StrUtil.trimToNull(request.getDeviceCode());
+        AgvTaskBo taskBo = new AgvTaskBo();
+        taskBo.setTaskType(taskType);
+        taskBo.setTaskNo(StrUtil.trimToNull(request.getOutID()));
+        taskBo.setPalletCode(StrUtil.trimToNull(request.getPalletNo()));
+        taskBo.setFromBinCode(fromBinCode);
+        taskBo.setToBinCode(toBinCode);
+        taskBo.setRemark(StrUtil.trimToNull(request.getRemark()));
+        taskBo.setTaskSource(TASK_SOURCE_PDA);
+        taskBo.setPdaDeviceNo(deviceCode);
+        agvTaskService.insertByBo(taskBo);
+
+        String taskNo = taskBo.getTaskNo();
+        try {
+            AgvOpenTaskBo openTaskBo = buildPickDropTask(taskNo, fromBinCode, toBinCode, request.getMatCode());
+            Map<String, Object> agvResp = agvOpenTaskService.sendTask(openTaskBo);
+            String code = MapUtil.getStr(agvResp, "code");
+            String message = MapUtil.getStr(agvResp, "message");
+            if (!"20000".equals(code)) {
+                agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, StrUtil.emptyToDefault(message, "AGV任务下发失败"));
+                return R.fail(500, StrUtil.emptyToDefault(message, "AGV任务下发失败"));
+            }
+
+            PdaTaskDispatchResponse response = new PdaTaskDispatchResponse();
+            response.setOutID(taskNo);
+            response.setTaskType(taskTypeName);
+            response.setStatus("PENDING");
+            return R.ok(response);
+        } catch (Exception e) {
+            agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
+            return R.fail(500, "任务下发失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 任务取消（PDA → WMS → AGV）
+     */
+    @PostMapping("/task/cancel")
+    public R<Void> cancelTask(@Valid @RequestBody PdaTaskCancelRequest request) {
+        String outId = request.getOutID();
+        String deviceCode = StrUtil.trimToNull(request.getDeviceCode());
+        try {
+            AgvTaskVo taskVo = agvTaskService.queryByTaskNo(outId);
+            if (taskVo == null) {
+                return R.fail(404, "任务不存在");
+            }
+            if (!TASK_SOURCE_PDA.equals(taskVo.getTaskSource())
+                || !StrUtil.equals(deviceCode, taskVo.getPdaDeviceNo())) {
+                return R.fail(403, "无权限取消该任务");
+            }
+            if (taskVo.getStatus() != null && taskVo.getStatus() != 0) {
+                return R.fail(409, "只能取消待执行任务");
+            }
+
+            AgvOpenTaskBo openTaskBo = new AgvOpenTaskBo();
+            openTaskBo.setTaskType("13");
+            openTaskBo.setClearOutId(outId);
+            openTaskBo.setOutId(outId);
+            Map<String, Object> agvResp = agvOpenTaskService.sendTask(openTaskBo);
+            String code = MapUtil.getStr(agvResp, "code");
+            String message = MapUtil.getStr(agvResp, "message");
+            if (!"20000".equals(code)) {
+                return R.fail(500, StrUtil.emptyToDefault(message, "取消任务失败"));
+            }
+
+            agvTaskService.cancelTask(taskVo.getId());
+            return R.ok();
+        } catch (Exception e) {
+            return R.fail(500, "取消任务失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 入库任务锁定状态
+     */
+    @PostMapping("/task/inbound/lock")
+    public R<PdaInboundLockResponse> inboundLockStatus() {
+        long count = countActiveInboundTasks();
+        PdaInboundLockResponse response = new PdaInboundLockResponse();
+        response.setLocked(count > 0);
+        response.setCount(count);
+        return R.ok(response);
+    }
+
+    /**
+     * 查询AGV信息（PDA → WMS → AGV）
+     */
+    @PostMapping("/agv/info")
+    public R<List<Map<String, Object>>> agvInfo() {
+        try {
+            Map<String, Object> agvResp = agvOpenTaskService.agvInfo();
+            String code = MapUtil.getStr(agvResp, "code");
+            if (!"20000".equals(code)) {
+                String message = MapUtil.getStr(agvResp, "message");
+                return R.fail(500, StrUtil.emptyToDefault(message, "查询AGV信息失败"));
+            }
+            Object data = agvResp.get("data");
+            if (data instanceof List) {
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> list = (List<Map<String, Object>>) data;
+                return R.ok(list);
+            }
+            return R.ok(Collections.emptyList());
+        } catch (Exception e) {
+            return R.fail(500, "查询AGV信息失败: " + e.getMessage());
         }
     }
 
@@ -618,6 +798,43 @@ public class PdaApiController {
 
     private boolean isPalletScanEnabled() {
         return wmsConfigService.getBooleanConfig(PALLET_SCAN_CONFIG_KEY, false);
+    }
+
+    private boolean hasActiveInboundTask() {
+        return countActiveInboundTasks() > 0;
+    }
+
+    private long countActiveInboundTasks() {
+        LambdaQueryWrapper<AgvTask> wrapper = Wrappers.lambdaQuery();
+        wrapper.eq(AgvTask::getTaskType, 1);
+        wrapper.in(AgvTask::getStatus, 0, 1);
+        return agvTaskMapper.selectCount(wrapper);
+    }
+
+    private AgvOpenTaskBo buildPickDropTask(String outId, String fromBinCode, String toBinCode, String matCode) {
+        AgvOpenTaskBo taskBo = new AgvOpenTaskBo();
+        taskBo.setTaskType(AGV_TASK_TYPE_PICK_AND_DROP);
+        taskBo.setOutId(outId);
+        taskBo.setLevel(AGV_TASK_LEVEL_NORMAL);
+
+        List<AgvOpenTaskBo.AgvTaskPoint> points = new ArrayList<>();
+        AgvOpenTaskBo.AgvTaskPoint take = new AgvOpenTaskBo.AgvTaskPoint();
+        take.setSn("01");
+        take.setPointCode(fromBinCode);
+        take.setPointType("02");
+        points.add(take);
+
+        AgvOpenTaskBo.AgvTaskPoint drop = new AgvOpenTaskBo.AgvTaskPoint();
+        drop.setSn("02");
+        drop.setPointCode(toBinCode);
+        drop.setPointType("04");
+        if (StrUtil.isNotBlank(matCode)) {
+            drop.setMatCode(matCode);
+        }
+        points.add(drop);
+
+        taskBo.setPoints(points);
+        return taskBo;
     }
 
     private String selectFirstAvailableBinCode(Object dataObj) {

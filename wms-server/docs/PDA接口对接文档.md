@@ -498,6 +498,7 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
 | endDate | String | 否 | 结束日期（yyyy-MM-dd格式），默认当天 | "2025-01-15" |
 | taskType | String | 否 | 任务类型（见枚举） | "INBOUND" |
 | status | String | 否 | 任务状态（见枚举） | "PENDING" |
+| deviceCode | String | 是 | PDA设备编号 | "PDA-01" |
 | pageNum | Integer | 否 | 页码，默认1 | 1 |
 | pageSize | Integer | 否 | 每页大小，默认20 | 20 |
 
@@ -509,6 +510,7 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
   "endDate": "2025-01-15",
   "taskType": "INBOUND",
   "status": "PENDING",
+  "deviceCode": "PDA-01",
   "pageNum": 1,
   "pageSize": 20
 }
@@ -545,13 +547,159 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
 - 需要支持按日期范围查询
 - 需要支持按任务类型和状态筛选
 - 如果`startDate`和`endDate`都为空，默认查询当天的任务
-- 任务记录需要从AGV调度系统同步获取（`outID`是AGV生成的任务编号）
-- 任务状态需要实时同步AGV的任务执行状态
+- 任务记录由WMS在下发任务时落库（`outID`可由PDA生成或WMS生成）
+- PDA仅查询本设备的任务记录
+- 任务状态需要由WMS与AGV调度系统同步
 - 只有`PENDING`（待执行）状态的任务可以被取消
 
 ---
 
+### 3.6 任务下发接口
+
+**接口说明：** PDA下发任务给WMS，由WMS落库并转发AGV。
+
+**接口地址：** `POST /api/task/dispatch`
+
+**请求头：** 需要Token
+
+**请求参数：**
+
+| 参数名 | 类型 | 必填 | 说明 | 示例 |
+|--------|------|------|------|------|
+| taskType | String | 是 | 任务类型（见枚举） | "INBOUND" |
+| outID | String | 否 | 任务编号（PDA生成） | "R20250115145830123" |
+| palletNo | String | 否 | 托盘号 | "11-01" |
+| fromBinCode | String | 是 | 起始站点/库位 | "WAREHOUSE_SWAP_1" |
+| toBinCode | String | 是 | 目标站点/库位 | "2-01" |
+| matCode | String | 否 | 物料编码 | "MAT-DN50-001" |
+| remark | String | 否 | 备注 | "EMPTY_RETURN_FROM_SWAP" |
+| deviceCode | String | 是 | PDA设备编号 | "PDA-01" |
+
+**请求示例：**
+
+```json
+{
+  "taskType": "INBOUND",
+  "outID": "R20250115145830123",
+  "palletNo": "11-01",
+  "fromBinCode": "WAREHOUSE_SWAP_1",
+  "toBinCode": "2-01",
+  "matCode": "MAT-DN50-001",
+  "deviceCode": "PDA-01"
+}
+```
+
+**响应示例（成功）：**
+
+```json
+{
+  "code": 200,
+  "msg": "操作成功",
+  "data": {
+    "outID": "R20250115145830123",
+    "taskType": "INBOUND",
+    "status": "PENDING"
+  }
+}
+```
+
+**业务说明：**
+
+- 非入库任务在存在未完成入库任务时会被拒绝（HTTP 409）
+
+---
+
+### 3.7 任务取消接口
+
+**接口说明：** 取消指定任务，由WMS转发AGV并更新任务状态。
+
+**接口地址：** `POST /api/task/cancel`
+
+**请求头：** 需要Token
+
+**请求参数：**
+
+| 参数名 | 类型 | 必填 | 说明 | 示例 |
+|--------|------|------|------|------|
+| outID | String | 是 | 任务编号 | "R20250115145830123" |
+| deviceCode | String | 是 | PDA设备编号 | "PDA-01" |
+
+**请求示例：**
+
+```json
+{
+  "outID": "R20250115145830123",
+  "deviceCode": "PDA-01"
+}
+```
+
+**响应示例（成功）：**
+
+```json
+{
+  "code": 200,
+  "msg": "操作成功",
+  "data": null
+}
+```
+
+---
+
+### 3.8 AGV信息查询接口
+
+**接口说明：** 查询AGV信息，由WMS代理AGV接口。
+
+**接口地址：** `POST /api/agv/info`
+
+**请求头：** 需要Token
+
+**请求参数：** 无
+
+**响应示例（成功）：**
+
+```json
+{
+  "code": 200,
+  "msg": "操作成功",
+  "data": [
+    {
+      "agvCode": "AGV-01",
+      "agvState": "0"
+    }
+  ]
+}
+```
+
+---
+
+### 3.9 入库锁定状态接口
+
+**接口说明：** 查询是否存在未完成入库任务（全局锁）。
+
+**接口地址：** `POST /api/task/inbound/lock`
+
+**请求头：** 需要Token
+
+**请求参数：** 无
+
+**响应示例（成功）：**
+
+```json
+{
+  "code": 200,
+  "msg": "操作成功",
+  "data": {
+    "locked": true,
+    "count": 3
+  }
+}
+```
+
+---
+
 ## 4. 业务流程说明
+
+**统一约束：** 送检/回库/出库前需调用`POST /api/task/inbound/lock`，若返回`locked=true`则禁止操作。
 
 ### 4.1 入库流程
 
@@ -565,15 +713,15 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
    - 输入：阀门信息 + 托盘号 + 库位号
    - 输出：绑定结果
 
-3. **呼叫入库** → 调用AGV调度系统（不在WMS接口范围内）
-   - PDA生成任务编号（R开头）
-   - 调用AGV接口发送任务
+3. **呼叫入库** → 调用`POST /api/task/dispatch`
+   - PDA可生成任务编号（R开头），也可由WMS生成
+   - WMS下发AGV任务并落库
 
 **WMS需要做的事情：**
 
 - 提供托盘扫码接口，返回托盘基础信息
 - 提供阀门绑定接口，保存阀门与托盘、库位的关联关系
-- 记录任务信息（从AGV同步或PDA上报）
+- 提供任务下发接口，记录任务信息并下发AGV
 
 ---
 
@@ -585,9 +733,9 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
    - 查询条件：`valveStatus = "IN_STOCK"`（在库状态）
    - 输出：阀门列表（包含`palletNo`和`binCode`）
 
-2. **呼叫送检** → 调用AGV调度系统（不在WMS接口范围内）
+2. **呼叫送检** → 调用`POST /api/task/dispatch`
 
-3. **空托回库** → 调用AGV调度系统（不在WMS接口范围内）
+3. **空托回库** → 调用`POST /api/task/dispatch`
 
 **WMS需要做的事情：**
 
@@ -604,9 +752,9 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
    - 查询条件：`valveStatus = "INSPECTED"`（已检测状态）
    - 输出：阀门列表
 
-2. **呼叫托盘** → 调用AGV调度系统（不在WMS接口范围内）
+2. **呼叫托盘** → 调用`POST /api/task/dispatch`
 
-3. **阀门回库** → 调用AGV调度系统（不在WMS接口范围内）
+3. **阀门回库** → 调用`POST /api/task/dispatch`
 
 **WMS需要做的事情：**
 
@@ -623,9 +771,9 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
    - 查询条件：`valveStatus = "INSPECTED"`（已检测状态）
    - 输出：阀门列表
 
-2. **呼叫出库** → 调用AGV调度系统（不在WMS接口范围内）
+2. **呼叫出库** → 调用`POST /api/task/dispatch`
 
-3. **空托回库** → 调用AGV调度系统（不在WMS接口范围内）
+3. **空托回库** → 调用`POST /api/task/dispatch`
 
 **WMS需要做的事情：**
 
@@ -642,7 +790,7 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
    - 输入：日期范围、任务类型、状态等筛选条件
    - 输出：任务列表
 
-2. **取消任务** → 调用AGV调度系统（不在WMS接口范围内）
+2. **取消任务** → 调用`POST /api/task/cancel`
    - 只能取消`PENDING`（待执行）状态的任务
 
 **WMS需要做的事情：**
@@ -727,6 +875,10 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
    - WMS的库位编码需要与AGV调度系统的binCode保持一致
    - 这是AGV任务执行的关键参数
 
+4. **任务下发链路**
+   - PDA调用WMS的`/api/task/dispatch`
+   - WMS调用AGV调度系统的`/pt/taskSent`
+
 ---
 
 ## 6. 接口测试建议
@@ -783,6 +935,10 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
 | 3 | 阀门绑定接口 | `/api/valve/bind` | POST | 绑定阀门与托盘、库位 |
 | 4 | 阀门查询接口 | `/api/valve/query` | POST | 多条件查询阀门列表 |
 | 5 | 任务记录查询接口 | `/api/task/query` | POST | 查询历史任务记录 |
+| 6 | 任务下发接口 | `/api/task/dispatch` | POST | 下发AGV任务并落库 |
+| 7 | 任务取消接口 | `/api/task/cancel` | POST | 取消指定任务 |
+| 8 | AGV信息查询接口 | `/api/agv/info` | POST | 查询AGV状态 |
+| 9 | 入库锁定状态接口 | `/api/task/inbound/lock` | POST | 查询入库锁状态 |
 
 ### 7.2 枚举值汇总
 

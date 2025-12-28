@@ -1131,6 +1131,8 @@ PDA请求 (查询条件)
   ↓
 构建查询条件 (LambdaQueryWrapper)
   ↓
+过滤任务来源与设备 (task_source=PDA, pda_device_no=deviceCode)
+  ↓
 处理日期范围 (默认当天)
   ↓
 转换任务类型枚举 (String → Integer)
@@ -1220,6 +1222,8 @@ wms_agv_task (AGV任务表)
   ├─ status: 任务状态 (0/1/2/3/4)
   ├─ pallet_code: 托盘编号
   ├─ to_bin_code: 目标库位编号
+  ├─ task_source: 任务来源 (PDA/WMS)
+  ├─ pda_device_no: PDA设备编号
   └─ create_time: 创建时间
 ```
 

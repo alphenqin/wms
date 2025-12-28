@@ -1,6 +1,7 @@
 package com.ruoyi.wms.domain.dto.pda;
 
 import lombok.Data;
+import jakarta.validation.constraints.NotBlank;
 
 /**
  * PDA任务查询请求DTO
@@ -15,6 +16,12 @@ public class PdaTaskQueryRequest {
      * 起始日期（yyyy-MM-dd格式），默认当天
      */
     private String startDate;
+
+    /**
+     * PDA设备编号
+     */
+    @NotBlank(message = "设备编码不能为空")
+    private String deviceCode;
 
     /**
      * 结束日期（yyyy-MM-dd格式），默认当天

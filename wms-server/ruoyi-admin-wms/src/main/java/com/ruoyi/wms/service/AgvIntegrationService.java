@@ -73,6 +73,7 @@ public class AgvIntegrationService {
         // 创建AGV任务记录
         AgvTaskBo taskBo = new AgvTaskBo();
         taskBo.setTaskType(1); // 入库任务
+        taskBo.setTaskSource("WMS");
         taskBo.setPalletCode(palletCode);
         taskBo.setFromBinCode(fromBinCode);
         taskBo.setToBinCode(toBinCode);
@@ -128,6 +129,7 @@ public class AgvIntegrationService {
         // 创建AGV任务记录
         AgvTaskBo taskBo = new AgvTaskBo();
         taskBo.setTaskType(4); // 出库任务
+        taskBo.setTaskSource("WMS");
         taskBo.setPalletCode(palletCode);
         taskBo.setFromBinCode(fromBinCode);
         taskBo.setToBinCode(toBinCode);
@@ -178,6 +180,7 @@ public class AgvIntegrationService {
     public String dispatchInspectionTask(String palletCode, String fromBinCode, String toBinCode) {
         AgvTaskBo taskBo = new AgvTaskBo();
         taskBo.setTaskType(2); // 送检任务
+        taskBo.setTaskSource("WMS");
         taskBo.setPalletCode(palletCode);
         taskBo.setFromBinCode(fromBinCode);
         taskBo.setToBinCode(toBinCode);
@@ -224,6 +227,7 @@ public class AgvIntegrationService {
     public String dispatchReturnTask(String palletCode, String fromBinCode, String toBinCode) {
         AgvTaskBo taskBo = new AgvTaskBo();
         taskBo.setTaskType(3); // 回库任务
+        taskBo.setTaskSource("WMS");
         taskBo.setPalletCode(palletCode);
         taskBo.setFromBinCode(fromBinCode);
         taskBo.setToBinCode(toBinCode);

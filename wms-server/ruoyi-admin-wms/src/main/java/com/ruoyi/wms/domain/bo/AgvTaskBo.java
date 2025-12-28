@@ -29,6 +29,8 @@ public class AgvTaskBo extends BaseEntity {
     private Long fromBinId;
     private String toBinCode;
     private Long toBinId;
+    private String taskSource;
+    private String pdaDeviceNo;
     private String agvTaskId;
     private Integer status;
     private String agvDeviceNo;

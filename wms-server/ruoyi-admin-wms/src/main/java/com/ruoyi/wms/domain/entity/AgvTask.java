@@ -79,6 +79,16 @@ public class AgvTask extends BaseEntity {
     private Long toBinId;
 
     /**
+     * 任务来源（PDA/WMS）
+     */
+    private String taskSource;
+
+    /**
+     * PDA设备编号
+     */
+    private String pdaDeviceNo;
+
+    /**
      * AGV调度系统返回的任务ID
      */
     private String agvTaskId;

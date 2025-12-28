@@ -51,6 +51,12 @@ public class AgvTaskVo extends BaseVo {
     @ExcelProperty(value = "目标货位ID")
     private Long toBinId;
 
+    @ExcelProperty(value = "任务来源")
+    private String taskSource;
+
+    @ExcelProperty(value = "PDA设备编号")
+    private String pdaDeviceNo;
+
     @ExcelProperty(value = "AGV任务ID")
     private String agvTaskId;
 

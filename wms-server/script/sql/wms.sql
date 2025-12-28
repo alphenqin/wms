@@ -1,6 +1,6 @@
--- MySQL dump 10.13  Distrib 8.0.19, for Win64 (x86_64)
+-- MySQL dump 10.13  Distrib 9.5.0, for macos15.4 (arm64)
 --
--- Host: localhost    Database: wms
+-- Host: 127.0.0.1    Database: wms
 -- ------------------------------------------------------
 -- Server version	8.0.44
 
@@ -163,7 +163,7 @@ CREATE TABLE `sys_dept` (
 
 LOCK TABLES `sys_dept` WRITE;
 /*!40000 ALTER TABLE `sys_dept` DISABLE KEYS */;
-INSERT INTO `sys_dept` VALUES (100,0,'0','若依科技',0,'若依','15888888888','ry@qq.com','1','0','admin','2024-06-13 16:06:25','',NULL),(101,100,'0,100','深圳总公司',1,'若依','15888888888','ry@qq.com','1','0','admin','2024-06-13 16:06:25','',NULL),(102,100,'0,100','长沙分公司',2,'若依','15888888888','ry@qq.com','1','0','admin','2024-06-13 16:06:25','',NULL),(103,101,'0,100,101','研发部门',1,'若依','15888888888','ry@qq.com','1','0','admin','2024-06-13 16:06:25','',NULL),(104,101,'0,100,101','市场部门',2,'若依','15888888888','ry@qq.com','1','0','admin','2024-06-13 16:06:25','',NULL),(105,101,'0,100,101','测试部门',3,'若依','15888888888','ry@qq.com','1','0','admin','2024-06-13 16:06:25','',NULL),(106,101,'0,100,101','财务部门',4,'若依','15888888888','ry@qq.com','1','0','admin','2024-06-13 16:06:25','',NULL),(107,101,'0,100,101','运维部门',5,'若依','15888888888','ry@qq.com','1','0','admin','2024-06-13 16:06:25','',NULL),(108,102,'0,100,102','市场部门',1,'若依','15888888888','ry@qq.com','1','0','admin','2024-06-13 16:06:25','',NULL),(109,102,'0,100,102','财务部门',2,'若依','15888888888','ry@qq.com','1','0','admin','2024-06-13 16:06:25','',NULL),(1811589666899832833,102,'0,100,102','测试部门2',0,'负责人','','','1','0','admin','2024-07-12 10:33:29','admin','2024-07-12 10:33:29');
+INSERT INTO `sys_dept` VALUES (100,0,'0','青白江检定点 ',0,'若依','15888888888','ry@qq.com','1','0','admin','2024-06-13 16:06:25','',NULL),(101,100,'0,100','深圳总公司',1,'若依','15888888888','ry@qq.com','1','1','admin','2024-06-13 16:06:25','',NULL),(102,100,'0,100','长沙分公司',2,'若依','15888888888','ry@qq.com','1','1','admin','2024-06-13 16:06:25','',NULL),(103,101,'0,100,101','研发部门',1,'若依','15888888888','ry@qq.com','1','1','admin','2024-06-13 16:06:25','',NULL),(104,101,'0,100,101','市场部门',2,'若依','15888888888','ry@qq.com','1','1','admin','2024-06-13 16:06:25','',NULL),(105,101,'0,100,101','测试部门',3,'若依','15888888888','ry@qq.com','1','1','admin','2024-06-13 16:06:25','',NULL),(106,101,'0,100,101','财务部门',4,'若依','15888888888','ry@qq.com','1','1','admin','2024-06-13 16:06:25','',NULL),(107,101,'0,100,101','运维部门',5,'若依','15888888888','ry@qq.com','1','1','admin','2024-06-13 16:06:25','',NULL),(108,102,'0,100,102','市场部门',1,'若依','15888888888','ry@qq.com','1','1','admin','2024-06-13 16:06:25','',NULL),(109,102,'0,100,102','财务部门',2,'若依','15888888888','ry@qq.com','1','1','admin','2024-06-13 16:06:25','',NULL),(1811589666899832833,102,'0,100,102','测试部门2',0,'负责人','','','1','1','admin','2024-07-12 10:33:29','admin','2024-07-12 10:33:29');
 /*!40000 ALTER TABLE `sys_dept` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -409,7 +409,7 @@ CREATE TABLE `sys_role` (
 
 LOCK TABLES `sys_role` WRITE;
 /*!40000 ALTER TABLE `sys_role` DISABLE KEYS */;
-INSERT INTO `sys_role` VALUES (1,'超级管理员','admin',1,'1',1,1,'1','0','admin','2024-06-13 16:06:26','',NULL,'超级管理员'),(2,'普通角色','common',2,'2',1,1,'1','1','admin','2024-06-13 16:06:26','admin','2024-07-10 17:13:05','普通角色'),(1811607750859661314,'测试角色1','test1',2,'1',1,1,'1','1','admin','2024-07-12 11:45:21','admin','2024-07-12 11:45:21',NULL),(1811629311809396737,'测试角色2','test2',3,'1',1,1,'1','1','admin','2024-07-12 13:11:01','admin','2024-07-12 13:11:01',NULL),(1829105952432427010,'试用','trier',0,'1',1,1,'1','1','admin','2024-08-29 18:36:57','admin','2024-09-11 16:32:53',NULL),(1998240155494109186,'库管员','kadmin',1,'1',1,1,'1','0','admin','2025-12-09 11:55:53','admin','2025-12-09 11:55:53',NULL);
+INSERT INTO `sys_role` VALUES (1,'超级管理员','admin',1,'1',1,1,'1','0','admin','2024-06-13 16:06:26','',NULL,'超级管理员');
 /*!40000 ALTER TABLE `sys_role` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -497,7 +497,7 @@ CREATE TABLE `sys_user` (
 
 LOCK TABLES `sys_user` WRITE;
 /*!40000 ALTER TABLE `sys_user` DISABLE KEYS */;
-INSERT INTO `sys_user` VALUES (1,103,'admin','程序员诚哥','sys_user','zccbbg@qq.com','18888888888','0','','$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2','1','0','127.0.0.1','2025-12-26 18:05:26','admin','2024-06-13 16:06:25','admin','2025-12-26 18:05:26','管理员'),(1829105396288688129,105,'ck','ck','sys_user','','','0','','$2a$10$5ogFpqit10a8IpVFjKzosuz0whR0/tyQ4Nt9e6y3/MBodcDzwhCni','1','1','221.224.86.138','2024-10-09 15:40:16','admin','2024-08-29 18:34:44','ck','2024-10-09 15:40:16',NULL);
+INSERT INTO `sys_user` VALUES (1,100,'admin','admin','sys_user','zccbbg@qq.com','18888888888','0','','$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2','1','0','0:0:0:0:0:0:0:1','2025-12-27 11:38:23','admin','2024-06-13 16:06:25','admin','2025-12-27 11:38:23','管理员');
 /*!40000 ALTER TABLE `sys_user` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -612,6 +612,8 @@ CREATE TABLE `wms_agv_task` (
   `from_bin_id` bigint DEFAULT NULL COMMENT '起始货位ID',
   `to_bin_code` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '目标货位编号',
   `to_bin_id` bigint DEFAULT NULL COMMENT '目标货位ID',
+  `task_source` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '任务来源（PDA/WMS）',
+  `pda_device_no` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT 'PDA设备编号',
   `agv_task_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT 'AGV调度系统返回的任务ID',
   `status` int DEFAULT '0' COMMENT '任务状态（0:PENDING待处理 1:EXECUTING执行中 2:FINISHED已完成 3:FAILED失败 4:CANCELLED已取消）',
   `agv_device_no` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT 'AGV设备编号',
@@ -630,7 +632,9 @@ CREATE TABLE `wms_agv_task` (
   KEY `idx_status` (`status`) USING BTREE,
   KEY `idx_biz_order_no` (`biz_order_no`) USING BTREE,
   KEY `idx_agv_task_id` (`agv_task_id`) USING BTREE,
-  KEY `idx_pallet_code` (`pallet_code`) USING BTREE
+  KEY `idx_pallet_code` (`pallet_code`) USING BTREE,
+  KEY `idx_task_source` (`task_source`) USING BTREE,
+  KEY `idx_pda_device_no` (`pda_device_no`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci ROW_FORMAT=DYNAMIC COMMENT='AGV任务表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -859,7 +863,7 @@ CREATE TABLE `wms_config` (
 
 LOCK TABLES `wms_config` WRITE;
 /*!40000 ALTER TABLE `wms_config` DISABLE KEYS */;
-INSERT INTO `wms_config` VALUES (2003015487549640711,'pda.pallet_scan.enabled','true',4,'pda','PDA托盘扫码开关','0','xx','admin','2025-12-23 10:03:34.000','admin','2025-12-26 18:25:50.323');
+INSERT INTO `wms_config` VALUES (2003015487549640711,'pda.pallet_scan.enabled','false',4,'pda','PDA托盘扫码开关','0','xx','admin','2025-12-23 10:03:34.000','admin','2025-12-27 13:58:53.563');
 /*!40000 ALTER TABLE `wms_config` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1693,6 +1697,9 @@ UNLOCK TABLES;
 --
 -- Dumping routines for database 'wms'
 --
+--
+-- WARNING: can't read the INFORMATION_SCHEMA.libraries table. It's most probably an old server 8.0.44.
+--
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
@@ -1703,4 +1710,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-12-26 18:29:00
+-- Dump completed on 2025-12-27 16:14:54

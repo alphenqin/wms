@@ -86,10 +86,29 @@ public class PalletService extends ServiceImpl<PalletMapper, Pallet> {
         return list;
     }
 
+    /**
+     * 查询指定类型的首个可用空托盘（按托盘编号升序）
+     */
+    public PalletVo queryFirstAvailableByType(Long palletTypeId) {
+        LambdaQueryWrapper<Pallet> lqw = Wrappers.lambdaQuery();
+        lqw.eq(Pallet::getPalletTypeId, palletTypeId);
+        lqw.eq(Pallet::getIsEmpty, 1);
+        lqw.eq(Pallet::getStatus, "0");
+        lqw.isNotNull(Pallet::getCurrentBinCode);
+        lqw.ne(Pallet::getCurrentBinCode, "");
+        lqw.orderByAsc(Pallet::getPalletCode);
+        lqw.last("limit 1");
+        Pallet pallet = palletMapper.selectOne(lqw);
+        PalletVo vo = pallet != null ? MapstructUtils.convert(pallet, PalletVo.class) : null;
+        fillPalletTypeName(vo);
+        return vo;
+    }
+
     private LambdaQueryWrapper<Pallet> buildQueryWrapper(PalletBo bo) {
         Map<String, Object> params = bo.getParams();
         LambdaQueryWrapper<Pallet> lqw = Wrappers.lambdaQuery();
-        lqw.eq(StrUtil.isNotBlank(bo.getPalletCode()), Pallet::getPalletCode, bo.getPalletCode());
+        String palletCode = StrUtil.trimToNull(bo.getPalletCode());
+        lqw.like(palletCode != null, Pallet::getPalletCode, palletCode);
         lqw.eq(bo.getPalletTypeId() != null, Pallet::getPalletTypeId, bo.getPalletTypeId());
         lqw.eq(bo.getCurrentBinId() != null, Pallet::getCurrentBinId, bo.getCurrentBinId());
         lqw.eq(bo.getIsEmpty() != null, Pallet::getIsEmpty, bo.getIsEmpty());

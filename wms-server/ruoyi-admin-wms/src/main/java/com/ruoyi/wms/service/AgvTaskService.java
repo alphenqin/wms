@@ -90,6 +90,8 @@ public class AgvTaskService extends ServiceImpl<AgvTaskMapper, AgvTask> {
         lqw.eq(StrUtil.isNotBlank(bo.getBizOrderNo()), AgvTask::getBizOrderNo, bo.getBizOrderNo());
         lqw.eq(bo.getBizOrderId() != null, AgvTask::getBizOrderId, bo.getBizOrderId());
         lqw.eq(StrUtil.isNotBlank(bo.getPalletCode()), AgvTask::getPalletCode, bo.getPalletCode());
+        lqw.eq(StrUtil.isNotBlank(bo.getTaskSource()), AgvTask::getTaskSource, bo.getTaskSource());
+        lqw.eq(StrUtil.isNotBlank(bo.getPdaDeviceNo()), AgvTask::getPdaDeviceNo, bo.getPdaDeviceNo());
         lqw.eq(StrUtil.isNotBlank(bo.getAgvTaskId()), AgvTask::getAgvTaskId, bo.getAgvTaskId());
         lqw.eq(bo.getStatus() != null, AgvTask::getStatus, bo.getStatus());
         lqw.eq(StrUtil.isNotBlank(bo.getAgvDeviceNo()), AgvTask::getAgvDeviceNo, bo.getAgvDeviceNo());
@@ -104,6 +106,9 @@ public class AgvTaskService extends ServiceImpl<AgvTaskMapper, AgvTask> {
             String taskNo = generateTaskNo(bo.getTaskType());
             add.setTaskNo(taskNo);
             bo.setTaskNo(taskNo);
+        }
+        if (StrUtil.isBlank(add.getTaskSource())) {
+            add.setTaskSource("WMS");
         }
         if (add.getStatus() == null) {
             add.setStatus(0); // 默认待处理

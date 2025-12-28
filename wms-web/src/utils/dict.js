@@ -7,8 +7,8 @@ export function useDict(...args) {
   const res = ref({});
   const dictData = {
     sys_normal_disable: [
-      { label: '正常', value: '0', elTagType: 'success' },
-      { label: '停用', value: '1', elTagType: 'danger' }
+      { label: '正常', value: '1', elTagType: 'success' },
+      { label: '停用', value: '0', elTagType: 'danger' }
     ],
     sys_show_hide: [
       { label: '显示', value: '0' },
