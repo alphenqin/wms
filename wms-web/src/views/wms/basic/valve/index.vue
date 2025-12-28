@@ -71,6 +71,7 @@
         <el-table-column type="selection" width="55" align="center" />
         <el-table-column label="ID" prop="id" width="80" />
         <el-table-column label="阀门编号" prop="valveNo" />
+        <el-table-column label="物料类型" prop="materialTypeName" />
         <el-table-column label="型号" prop="model" />
         <el-table-column label="厂家" prop="manufacturer" />
         <el-table-column label="批次号" prop="batchNo" />
@@ -163,6 +164,7 @@ const { wms_valve_status } = useDict('wms_valve_status');
 
 const valveList = ref([]);
 const materialTypeList = ref([]);
+const defaultMaterialTypeId = ref();
 const buttonLoading = ref(false);
 const loading = ref(false);
 const showSearch = ref(true);
@@ -210,6 +212,9 @@ const data = reactive({
     ],
     model: [
       { required: true, message: "型号不能为空", trigger: "blur" }
+    ],
+    materialTypeId: [
+      { required: true, message: "物料类型不能为空", trigger: "change" }
     ]
   }
 });
@@ -230,6 +235,11 @@ const getList = async () => {
 const getMaterialTypeList = async () => {
   const res = await listMaterialTypeNoPage({});
   materialTypeList.value = res.data;
+  const defaultType = materialTypeList.value.find((item) => item.typeName === '阀门' || item.typeCode === 'VALVE');
+  defaultMaterialTypeId.value = defaultType ? defaultType.id : undefined;
+  if (form.value.materialTypeId == null && defaultMaterialTypeId.value != null) {
+    form.value.materialTypeId = defaultMaterialTypeId.value;
+  }
 };
 
 /** 取消按钮 */
@@ -268,6 +278,9 @@ const handleAdd = () => {
   dialog.visible = true;
   dialog.title = "添加阀门";
   reset();
+  if (defaultMaterialTypeId.value != null) {
+    form.value.materialTypeId = defaultMaterialTypeId.value;
+  }
 };
 
 /** 修改按钮操作 */
