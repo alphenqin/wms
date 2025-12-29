@@ -84,6 +84,10 @@ public class PdaApiController {
     private static final String AGV_TASK_TYPE_PICK_AND_DROP = "01";
     private static final String AGV_TASK_LEVEL_NORMAL = "2";
     private static final String TASK_SOURCE_PDA = "PDA";
+    private static final String OUTBOUND_SMALL_PALLET_BIN = "Z3-装卸点";
+    private static final String OUTBOUND_LARGE_PALLET_BIN = "Z4-装卸点";
+    private static final String PALLET_TYPE_SMALL_CODE = "t1";
+    private static final String PALLET_TYPE_LARGE_CODE = "t2";
 
     /**
      * 登录接口
@@ -553,7 +557,18 @@ public class PdaApiController {
             return R.fail(409, "入库任务执行中，请稍后再试");
         }
         String fromBinCode = StrUtil.trimToNull(request.getFromBinCode());
+        String palletNo = StrUtil.trimToNull(request.getPalletNo());
         String toBinCode = StrUtil.trimToNull(request.getToBinCode());
+        if (taskType == 4) {
+            if (palletNo == null) {
+                return R.fail(400, "托盘号不能为空");
+            }
+            String resolvedToBinCode = resolveOutboundToBinCode(palletNo);
+            if (resolvedToBinCode == null) {
+                return R.fail(400, "托盘类型不支持");
+            }
+            toBinCode = resolvedToBinCode;
+        }
         if (fromBinCode == null || toBinCode == null) {
             return R.fail(400, "起始/目标站点不能为空");
         }
@@ -562,7 +577,7 @@ public class PdaApiController {
         AgvTaskBo taskBo = new AgvTaskBo();
         taskBo.setTaskType(taskType);
         taskBo.setTaskNo(StrUtil.trimToNull(request.getOutID()));
-        taskBo.setPalletCode(StrUtil.trimToNull(request.getPalletNo()));
+        taskBo.setPalletCode(palletNo);
         taskBo.setFromBinCode(fromBinCode);
         taskBo.setToBinCode(toBinCode);
         taskBo.setRemark(StrUtil.trimToNull(request.getRemark()));
@@ -585,6 +600,7 @@ public class PdaApiController {
             response.setOutID(taskNo);
             response.setTaskType(taskTypeName);
             response.setStatus("PENDING");
+            response.setToBinCode(toBinCode);
             return R.ok(response);
         } catch (Exception e) {
             agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
@@ -809,6 +825,25 @@ public class PdaApiController {
         wrapper.eq(AgvTask::getTaskType, 1);
         wrapper.in(AgvTask::getStatus, 0, 1);
         return agvTaskMapper.selectCount(wrapper);
+    }
+
+    private String resolveOutboundToBinCode(String palletNo) {
+        PalletVo palletVo = palletService.queryByPalletCode(palletNo);
+        if (palletVo == null || palletVo.getPalletTypeId() == null) {
+            return null;
+        }
+        PalletType palletType = palletTypeService.getById(palletVo.getPalletTypeId());
+        if (palletType == null || palletType.getTypeCode() == null) {
+            return null;
+        }
+        String typeCode = palletType.getTypeCode();
+        if (StrUtil.equalsIgnoreCase(typeCode, PALLET_TYPE_SMALL_CODE)) {
+            return OUTBOUND_SMALL_PALLET_BIN;
+        }
+        if (StrUtil.equalsIgnoreCase(typeCode, PALLET_TYPE_LARGE_CODE)) {
+            return OUTBOUND_LARGE_PALLET_BIN;
+        }
+        return null;
     }
 
     private AgvOpenTaskBo buildPickDropTask(String outId, String fromBinCode, String toBinCode, String matCode) {

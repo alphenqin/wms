@@ -25,4 +25,9 @@ public class PdaTaskDispatchResponse {
      * 任务状态（PENDING/EXECUTING/COMPLETED/CANCELLED/FAILED）
      */
     private String status;
+
+    /**
+     * 目标站点/库位
+     */
+    private String toBinCode;
 }
