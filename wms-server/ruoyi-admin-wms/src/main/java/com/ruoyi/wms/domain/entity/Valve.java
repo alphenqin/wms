@@ -93,5 +93,10 @@ public class Valve extends BaseEntity {
      * 备注
      */
     private String remark;
+
+    /**
+     * 送检目标站点
+     */
+    private String inspectionTargetBin;
 }
 

@@ -57,6 +57,16 @@ public class PdaTaskDispatchRequest {
     private String agvRange;
 
     /**
+     * 阀门编号（可选）
+     */
+    private String valveNo;
+
+    /**
+     * 送检目标区域（可选）
+     */
+    private String inspectionArea;
+
+    /**
      * 备注
      */
     private String remark;

@@ -36,5 +36,6 @@ public class ValveBo extends BaseEntity {
     private Date productionDate;
     private Date expiryDate;
     private String remark;
+    private String inspectionTargetBin;
 }
 

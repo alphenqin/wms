@@ -62,5 +62,8 @@ public class ValveVo extends BaseVo {
 
     @ExcelProperty(value = "备注")
     private String remark;
+
+    @ExcelProperty(value = "送检目标站点")
+    private String inspectionTargetBin;
 }
 

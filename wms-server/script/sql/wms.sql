@@ -1603,6 +1603,7 @@ CREATE TABLE `wms_valve` (
   `production_date` date DEFAULT NULL COMMENT '生产日期',
   `expiry_date` date DEFAULT NULL COMMENT '过期日期',
   `remark` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '备注',
+  `inspection_target_bin` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '送检目标站点',
   `create_by` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '创建人',
   `create_time` datetime(3) DEFAULT NULL COMMENT '创建时间',
   `update_by` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '修改人',
@@ -1622,7 +1623,7 @@ CREATE TABLE `wms_valve` (
 
 LOCK TABLES `wms_valve` WRITE;
 /*!40000 ALTER TABLE `wms_valve` DISABLE KEYS */;
-INSERT INTO `wms_valve` VALUES (2005187572668174337,'test',2004476705476976641,'test',NULL,NULL,NULL,NULL,NULL,NULL,0,NULL,NULL,NULL,'admin','2025-12-28 16:02:26.565','admin','2025-12-28 16:02:26.565');
+INSERT INTO `wms_valve` VALUES (2005187572668174337,'test',2004476705476976641,'test',NULL,NULL,NULL,NULL,NULL,NULL,0,NULL,NULL,NULL,NULL,'admin','2025-12-28 16:02:26.565','admin','2025-12-28 16:02:26.565');
 /*!40000 ALTER TABLE `wms_valve` ENABLE KEYS */;
 UNLOCK TABLES;
 
