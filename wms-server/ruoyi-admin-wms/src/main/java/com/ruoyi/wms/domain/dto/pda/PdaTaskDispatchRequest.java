@@ -52,6 +52,11 @@ public class PdaTaskDispatchRequest {
     private String matCode;
 
     /**
+     * AGV范围（可选）
+     */
+    private String agvRange;
+
+    /**
      * 备注
      */
     private String remark;

@@ -39,6 +39,9 @@ import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 /**
@@ -88,6 +91,20 @@ public class PdaApiController {
     private static final String OUTBOUND_LARGE_PALLET_BIN = "Z4-装卸点";
     private static final String PALLET_TYPE_SMALL_CODE = "t1";
     private static final String PALLET_TYPE_LARGE_CODE = "t2";
+    private static final String INBOUND_SMALL_LOAD_BIN = "Z1-装卸点";
+    private static final String INBOUND_LARGE_LOAD_BIN = "Z2-装卸点";
+    private static final String INBOUND_SMALL_DOCK_BIN = "D2-小托盘接驳点";
+    private static final String INBOUND_LARGE_DOCK_BIN = "D2-大托盘接驳点";
+    private static final String INBOUND_SMALL_BUFFER_BIN = "B3-15-01";
+    private static final String INBOUND_LARGE_BUFFER_BIN = "B3-14-01";
+    private static final String AGV_RANGE_WIDE = "2";
+    private static final String AGV_RANGE_NARROW = "1";
+    private static final String AGV_OPEN_TASK_STATUS_FINISHED = "08";
+    private static final String AGV_OPEN_TASK_STATUS_CLEARED = "09";
+    private static final long AGV_OPEN_TASK_POLL_INTERVAL_MS = 10_000L;
+    private static final long AGV_OPEN_TASK_TIMEOUT_MS = 40L * 60L * 1000L;
+
+    private final ExecutorService inboundExecutor = Executors.newCachedThreadPool();
 
     /**
      * 登录接口
@@ -553,12 +570,75 @@ public class PdaApiController {
         if (taskType == null) {
             return R.fail(400, "任务类型不合法");
         }
-        if (taskType != 1 && hasActiveInboundTask()) {
+        if (taskType == 1 && isInboundLocked()) {
+            return R.fail(409, "入库任务执行中，请稍后再试");
+        }
+        if (taskType != 1 && isInboundLocked()) {
             return R.fail(409, "入库任务执行中，请稍后再试");
         }
         String fromBinCode = StrUtil.trimToNull(request.getFromBinCode());
         String palletNo = StrUtil.trimToNull(request.getPalletNo());
         String toBinCode = StrUtil.trimToNull(request.getToBinCode());
+        String matCode = StrUtil.trimToNull(request.getMatCode());
+
+        if (taskType == 1) {
+            if (palletNo == null) {
+                return R.fail(400, "托盘号不能为空");
+            }
+            String targetBinCode = toBinCode;
+            if (targetBinCode == null) {
+                return R.fail(400, "目标站点不能为空");
+            }
+            String palletType = resolvePalletTypeCode(palletNo);
+            if (palletType == null) {
+                return R.fail(400, "托盘类型错误");
+            }
+            InboundRoute route = buildInboundRoute(palletType, targetBinCode);
+            if (route == null) {
+                return R.fail(400, "托盘类型错误");
+            }
+
+            AgvTaskBo taskBo = new AgvTaskBo();
+            taskBo.setTaskType(taskType);
+            taskBo.setTaskNo(StrUtil.trimToNull(request.getOutID()));
+            taskBo.setPalletCode(palletNo);
+            taskBo.setFromBinCode(route.firstStep.fromBinCode);
+            taskBo.setToBinCode(targetBinCode);
+            taskBo.setRemark(StrUtil.trimToNull(request.getRemark()));
+            taskBo.setTaskSource(TASK_SOURCE_PDA);
+            taskBo.setPdaDeviceNo(StrUtil.trimToNull(request.getDeviceCode()));
+            agvTaskService.insertByBo(taskBo);
+
+            String taskNo = taskBo.getTaskNo();
+            try {
+                String step1OutId = buildInboundStepOutId(taskNo, 1);
+                AgvOpenTaskBo first = buildPickDropTask(step1OutId,
+                    route.firstStep.fromBinCode,
+                    route.firstStep.toBinCode,
+                    null,
+                    route.firstStep.agvRange);
+                Map<String, Object> agvResp = agvOpenTaskService.sendTask(first);
+                String code = MapUtil.getStr(agvResp, "code");
+                String message = MapUtil.getStr(agvResp, "message");
+                if (!"20000".equals(code)) {
+                    agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, StrUtil.emptyToDefault(message, "AGV任务下发失败"));
+                    return R.fail(500, StrUtil.emptyToDefault(message, "AGV任务下发失败"));
+                }
+                agvTaskService.updateTaskStatusByTaskNo(taskNo, 1, null);
+                dispatchInboundFollowupSteps(taskNo, route, matCode);
+            } catch (Exception e) {
+                agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
+                return R.fail(500, "任务下发失败: " + e.getMessage());
+            }
+
+            PdaTaskDispatchResponse response = new PdaTaskDispatchResponse();
+            response.setOutID(taskNo);
+            response.setTaskType(taskTypeName);
+            response.setStatus("PENDING");
+            response.setToBinCode(targetBinCode);
+            return R.ok(response);
+        }
+
         if (taskType == 4) {
             if (palletNo == null) {
                 return R.fail(400, "托盘号不能为空");
@@ -587,7 +667,8 @@ public class PdaApiController {
 
         String taskNo = taskBo.getTaskNo();
         try {
-            AgvOpenTaskBo openTaskBo = buildPickDropTask(taskNo, fromBinCode, toBinCode, request.getMatCode());
+            String agvRange = StrUtil.trimToNull(request.getAgvRange());
+            AgvOpenTaskBo openTaskBo = buildPickDropTask(taskNo, fromBinCode, toBinCode, matCode, agvRange);
             Map<String, Object> agvResp = agvOpenTaskService.sendTask(openTaskBo);
             String code = MapUtil.getStr(agvResp, "code");
             String message = MapUtil.getStr(agvResp, "message");
@@ -653,7 +734,7 @@ public class PdaApiController {
     public R<PdaInboundLockResponse> inboundLockStatus() {
         long count = countActiveInboundTasks();
         PdaInboundLockResponse response = new PdaInboundLockResponse();
-        response.setLocked(count > 0);
+        response.setLocked(isInboundLocked());
         response.setCount(count);
         return R.ok(response);
     }
@@ -820,6 +901,21 @@ public class PdaApiController {
         return countActiveInboundTasks() > 0;
     }
 
+    private boolean isInboundLocked() {
+        if (countActiveInboundTasks() > 0) {
+            return true;
+        }
+        AgvTask latest = getLatestInboundTask();
+        if (latest == null) {
+            return false;
+        }
+        Integer status = latest.getStatus();
+        if (status == null) {
+            return true;
+        }
+        return status != 2 && status != 3 && status != 4;
+    }
+
     private long countActiveInboundTasks() {
         LambdaQueryWrapper<AgvTask> wrapper = Wrappers.lambdaQuery();
         wrapper.eq(AgvTask::getTaskType, 1);
@@ -827,16 +923,16 @@ public class PdaApiController {
         return agvTaskMapper.selectCount(wrapper);
     }
 
+    private AgvTask getLatestInboundTask() {
+        LambdaQueryWrapper<AgvTask> wrapper = Wrappers.lambdaQuery();
+        wrapper.eq(AgvTask::getTaskType, 1);
+        wrapper.orderByDesc(AgvTask::getCreateTime);
+        wrapper.last("limit 1");
+        return agvTaskMapper.selectOne(wrapper);
+    }
+
     private String resolveOutboundToBinCode(String palletNo) {
-        PalletVo palletVo = palletService.queryByPalletCode(palletNo);
-        if (palletVo == null || palletVo.getPalletTypeId() == null) {
-            return null;
-        }
-        PalletType palletType = palletTypeService.getById(palletVo.getPalletTypeId());
-        if (palletType == null || palletType.getTypeCode() == null) {
-            return null;
-        }
-        String typeCode = palletType.getTypeCode();
+        String typeCode = resolvePalletTypeCode(palletNo);
         if (StrUtil.equalsIgnoreCase(typeCode, PALLET_TYPE_SMALL_CODE)) {
             return OUTBOUND_SMALL_PALLET_BIN;
         }
@@ -846,11 +942,111 @@ public class PdaApiController {
         return null;
     }
 
-    private AgvOpenTaskBo buildPickDropTask(String outId, String fromBinCode, String toBinCode, String matCode) {
+    private String resolvePalletTypeCode(String palletNo) {
+        PalletVo palletVo = palletService.queryByPalletCode(palletNo);
+        if (palletVo == null || palletVo.getPalletTypeId() == null) {
+            return null;
+        }
+        PalletType palletType = palletTypeService.getById(palletVo.getPalletTypeId());
+        if (palletType == null || palletType.getTypeCode() == null) {
+            return null;
+        }
+        return palletType.getTypeCode();
+    }
+
+    private String buildInboundStepOutId(String baseTaskNo, int stepIndex) {
+        return baseTaskNo + "-" + stepIndex;
+    }
+
+    private void dispatchInboundFollowupSteps(String taskNo, InboundRoute route, String matCode) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                if (!waitForOpenTaskFinished(buildInboundStepOutId(taskNo, 1))) {
+                    agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "入库流程步骤1未完成");
+                    return;
+                }
+                if (!dispatchInboundStep(taskNo, 2, route.secondStep, route.targetBinCode, matCode)) {
+                    return;
+                }
+                if (!dispatchInboundStep(taskNo, 3, route.thirdStep, route.targetBinCode, null)) {
+                    return;
+                }
+                if (!dispatchInboundStep(taskNo, 4, route.fourthStep, route.targetBinCode, null)) {
+                    return;
+                }
+                agvTaskService.updateTaskStatusByTaskNo(taskNo, 2, null);
+            } catch (Exception e) {
+                agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
+            }
+        }, inboundExecutor);
+    }
+
+    private boolean dispatchInboundStep(String taskNo, int stepIndex, InboundStep step, String targetBinCode, String matCode) {
+        try {
+            String outId = buildInboundStepOutId(taskNo, stepIndex);
+            String dropMatCode = step.toBinCode.equals(targetBinCode) ? matCode : null;
+            AgvOpenTaskBo taskBo = buildPickDropTask(outId, step.fromBinCode, step.toBinCode, dropMatCode, step.agvRange);
+            Map<String, Object> agvResp = agvOpenTaskService.sendTask(taskBo);
+            String code = MapUtil.getStr(agvResp, "code");
+            String message = MapUtil.getStr(agvResp, "message");
+            if (!"20000".equals(code)) {
+                agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, StrUtil.emptyToDefault(message, "AGV任务下发失败"));
+                return false;
+            }
+            if (!waitForOpenTaskFinished(outId)) {
+                agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "入库流程步骤" + stepIndex + "未完成");
+                return false;
+            }
+            return true;
+        } catch (Exception e) {
+            agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
+            return false;
+        }
+    }
+
+    private boolean waitForOpenTaskFinished(String outId) {
+        long deadline = System.currentTimeMillis() + AGV_OPEN_TASK_TIMEOUT_MS;
+        while (System.currentTimeMillis() < deadline) {
+            Map<String, Object> resp = agvOpenTaskService.refreshTaskResult(outId);
+            String status = MapUtil.getStr(resp, "status");
+            if (AGV_OPEN_TASK_STATUS_FINISHED.equals(status)) {
+                return true;
+            }
+            if (AGV_OPEN_TASK_STATUS_CLEARED.equals(status)) {
+                return false;
+            }
+            try {
+                Thread.sleep(AGV_OPEN_TASK_POLL_INTERVAL_MS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+        }
+        return false;
+    }
+
+    private InboundRoute buildInboundRoute(String palletTypeCode, String targetBinCode) {
+        boolean isSmall = StrUtil.equalsIgnoreCase(palletTypeCode, PALLET_TYPE_SMALL_CODE);
+        boolean isLarge = StrUtil.equalsIgnoreCase(palletTypeCode, PALLET_TYPE_LARGE_CODE);
+        if (!isSmall && !isLarge) {
+            return null;
+        }
+        String loadBin = isSmall ? INBOUND_SMALL_LOAD_BIN : INBOUND_LARGE_LOAD_BIN;
+        String dockBin = isSmall ? INBOUND_SMALL_DOCK_BIN : INBOUND_LARGE_DOCK_BIN;
+        String bufferBin = isSmall ? INBOUND_SMALL_BUFFER_BIN : INBOUND_LARGE_BUFFER_BIN;
+        InboundStep first = new InboundStep(AGV_RANGE_WIDE, loadBin, dockBin);
+        InboundStep second = new InboundStep(AGV_RANGE_NARROW, bufferBin, targetBinCode);
+        InboundStep third = new InboundStep(AGV_RANGE_NARROW, targetBinCode, bufferBin);
+        InboundStep fourth = new InboundStep(AGV_RANGE_WIDE, dockBin, loadBin);
+        return new InboundRoute(targetBinCode, first, second, third, fourth);
+    }
+
+    private AgvOpenTaskBo buildPickDropTask(String outId, String fromBinCode, String toBinCode, String matCode, String agvRange) {
         AgvOpenTaskBo taskBo = new AgvOpenTaskBo();
         taskBo.setTaskType(AGV_TASK_TYPE_PICK_AND_DROP);
         taskBo.setOutId(outId);
         taskBo.setLevel(AGV_TASK_LEVEL_NORMAL);
+        taskBo.setAgvRange(agvRange);
 
         List<AgvOpenTaskBo.AgvTaskPoint> points = new ArrayList<>();
         AgvOpenTaskBo.AgvTaskPoint take = new AgvOpenTaskBo.AgvTaskPoint();
@@ -891,6 +1087,35 @@ public class PdaApiController {
             }
         }
         return null;
+    }
+
+    private static class InboundStep {
+        private final String agvRange;
+        private final String fromBinCode;
+        private final String toBinCode;
+
+        private InboundStep(String agvRange, String fromBinCode, String toBinCode) {
+            this.agvRange = agvRange;
+            this.fromBinCode = fromBinCode;
+            this.toBinCode = toBinCode;
+        }
+    }
+
+    private static class InboundRoute {
+        private final String targetBinCode;
+        private final InboundStep firstStep;
+        private final InboundStep secondStep;
+        private final InboundStep thirdStep;
+        private final InboundStep fourthStep;
+
+        private InboundRoute(String targetBinCode, InboundStep firstStep, InboundStep secondStep,
+                             InboundStep thirdStep, InboundStep fourthStep) {
+            this.targetBinCode = targetBinCode;
+            this.firstStep = firstStep;
+            this.secondStep = secondStep;
+            this.thirdStep = thirdStep;
+            this.fourthStep = fourthStep;
+        }
     }
 }
 
