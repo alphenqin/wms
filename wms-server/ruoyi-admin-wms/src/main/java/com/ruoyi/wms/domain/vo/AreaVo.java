@@ -6,10 +6,12 @@ import com.ruoyi.common.mybatis.core.domain.BaseVo;
 import com.ruoyi.wms.domain.entity.Area;
 import io.github.linpeilie.annotations.AutoMapper;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.io.Serial;
 
 @Data
+@EqualsAndHashCode(callSuper = true)
 @ExcelIgnoreUnannotated
 @AutoMapper(target = Area.class)
 public class AreaVo extends BaseVo {

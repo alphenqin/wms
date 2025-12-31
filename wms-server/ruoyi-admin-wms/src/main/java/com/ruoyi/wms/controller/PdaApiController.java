@@ -822,7 +822,6 @@ public class PdaApiController {
             return R.fail(400, "起始/目标站点不能为空");
         }
 
-        String deviceCode = StrUtil.trimToNull(request.getDeviceCode());
         AgvTaskBo taskBo = new AgvTaskBo();
         taskBo.setTaskType(taskType);
         taskBo.setTaskNo(StrUtil.trimToNull(request.getOutID()));

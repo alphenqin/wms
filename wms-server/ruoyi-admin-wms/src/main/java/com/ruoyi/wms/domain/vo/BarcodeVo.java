@@ -6,10 +6,12 @@ import com.ruoyi.common.mybatis.core.domain.BaseVo;
 import com.ruoyi.wms.domain.entity.Barcode;
 import io.github.linpeilie.annotations.AutoMapper;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.io.Serial;
 
 @Data
+@EqualsAndHashCode(callSuper = true)
 @ExcelIgnoreUnannotated
 @AutoMapper(target = Barcode.class)
 public class BarcodeVo extends BaseVo {

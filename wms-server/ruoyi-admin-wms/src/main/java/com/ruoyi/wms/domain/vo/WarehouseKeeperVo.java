@@ -6,11 +6,13 @@ import com.ruoyi.common.mybatis.core.domain.BaseVo;
 import com.ruoyi.wms.domain.entity.WarehouseKeeper;
 import io.github.linpeilie.annotations.AutoMapper;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.io.Serial;
 import java.util.Date;
 
 @Data
+@EqualsAndHashCode(callSuper = true)
 @ExcelIgnoreUnannotated
 @AutoMapper(target = WarehouseKeeper.class)
 public class WarehouseKeeperVo extends BaseVo {

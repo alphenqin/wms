@@ -6,6 +6,7 @@ import com.ruoyi.common.mybatis.core.domain.BaseVo;
 import com.ruoyi.wms.domain.entity.ItemBrand;
 import io.github.linpeilie.annotations.AutoMapper;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.io.Serial;
 
@@ -16,6 +17,7 @@ import java.io.Serial;
  * @date 2024-07-30
  */
 @Data
+@EqualsAndHashCode(callSuper = true)
 @ExcelIgnoreUnannotated
 @AutoMapper(target = ItemBrand.class)
 public class ItemBrandVo extends BaseVo {

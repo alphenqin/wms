@@ -6,11 +6,13 @@ import com.ruoyi.common.mybatis.core.domain.BaseVo;
 import com.ruoyi.wms.domain.entity.Bin;
 import io.github.linpeilie.annotations.AutoMapper;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.io.Serial;
 import java.math.BigDecimal;
 
 @Data
+@EqualsAndHashCode(callSuper = true)
 @ExcelIgnoreUnannotated
 @AutoMapper(target = Bin.class)
 public class BinVo extends BaseVo {
