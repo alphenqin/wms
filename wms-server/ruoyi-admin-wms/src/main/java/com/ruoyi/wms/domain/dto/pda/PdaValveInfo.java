@@ -56,5 +56,10 @@ public class PdaValveInfo implements Serializable {
      * 阀门状态（IN_STOCK、IN_INSPECTION、INSPECTED、OUTBOUND）
      */
     private String valveStatus;
+
+    /**
+     * 送检目标站点（如 F1/F2/F3/F4）
+     */
+    private String inspectionTargetBin;
 }
 

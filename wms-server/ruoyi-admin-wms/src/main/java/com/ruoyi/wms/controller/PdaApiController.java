@@ -445,6 +445,7 @@ public class PdaApiController {
                 info.setPalletNo(valve.getPalletCode());
                 info.setBinCode(valve.getCurrentBinCode());
                 info.setValveStatus(convertValveStatusToString(valve.getStatus()));
+                info.setInspectionTargetBin(valve.getInspectionTargetBin());
                 
                 // 入库日期
                 if (valve.getProductionDate() != null) {
@@ -580,6 +581,37 @@ public class PdaApiController {
         if (taskType == null) {
             return R.fail(400, "任务类型不合法");
         }
+        String requestOutId = StrUtil.trimToNull(request.getOutID());
+        String deviceCode = StrUtil.trimToNull(request.getDeviceCode());
+        String palletNo = StrUtil.trimToNull(request.getPalletNo());
+        String toBinCode = StrUtil.trimToNull(request.getToBinCode());
+        if (requestOutId != null) {
+            AgvTaskVo existing = agvTaskService.queryByTaskNo(requestOutId);
+            if (existing != null) {
+                boolean mismatch = false;
+                if (existing.getTaskType() != null && !existing.getTaskType().equals(taskType)) {
+                    mismatch = true;
+                }
+                if (deviceCode != null && !StrUtil.equals(deviceCode, existing.getPdaDeviceNo())) {
+                    mismatch = true;
+                }
+                if (palletNo != null && !StrUtil.equals(palletNo, existing.getPalletCode())) {
+                    mismatch = true;
+                }
+                if (toBinCode != null && !StrUtil.equals(toBinCode, existing.getToBinCode())) {
+                    mismatch = true;
+                }
+                if (mismatch) {
+                    return R.fail(409, "outID已存在且参数不一致");
+                }
+                PdaTaskDispatchResponse response = new PdaTaskDispatchResponse();
+                response.setOutID(existing.getTaskNo());
+                response.setTaskType(convertTaskTypeToString(existing.getTaskType()));
+                response.setStatus(convertTaskStatusToString(existing.getStatus()));
+                response.setToBinCode(existing.getToBinCode());
+                return R.ok(response);
+            }
+        }
         if (taskType == 1 && isInboundLocked()) {
             return R.fail(409, "入库任务执行中，请稍后再试");
         }
@@ -587,8 +619,6 @@ public class PdaApiController {
             return R.fail(409, "入库任务执行中，请稍后再试");
         }
         String fromBinCode = StrUtil.trimToNull(request.getFromBinCode());
-        String palletNo = StrUtil.trimToNull(request.getPalletNo());
-        String toBinCode = StrUtil.trimToNull(request.getToBinCode());
         String matCode = StrUtil.trimToNull(request.getMatCode());
 
         if (taskType == 1) {
