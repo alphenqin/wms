@@ -1,1 +1,1 @@
-{"doc":"\n 操作状态\r\n\r\n @author ruoyi\r\n","fields":[],"enumConstants":[{"name":"FAIL","doc":"\n 成功\r\n"},{"name":"SUCCESS","doc":"\n 失败\r\n"}],"methods":[],"constructors":[]}
+{"doc":" 操作状态\n\n @author ruoyi\n","fields":[],"enumConstants":[{"name":"FAIL","doc":" 成功\n"},{"name":"SUCCESS","doc":" 失败\n"}],"methods":[],"constructors":[]}

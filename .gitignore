@@ -44,6 +44,11 @@ nbdist/
 logs/
 log/
 !wms-server/ruoyi-common/ruoyi-common-log/**
+# 重新忽略 ruoyi-common-log 模块中的构建产物
+wms-server/ruoyi-common/ruoyi-common-log/target/
+wms-server/ruoyi-common/ruoyi-common-log/target/**
+# 生成的 Javadoc JSON
+**/*__Javadoc.json
 
 # 临时文件
 *.tmp
