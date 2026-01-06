@@ -176,6 +176,17 @@ public class AreaService extends ServiceImpl<AreaMapper, Area> {
         areaMapper.deleteById(id);
     }
 
+    /**
+     * 批量删除货区
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteByIds(Collection<Long> ids) {
+        for (Long id : ids) {
+            validIdBeforeDelete(id);
+        }
+        areaMapper.deleteBatchIds(ids);
+    }
+
     private void validIdBeforeDelete(Long id) {
         // 检查是否有货位关联
         LambdaQueryWrapper<com.ruoyi.wms.domain.entity.Bin> wrapper = Wrappers.lambdaQuery();

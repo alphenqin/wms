@@ -95,6 +95,14 @@ public class ValveController extends BaseController {
     }
 
     @SaCheckPermission("wms:valve:edit")
+    @Log(title = "阀门", businessType = BusinessType.DELETE)
+    @DeleteMapping("/batch/{ids}")
+    public R<Void> removeBatch(@PathVariable List<Long> ids) {
+        valveService.deleteByIds(ids);
+        return R.ok();
+    }
+
+    @SaCheckPermission("wms:valve:edit")
     @Log(title = "阀门", businessType = BusinessType.UPDATE)
     @PutMapping("/{id}/status")
     public R<Void> updateStatus(@PathVariable Long id, @RequestParam Integer status) {

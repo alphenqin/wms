@@ -322,7 +322,7 @@
 </template>
 
 <script setup name="Item">
-import {getItem, delItem, addItem, updateItem} from '@/api/wms/item';
+import {getItem, delItem, delItems, addItem, updateItem} from '@/api/wms/item';
 import {computed, getCurrentInstance, nextTick, onMounted, reactive, ref, toRefs} from 'vue';
 import {ElForm, ElTree, ElTreeSelect} from 'element-plus';
 import {
@@ -687,9 +687,15 @@ const submitCategoryForm = () => {
 /** 删除按钮操作 */
 const handleDelete = async (row) => {
   const _ids = row?.itemId || ids.value;
-  await proxy?.$modal.confirm('确认删除商品【' + row?.item.itemName + '】吗？');
-  loading.value = true;
-  await delItem(_ids).finally(()=> loading.value = false);
+  if (Array.isArray(_ids)) {
+    await proxy?.$modal.confirm('是否确认删除共"' + _ids.length + '"条数据项？');
+    loading.value = true;
+    await delItems(_ids).finally(()=> loading.value = false);
+  } else {
+    await proxy?.$modal.confirm('确认删除商品【' + row?.item.itemName + '】吗？');
+    loading.value = true;
+    await delItem(_ids).finally(()=> loading.value = false);
+  }
   proxy?.$modal.msgSuccess("删除成功");
   await getList();
 }

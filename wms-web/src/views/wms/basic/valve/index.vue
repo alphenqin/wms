@@ -317,8 +317,13 @@ const submitForm = () => {
 /** 删除按钮操作 */
 const handleDelete = async (row) => {
   const _ids = row.id || ids.value;
-  await proxy?.$modal.confirm('是否确认删除阀门编号为"' + _ids + '"的数据项？');
-  await delValve(_ids);
+  if (Array.isArray(_ids)) {
+    await proxy?.$modal.confirm('是否确认删除共"' + _ids.length + '"条数据项？');
+    await delValves(_ids);
+  } else {
+    await proxy?.$modal.confirm('是否确认删除阀门编号为"' + _ids + '"的数据项？');
+    await delValve(_ids);
+  }
   proxy?.$modal.msgSuccess("删除成功");
   await getList();
 };

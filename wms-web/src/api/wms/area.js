@@ -73,6 +73,17 @@ export function delArea(id) {
 };
 
 /**
+ * 批量删除货区
+ * @param ids
+ */
+export function delAreas(ids) {
+  return request({
+    url: '/wms/area/batch/' + ids.join(','),
+    method: 'delete'
+  });
+};
+
+/**
  * 导出货区
  * @param query
  */

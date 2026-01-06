@@ -25,7 +25,7 @@ export function getValve(id) {
 
 export function getValveByNo(valveNo) {
   return request({
-    url: '/wms/valve/no/' + valveNo,
+    url: '/wms/valve/code/' + valveNo,
     method: 'get'
   });
 };
@@ -49,6 +49,13 @@ export function updateValve(data) {
 export function delValve(id) {
   return request({
     url: '/wms/valve/' + id,
+    method: 'delete'
+  });
+};
+
+export function delValves(ids) {
+  return request({
+    url: '/wms/valve/batch/' + ids.join(','),
     method: 'delete'
   });
 };

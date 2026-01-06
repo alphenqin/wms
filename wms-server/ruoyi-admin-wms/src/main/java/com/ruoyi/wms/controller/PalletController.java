@@ -95,6 +95,14 @@ public class PalletController extends BaseController {
     }
 
     @SaCheckPermission("wms:pallet:edit")
+    @Log(title = "托盘", businessType = BusinessType.DELETE)
+    @DeleteMapping("/batch/{ids}")
+    public R<Void> removeBatch(@PathVariable List<Long> ids) {
+        palletService.deleteByIds(ids);
+        return R.ok();
+    }
+
+    @SaCheckPermission("wms:pallet:edit")
     @Log(title = "托盘", businessType = BusinessType.UPDATE)
     @PutMapping("/{id}/bin")
     public R<Void> updateBin(@PathVariable Long id, @RequestParam Long binId, @RequestParam String binCode) {

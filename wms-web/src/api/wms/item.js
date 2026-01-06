@@ -81,3 +81,14 @@ export function delItem(id) {
     method: 'delete'
   });
 };
+
+/**
+ * 批量删除物料
+ * @param ids
+ */
+export function delItems(ids) {
+  return request({
+    url: '/wms/item/batch/' + ids.join(','),
+    method: 'delete'
+  });
+};

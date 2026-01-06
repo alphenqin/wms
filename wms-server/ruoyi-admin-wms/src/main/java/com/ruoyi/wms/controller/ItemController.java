@@ -107,4 +107,17 @@ public class ItemController extends BaseController {
         itemService.deleteById(id);
         return R.ok();
     }
+
+    /**
+     * 批量删除物料
+     *
+     * @param ids 主键列表
+     */
+    @Log(title = "物料", businessType = BusinessType.DELETE)
+    @DeleteMapping("/batch/{ids}")
+    @SaCheckPermission("wms:item:edit")
+    public R<Void> removeBatch(@PathVariable List<Long> ids) {
+        itemService.deleteByIds(ids);
+        return R.ok();
+    }
 }

@@ -125,6 +125,17 @@ public class BinController extends BaseController {
     }
 
     /**
+     * 批量删除货位
+     */
+    @SaCheckPermission("wms:bin:edit")
+    @Log(title = "货位", businessType = BusinessType.DELETE)
+    @DeleteMapping("/batch/{ids}")
+    public R<Void> removeBatch(@PathVariable List<Long> ids) {
+        binService.deleteByIds(ids);
+        return R.ok();
+    }
+
+    /**
      * 更新货位状态
      */
     @SaCheckPermission("wms:bin:edit")

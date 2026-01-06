@@ -201,7 +201,7 @@
 </template>
 
 <script setup name="Bin">
-import { listBin, getBin, delBin, addBin, updateBin, exportBin } from '@/api/wms/bin';
+import { listBin, getBin, delBin, delBins, addBin, updateBin, exportBin } from '@/api/wms/bin';
 import { listAreaNoPage } from '@/api/wms/area';
 import { listWarehouseNoPage } from '@/api/wms/warehouse';
 import { getCurrentInstance, reactive, ref, toRefs, onMounted } from 'vue';
@@ -405,8 +405,13 @@ const submitForm = () => {
 /** 删除按钮操作 */
 const handleDelete = async (row) => {
   const _ids = row.id || ids.value;
-  await proxy?.$modal.confirm('是否确认删除货位编号为"' + _ids + '"的数据项？');
-  await delBin(_ids);
+  if (Array.isArray(_ids)) {
+    await proxy?.$modal.confirm('是否确认删除共"' + _ids.length + '"条数据项？');
+    await delBins(_ids);
+  } else {
+    await proxy?.$modal.confirm('是否确认删除货位编号为"' + _ids + '"的数据项？');
+    await delBin(_ids);
+  }
   proxy?.$modal.msgSuccess("删除成功");
   await getList();
 };

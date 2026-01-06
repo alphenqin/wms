@@ -53,6 +53,13 @@ export function delPallet(id) {
   });
 };
 
+export function delPallets(ids) {
+  return request({
+    url: '/wms/pallet/batch/' + ids.join(','),
+    method: 'delete'
+  });
+};
+
 export function exportPallet(query) {
   return request({
     url: '/wms/pallet/export',

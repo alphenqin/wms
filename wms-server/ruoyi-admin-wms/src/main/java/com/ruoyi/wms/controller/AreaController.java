@@ -106,6 +106,17 @@ public class AreaController extends BaseController {
     }
 
     /**
+     * 批量删除货区
+     */
+    @SaCheckPermission("wms:area:edit")
+    @Log(title = "货区", businessType = BusinessType.DELETE)
+    @DeleteMapping("/batch/{ids}")
+    public R<Void> removeBatch(@PathVariable List<Long> ids) {
+        areaService.deleteByIds(ids);
+        return R.ok();
+    }
+
+    /**
      * 更新排序
      */
     @SaCheckPermission("wms:area:edit")

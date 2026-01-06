@@ -76,8 +76,8 @@ public class InjectionMetaObjectHandler implements MetaObjectHandler {
         try {
             loginUser = LoginHelper.getLoginUser();
         } catch (Exception e) {
-            log.warn("自动注入警告 => 用户未登录");
-            return null;
+            // 后台任务或系统操作时无用户登录信息，使用系统默认值
+            return "system";
         }
         return ObjectUtil.isNotNull(loginUser) ? loginUser.getUsername() : null;
     }

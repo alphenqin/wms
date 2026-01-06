@@ -162,13 +162,23 @@ public class ItemService {
 
 
     /**
-     * 批量删除物料
+     * 删除物料
      */
     @Transactional
     public void deleteById(Long id) {
         List<Long> skuIds = itemSkuService.queryByItemId(id).stream().map(ItemSkuVo::getId).toList();
         itemMapper.deleteById(id);
         itemSkuService.deleteByIds(skuIds);
+    }
+
+    /**
+     * 批量删除物料
+     */
+    @Transactional
+    public void deleteByIds(Collection<Long> ids) {
+        for (Long id : ids) {
+            deleteById(id);
+        }
     }
 
 }

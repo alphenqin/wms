@@ -157,7 +157,7 @@
 </template>
 
 <script setup name="Pallet">
-import { listPallet, getPallet, delPallet, addPallet, updatePallet } from '@/api/wms/pallet';
+import { listPallet, getPallet, delPallet, delPallets, addPallet, updatePallet } from '@/api/wms/pallet';
 import { listPalletTypeNoPage } from '@/api/wms/palletType';
 import { getCurrentInstance, reactive, ref, toRefs, onMounted } from 'vue';
 
@@ -304,8 +304,13 @@ const submitForm = () => {
 /** 删除按钮操作 */
 const handleDelete = async (row) => {
   const _ids = row.id || ids.value;
-  await proxy?.$modal.confirm('是否确认删除托盘编号为"' + _ids + '"的数据项？');
-  await delPallet(_ids);
+  if (Array.isArray(_ids)) {
+    await proxy?.$modal.confirm('是否确认删除共"' + _ids.length + '"条数据项？');
+    await delPallets(_ids);
+  } else {
+    await proxy?.$modal.confirm('是否确认删除托盘编号为"' + _ids + '"的数据项？');
+    await delPallet(_ids);
+  }
   proxy?.$modal.msgSuccess("删除成功");
   await getList();
 };

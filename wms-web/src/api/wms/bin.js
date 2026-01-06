@@ -84,6 +84,17 @@ export function delBin(id) {
 };
 
 /**
+ * 批量删除货位
+ * @param ids
+ */
+export function delBins(ids) {
+  return request({
+    url: '/wms/bin/batch/' + ids.join(','),
+    method: 'delete'
+  });
+};
+
+/**
  * 导出货位
  * @param query
  */
