@@ -82,6 +82,8 @@ dist-ssr/
 .env.local
 .env.*.local
 .env.production
+# Allow tracked prod env for wms-web deployment config
+!wms-web/.env.production
 
 # 允许前端源码中的 bin 目录（避免被通用 bin/ 规则忽略）
 !wms-web/src/**/bin/
