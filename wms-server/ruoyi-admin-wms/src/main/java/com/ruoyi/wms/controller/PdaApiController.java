@@ -23,6 +23,7 @@ import com.ruoyi.wms.domain.bo.AgvTaskBo;
 import com.ruoyi.wms.domain.dto.pda.*;
 import com.ruoyi.wms.domain.entity.*;
 import com.ruoyi.wms.domain.vo.AgvTaskVo;
+import com.ruoyi.wms.domain.vo.PalletTypeVo;
 import com.ruoyi.wms.domain.vo.PalletVo;
 import com.ruoyi.wms.domain.vo.ValveVo;
 import com.ruoyi.wms.mapper.*;
@@ -113,6 +114,7 @@ public class PdaApiController {
     private static final String AGV_OPEN_TASK_STATUS_CLEARED = "09";
     private static final long AGV_OPEN_TASK_POLL_INTERVAL_MS = 10_000L;
     private static final long AGV_OPEN_TASK_TIMEOUT_MS = 40L * 60L * 1000L;
+    private static final int INBOUND_RESERVED_PALLET_COUNT = 2;
 
     private final ExecutorService inboundExecutor = Executors.newCachedThreadPool();
 
@@ -271,6 +273,24 @@ public class PdaApiController {
         } catch (Exception e) {
             log.error("获取可用托盘失败", e);
             return R.fail(500, "获取可用托盘失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 托盘置空
+     */
+    @PostMapping("/pallet/unbind")
+    public R<Void> unbindPallet(@Valid @RequestBody PdaPalletUnbindRequest request) {
+        try {
+            PalletVo palletVo = palletService.queryByPalletCode(request.getPalletNo());
+            if (palletVo == null || palletVo.getId() == null) {
+                return R.fail(404, "托盘不存在");
+            }
+            palletService.unbindMaterial(palletVo.getId());
+            return R.ok();
+        } catch (Exception e) {
+            log.error("托盘置空失败", e);
+            return R.fail(500, "托盘置空失败: " + e.getMessage());
         }
     }
 
@@ -637,6 +657,19 @@ public class PdaApiController {
             if (route == null) {
                 return R.fail(400, "托盘类型错误");
             }
+            List<PalletVo> reservedEmptyPallets = reserveInboundEmptyPallets(palletType, INBOUND_RESERVED_PALLET_COUNT);
+            if (reservedEmptyPallets.isEmpty()) {
+                return R.fail(409, "空托盘不足");
+            }
+            String emptyPalletFromBin = StrUtil.trimToNull(reservedEmptyPallets.get(0).getCurrentBinCode());
+            if (emptyPalletFromBin == null) {
+                restoreInboundEmptyPallets(reservedEmptyPallets);
+                return R.fail(409, "空托盘库位为空");
+            }
+            List<Long> reservedPalletIds = reservedEmptyPallets.stream()
+                .map(PalletVo::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
 
             AgvTaskBo taskBo = new AgvTaskBo();
             taskBo.setTaskType(taskType);
@@ -662,12 +695,14 @@ public class PdaApiController {
                 String message = MapUtil.getStr(agvResp, "message");
                 if (!"20000".equals(code)) {
                     agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, StrUtil.emptyToDefault(message, "AGV任务下发失败"));
+                    restoreInboundEmptyPallets(reservedPalletIds);
                     return R.fail(500, StrUtil.emptyToDefault(message, "AGV任务下发失败"));
                 }
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 1, null);
-                dispatchInboundFollowupSteps(taskNo, route, matCode);
+                dispatchInboundFollowupSteps(taskNo, route, matCode, emptyPalletFromBin, reservedPalletIds);
             } catch (Exception e) {
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
+                restoreInboundEmptyPallets(reservedPalletIds);
                 return R.fail(500, "任务下发失败: " + e.getMessage());
             }
 
@@ -1174,8 +1209,10 @@ public class PdaApiController {
         return baseTaskNo + "-" + stepIndex;
     }
 
-    private void dispatchInboundFollowupSteps(String taskNo, InboundRoute route, String matCode) {
+    private void dispatchInboundFollowupSteps(String taskNo, InboundRoute route, String matCode,
+                                              String emptyPalletFromBin, List<Long> reservedPalletIds) {
         CompletableFuture.runAsync(() -> {
+            boolean completed = false;
             try {
                 if (!waitForOpenTaskFinished(buildInboundStepOutId(taskNo, 1))) {
                     agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "入库流程步骤1未完成");
@@ -1184,15 +1221,21 @@ public class PdaApiController {
                 if (!dispatchInboundStep(taskNo, 2, route.secondStep, route.targetBinCode, matCode)) {
                     return;
                 }
-                if (!dispatchInboundStep(taskNo, 3, route.thirdStep, route.targetBinCode, null)) {
+                InboundStep thirdStep = new InboundStep(route.thirdStep.agvRange, emptyPalletFromBin, route.thirdStep.toBinCode);
+                if (!dispatchInboundStep(taskNo, 3, thirdStep, route.targetBinCode, null)) {
                     return;
                 }
                 if (!dispatchInboundStep(taskNo, 4, route.fourthStep, route.targetBinCode, null)) {
                     return;
                 }
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 2, null);
+                completed = true;
             } catch (Exception e) {
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
+            } finally {
+                if (!completed) {
+                    restoreInboundEmptyPallets(reservedPalletIds);
+                }
             }
         }, inboundExecutor);
     }
@@ -1274,6 +1317,39 @@ public class PdaApiController {
             return INSPECTION_AREA_FLOW;
         }
         return null;
+    }
+
+    private List<PalletVo> reserveInboundEmptyPallets(String palletTypeCode, int count) {
+        if (StrUtil.isBlank(palletTypeCode) || count <= 0) {
+            return Collections.emptyList();
+        }
+        PalletTypeVo palletType = palletTypeService.queryByTypeCode(palletTypeCode);
+        if (palletType == null || palletType.getId() == null) {
+            return Collections.emptyList();
+        }
+        List<PalletVo> pallets = palletService.reserveEmptyPalletsByType(palletType.getId(), count);
+        if (pallets.size() < count) {
+            return Collections.emptyList();
+        }
+        return pallets;
+    }
+
+    private void restoreInboundEmptyPallets(List<Long> reservedPalletIds) {
+        if (reservedPalletIds == null || reservedPalletIds.isEmpty()) {
+            return;
+        }
+        palletService.restoreEmptyPallets(reservedPalletIds);
+    }
+
+    private void restoreInboundEmptyPallets(List<PalletVo> reservedPallets) {
+        if (reservedPallets == null || reservedPallets.isEmpty()) {
+            return;
+        }
+        List<Long> palletIds = reservedPallets.stream()
+            .map(PalletVo::getId)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toList());
+        restoreInboundEmptyPallets(palletIds);
     }
 
     private String resolveInspectionTargetBin(String area, String palletTypeCode) {
