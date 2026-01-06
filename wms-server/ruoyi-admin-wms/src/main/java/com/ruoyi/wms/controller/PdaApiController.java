@@ -663,7 +663,7 @@ public class PdaApiController {
             }
             String emptyPalletFromBin = StrUtil.trimToNull(reservedEmptyPallets.get(0).getCurrentBinCode());
             if (emptyPalletFromBin == null) {
-                restoreInboundEmptyPallets(reservedEmptyPallets);
+                restoreInboundEmptyPalletsFromVoList(reservedEmptyPallets);
                 return R.fail(409, "空托盘库位为空");
             }
             List<Long> reservedPalletIds = reservedEmptyPallets.stream()
@@ -1341,7 +1341,7 @@ public class PdaApiController {
         palletService.restoreEmptyPallets(reservedPalletIds);
     }
 
-    private void restoreInboundEmptyPallets(List<PalletVo> reservedPallets) {
+    private void restoreInboundEmptyPalletsFromVoList(List<PalletVo> reservedPallets) {
         if (reservedPallets == null || reservedPallets.isEmpty()) {
             return;
         }
