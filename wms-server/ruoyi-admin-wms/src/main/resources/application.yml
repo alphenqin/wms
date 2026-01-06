@@ -114,11 +114,9 @@ sa-token:
   # 是否尝试从header里读取token
   is-read-header: true
   # 是否尝试从cookie里读取token
-  is-read-cookie: false
+  is-read-cookie: true
   # token前缀
   token-prefix: "Bearer"
-  # jwt秘钥
-  jwt-secret-key: abcdefghijklmnopqrstuvwxyz
 
 # security配置
 security:
