@@ -99,16 +99,21 @@ public class LoginHelper {
      * 获取用户id
      */
     public static Long getUserId() {
-        Long userId;
+        Long userId = null;
         try {
             userId = Convert.toLong(SaHolder.getStorage().get(USER_KEY));
             if (ObjectUtil.isNull(userId)) {
                 userId = Convert.toLong(StpUtil.getExtra(USER_KEY));
-                SaHolder.getStorage().set(USER_KEY, userId);
             }
-        } catch (Exception e) {
-            return null;
+        } catch (Exception ignored) {
         }
+        if (ObjectUtil.isNull(userId)) {
+            LoginUser loginUser = getLoginUser();
+            if (loginUser != null) {
+                userId = loginUser.getUserId();
+            }
+        }
+        SaHolder.getStorage().set(USER_KEY, userId);
         return userId;
     }
 
