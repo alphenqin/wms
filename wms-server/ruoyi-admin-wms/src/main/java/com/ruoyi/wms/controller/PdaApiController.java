@@ -37,6 +37,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.text.SimpleDateFormat;
+import java.time.format.DateTimeFormatter;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.*;
@@ -566,8 +567,8 @@ public class PdaApiController {
                 
                 // 创建时间
                 if (task.getCreateTime() != null) {
-                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-                    info.setCreateTime(sdf.format(task.getCreateTime()));
+                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                    info.setCreateTime(task.getCreateTime().format(formatter));
                 }
                 
                 // 阀门编号和物料编码（可以从关联的阀门表查询，这里先留空）

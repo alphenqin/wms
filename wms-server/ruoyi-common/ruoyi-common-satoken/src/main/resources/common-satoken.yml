@@ -7,7 +7,7 @@ sa-token:
   is-read-body: true
   # 允许从 header 读取 token
   is-read-header: true
-  # 启用 cookie 鉴权
-  is-read-cookie: true
+  # 关闭 cookie 鉴权
+  is-read-cookie: false
   # token前缀
   token-prefix: "Bearer"

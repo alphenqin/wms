@@ -1,6 +1,6 @@
 import axios from 'axios'
 import { ElNotification , ElMessageBox, ElMessage, ElLoading } from 'element-plus'
-import { getToken } from '@/utils/auth'
+import { getToken, removeToken } from '@/utils/auth'
 import errorCode from '@/utils/errorCode'
 import { tansParams, blobValidate } from '@/utils/ruoyi'
 import cache from '@/plugins/cache'
@@ -10,6 +10,19 @@ import useUserStore from '@/store/modules/user'
 let downloadLoadingInstance;
 // 是否显示重新登录
 export let isRelogin = { show: false };
+
+function redirectToLogin() {
+  removeToken()
+  const userStore = useUserStore()
+  if (userStore) {
+    userStore.token = ''
+    userStore.roles = []
+    userStore.permissions = []
+  }
+  const contextPath = import.meta.env.VITE_APP_CONTEXT_PATH || '/'
+  const loginPath = contextPath.endsWith('/') ? contextPath + 'login' : contextPath + '/login'
+  location.href = loginPath
+}
 
 axios.defaults.headers['Content-Type'] = 'application/json;charset=utf-8'
 // 对应国际化资源文件后缀
@@ -79,10 +92,8 @@ service.interceptors.response.use(res => {
       return res.data
     }
     if (code === 401) {
-      // 自动退出并跳转到登录页面，无需用户确认
-      useUserStore().logOut().then(() => {
-        location.href = import.meta.env.VITE_APP_CONTEXT_PATH + 'index';
-      })
+      // 自动清理登录态并跳转到登录页面
+      redirectToLogin()
       return Promise.reject('无效的会话，或者会话已过期，请重新登录。')
     } else if (code === 409){
       ElMessageBox.alert(
@@ -106,6 +117,10 @@ service.interceptors.response.use(res => {
   error => {
     ('err' + error)
     let { message } = error;
+    if (error?.response?.status === 401) {
+      redirectToLogin()
+      return Promise.reject(error)
+    }
     if (message == "Network Error") {
       message = "后端接口连接异常";
     } else if (message.includes("timeout")) {
