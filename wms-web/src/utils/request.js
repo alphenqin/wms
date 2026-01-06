@@ -33,10 +33,12 @@ service.interceptors.request.use(config => {
   }
   // get请求映射params参数
   if (config.method === 'get' && config.params) {
-    let url = config.url + '?' + tansParams(config.params);
-    url = url.slice(0, -1);
-    config.params = {};
-    config.url = url;
+    const paramsStr = tansParams(config.params);
+    if (paramsStr) {
+      let url = config.url + '?' + paramsStr;
+      config.params = {};
+      config.url = url;
+    }
   }
   if (!isRepeatSubmit && (config.method === 'post' || config.method === 'put')) {
     const requestObj = {

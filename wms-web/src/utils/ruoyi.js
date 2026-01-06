@@ -224,6 +224,10 @@ export function tansParams(params) {
       }
     }
   }
+  // 移除末尾的&符号
+  if (result.length > 0) {
+    result = result.slice(0, -1);
+  }
   return result
 }
 
