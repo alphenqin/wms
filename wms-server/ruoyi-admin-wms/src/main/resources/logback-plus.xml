@@ -11,6 +11,9 @@
             <pattern>${console.log.pattern}</pattern>
             <charset>utf-8</charset>
         </encoder>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>DEBUG</level>
+        </filter>
     </appender>
 
     <!-- 控制台输出 -->
@@ -118,7 +121,7 @@
 <!--    </appender>-->
 
     <!--系统操作日志-->
-    <root level="info">
+    <root level="debug">
         <appender-ref ref="console" />
         <appender-ref ref="async_info" />
         <appender-ref ref="async_error" />

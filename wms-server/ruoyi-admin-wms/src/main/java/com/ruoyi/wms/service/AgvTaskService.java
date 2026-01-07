@@ -12,6 +12,7 @@ import com.ruoyi.wms.domain.bo.AgvTaskBo;
 import com.ruoyi.wms.domain.entity.AgvTask;
 import com.ruoyi.wms.domain.vo.AgvTaskVo;
 import com.ruoyi.wms.mapper.AgvTaskMapper;
+import com.ruoyi.wms.mapper.ValveMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +33,9 @@ import java.util.Map;
 public class AgvTaskService extends ServiceImpl<AgvTaskMapper, AgvTask> {
 
     private final AgvTaskMapper agvTaskMapper;
+    private final ValveMapper valveMapper;
+    private static final String INSPECTION_EMPTY_RETURN_REMARK = "INSPECTION_EMPTY_RETURN";
+    private static final String INSPECTION_EMPTY_RETURN_REMARK_LEGACY = "EMPTY_RETURN_FROM_INSPECTION";
 
     public AgvTaskVo queryById(Long id) {
         return agvTaskMapper.selectVoById(id);
@@ -175,6 +179,26 @@ public class AgvTaskService extends ServiceImpl<AgvTaskMapper, AgvTask> {
             task.setFinishTime(new Date());
         }
         agvTaskMapper.updateById(task);
+
+        // 任务完成时更新阀门状态
+        if (status == 2 && task.getTaskType() != null && task.getPalletCode() != null) {
+            Integer valveStatus = null;
+            if (task.getTaskType() == 3) {
+                // 回库任务完成，阀门状态更新为IN_STOCK（在库）
+                String remark = task.getRemark();
+                boolean isInspectionEmptyReturn = StrUtil.equalsIgnoreCase(remark, INSPECTION_EMPTY_RETURN_REMARK)
+                    || StrUtil.equalsIgnoreCase(remark, INSPECTION_EMPTY_RETURN_REMARK_LEGACY);
+                if (!isInspectionEmptyReturn) {
+                    valveStatus = 0;
+                }
+            } else if (task.getTaskType() == 4) {
+                // 出库任务完成，阀门状态更新为OUTBOUND（已出库）
+                valveStatus = 3;
+            }
+            if (valveStatus != null) {
+                updateValveStatusByPalletCode(task.getPalletCode(), valveStatus);
+            }
+        }
     }
 
     /**
@@ -215,5 +239,24 @@ public class AgvTaskService extends ServiceImpl<AgvTaskMapper, AgvTask> {
         task.setFinishTime(new Date());
         agvTaskMapper.updateById(task);
     }
-}
 
+    /**
+     * 根据托盘编号更新阀门状态
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void updateValveStatusByPalletCode(String palletCode, Integer status) {
+        if (StrUtil.isBlank(palletCode)) {
+            return;
+        }
+        // 通过托盘编号查找阀门
+        LambdaQueryWrapper<com.ruoyi.wms.domain.entity.Valve> valveWrapper = Wrappers.lambdaQuery();
+        valveWrapper.eq(com.ruoyi.wms.domain.entity.Valve::getPalletCode, palletCode);
+        valveWrapper.orderByDesc(com.ruoyi.wms.domain.entity.Valve::getUpdateTime);
+        valveWrapper.last("limit 1");
+        com.ruoyi.wms.domain.entity.Valve valve = valveMapper.selectOne(valveWrapper);
+        if (valve != null) {
+            valve.setStatus(status);
+            valveMapper.updateById(valve);
+        }
+    }
+}

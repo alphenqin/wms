@@ -734,8 +734,6 @@ public class PdaApiController {
             if (targetBinCode == null) {
                 return R.fail(400, "送检目标站点解析失败");
             }
-            updateValveInspectionTarget(request.getValveNo(), palletNo, targetBinCode, area);
-
             InspectionRoute route = buildInspectionRoute(palletType, fromBinCode, targetBinCode);
             if (route == null) {
                 return R.fail(400, "送检任务参数错误");
@@ -768,6 +766,8 @@ public class PdaApiController {
                     return R.fail(500, StrUtil.emptyToDefault(message, "AGV任务下发失败"));
                 }
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 1, null);
+                updateValveInspectionTarget(request.getValveNo(), palletNo, targetBinCode, area);
+                updateValveStatus(request.getValveNo(), palletNo, 1); // 更新阀门状态为IN_INSPECTION（检测中）
                 dispatchInspectionFollowupSteps(taskNo, route, matCode);
             } catch (Exception e) {
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
@@ -1391,6 +1391,29 @@ public class PdaApiController {
         valveMapper.updateById(update);
     }
 
+    private void updateValveStatus(String valveNo, String palletNo, Integer status) {
+        Valve valve = null;
+        if (StrUtil.isNotBlank(valveNo)) {
+            LambdaQueryWrapper<Valve> wrapper = Wrappers.lambdaQuery();
+            wrapper.eq(Valve::getValveNo, valveNo);
+            valve = valveMapper.selectOne(wrapper);
+        }
+        if (valve == null && StrUtil.isNotBlank(palletNo)) {
+            LambdaQueryWrapper<Valve> wrapper = Wrappers.lambdaQuery();
+            wrapper.eq(Valve::getPalletCode, palletNo);
+            wrapper.orderByDesc(Valve::getUpdateTime);
+            wrapper.last("limit 1");
+            valve = valveMapper.selectOne(wrapper);
+        }
+        if (valve == null) {
+            return;
+        }
+        Valve update = new Valve();
+        update.setId(valve.getId());
+        update.setStatus(status);
+        valveMapper.updateById(update);
+    }
+
     private String buildInspectionStepOutId(String baseTaskNo, int stepIndex) {
         return baseTaskNo + "-S" + stepIndex;
     }
@@ -1400,12 +1423,21 @@ public class PdaApiController {
             try {
                 if (!waitForOpenTaskFinished(buildInspectionStepOutId(taskNo, 1))) {
                     agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "送检流程步骤1未完成");
+                    AgvTask task = agvTaskMapper.selectOne(Wrappers.lambdaQuery(AgvTask.class).eq(AgvTask::getTaskNo, taskNo));
+                    if (task != null && task.getPalletCode() != null) {
+                        updateValveStatus(null, task.getPalletCode(), 0);
+                    }
                     return;
                 }
                 if (!dispatchInspectionStep(taskNo, 2, route.secondStep, route.targetBinCode, matCode)) {
                     return;
                 }
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 2, null);
+                // 更新阀门状态为INSPECTED（已检测）
+                AgvTask task = agvTaskMapper.selectOne(Wrappers.lambdaQuery(AgvTask.class).eq(AgvTask::getTaskNo, taskNo));
+                if (task != null && task.getPalletCode() != null) {
+                    updateValveStatus(null, task.getPalletCode(), 2);
+                }
             } catch (Exception e) {
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
             }
@@ -1635,4 +1667,3 @@ public class PdaApiController {
         }
     }
 }
-
