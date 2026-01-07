@@ -105,10 +105,10 @@ public class PdaApiController {
     private static final String INSPECTION_AREA_FLOW = "FLOW_DEVICE";
     private static final String INSPECTION_AREA_WAITING_LABEL = "待检区";
     private static final String INSPECTION_AREA_FLOW_LABEL = "直排流量装置区";
-    private static final String INSPECTION_TARGET_SMALL_WAITING = "F1";
-    private static final String INSPECTION_TARGET_LARGE_WAITING = "F2";
-    private static final String INSPECTION_TARGET_SMALL_FLOW = "F3";
-    private static final String INSPECTION_TARGET_LARGE_FLOW = "F4";
+    private static final String INSPECTION_TARGET_SMALL_WAITING = "F1-检测点";
+    private static final String INSPECTION_TARGET_LARGE_WAITING = "F2-检测点";
+    private static final String INSPECTION_TARGET_SMALL_FLOW = "F3-检测点";
+    private static final String INSPECTION_TARGET_LARGE_FLOW = "F4-检测点";
     private static final String INSPECTION_EMPTY_RETURN_REMARK = "INSPECTION_EMPTY_RETURN";
     private static final String INSPECTION_EMPTY_RETURN_REMARK_LEGACY = "EMPTY_RETURN_FROM_INSPECTION";
     private static final String AGV_OPEN_TASK_STATUS_FINISHED = "08";
