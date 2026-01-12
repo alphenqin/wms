@@ -37,7 +37,6 @@
           </el-form>
           <el-table v-loading="inboundLoading" :data="inboundReportList" border>
             <el-table-column label="日期" prop="date" width="120" />
-            <el-table-column label="型号" prop="model" />
             <el-table-column label="厂家" prop="manufacturer" />
             <el-table-column label="数量" prop="quantity" />
             <el-table-column label="金额" prop="amount" />
@@ -86,7 +85,6 @@
           </el-form>
           <el-table v-loading="outboundLoading" :data="outboundReportList" border>
             <el-table-column label="日期" prop="date" width="120" />
-            <el-table-column label="型号" prop="model" />
             <el-table-column label="厂家" prop="manufacturer" />
             <el-table-column label="数量" prop="quantity" />
             <el-table-column label="金额" prop="amount" />
@@ -167,7 +165,6 @@
           </el-form>
           <el-table v-loading="inventoryLoading" :data="inventoryStatisticsList" border>
             <el-table-column label="物料名称" prop="itemName" />
-            <el-table-column label="型号" prop="model" />
             <el-table-column label="库存数量" prop="quantity" />
             <el-table-column label="库存金额" prop="amount" />
           </el-table>

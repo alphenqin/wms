@@ -5,9 +5,6 @@
         <el-form-item label="样品编号" prop="valveNo">
           <el-input v-model="queryParams.valveNo" placeholder="请输入样品编号" clearable @keyup.enter="handleQuery" />
         </el-form-item>
-        <el-form-item label="型号" prop="model">
-          <el-input v-model="queryParams.model" placeholder="请输入型号" clearable @keyup.enter="handleQuery" />
-        </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-select v-model="queryParams.status" placeholder="请选择状态" clearable>
             <el-option label="在库" value="0" />
@@ -71,8 +68,6 @@
         <el-table-column type="selection" width="55" align="center" />
         <el-table-column label="ID" prop="id" width="80" />
         <el-table-column label="样品编号" prop="valveNo" />
-        <el-table-column label="物料类型" prop="materialTypeName" />
-        <el-table-column label="型号" prop="model" />
         <el-table-column label="厂家" prop="manufacturer" />
         <el-table-column label="批次号" prop="batchNo" />
         <el-table-column label="托盘编号" prop="palletCode" />
@@ -106,24 +101,11 @@
         <el-form-item label="样品编号" prop="valveNo">
           <el-input v-model="form.valveNo" placeholder="请输入样品编号" />
         </el-form-item>
-        <el-form-item label="型号" prop="model">
-          <el-input v-model="form.model" placeholder="请输入型号" />
-        </el-form-item>
         <el-form-item label="厂家" prop="manufacturer">
           <el-input v-model="form.manufacturer" placeholder="请输入厂家" />
         </el-form-item>
         <el-form-item label="批次号" prop="batchNo">
           <el-input v-model="form.batchNo" placeholder="请输入批次号" />
-        </el-form-item>
-        <el-form-item label="物料类型" prop="materialTypeId">
-          <el-select v-model="form.materialTypeId" placeholder="请选择物料类型" style="width: 100%">
-            <el-option
-              v-for="item in materialTypeList"
-              :key="item.id"
-              :label="item.typeName"
-              :value="item.id"
-            />
-          </el-select>
         </el-form-item>
         <el-form-item label="托盘编号" prop="palletCode">
           <el-input v-model="form.palletCode" placeholder="请输入托盘编号" />
@@ -155,7 +137,6 @@
 
 <script setup name="Valve">
 import { listValve, getValve, delValve, addValve, updateValve, exportValve } from '@/api/wms/valve';
-import { listMaterialTypeNoPage } from '@/api/wms/materialType';
 import { getCurrentInstance, reactive, ref, toRefs, onMounted } from 'vue';
 import { useDict } from '@/utils/dict';
 
@@ -163,8 +144,6 @@ const { proxy } = getCurrentInstance();
 const { wms_valve_status } = useDict('wms_valve_status');
 
 const valveList = ref([]);
-const materialTypeList = ref([]);
-const defaultMaterialTypeId = ref();
 const buttonLoading = ref(false);
 const loading = ref(false);
 const showSearch = ref(true);
@@ -184,10 +163,8 @@ const dialog = reactive({
 const initFormData = {
   id: undefined,
   valveNo: undefined,
-  model: undefined,
   manufacturer: undefined,
   batchNo: undefined,
-  materialTypeId: undefined,
   palletId: undefined,
   palletCode: undefined,
   currentBinId: undefined,
@@ -202,7 +179,6 @@ const data = reactive({
     pageNum: 1,
     pageSize: 10,
     valveNo: undefined,
-    model: undefined,
     status: undefined,
     palletCode: undefined,
   },
@@ -210,12 +186,6 @@ const data = reactive({
     valveNo: [
       { required: true, message: "样品编号不能为空", trigger: "blur" }
     ],
-    model: [
-      { required: true, message: "型号不能为空", trigger: "blur" }
-    ],
-    materialTypeId: [
-      { required: true, message: "物料类型不能为空", trigger: "change" }
-    ]
   }
 });
 
@@ -229,17 +199,6 @@ const getList = async () => {
   });
   valveList.value = res.rows;
   total.value = res.total;
-};
-
-/** 查询物料类型列表 */
-const getMaterialTypeList = async () => {
-  const res = await listMaterialTypeNoPage({});
-  materialTypeList.value = res.data;
-  const defaultType = materialTypeList.value.find((item) => item.typeName === '阀门' || item.typeCode === 'VALVE');
-  defaultMaterialTypeId.value = defaultType ? defaultType.id : undefined;
-  if (form.value.materialTypeId == null && defaultMaterialTypeId.value != null) {
-    form.value.materialTypeId = defaultMaterialTypeId.value;
-  }
 };
 
 /** 取消按钮 */
@@ -278,9 +237,6 @@ const handleAdd = () => {
   dialog.visible = true;
   dialog.title = "添加样品";
   reset();
-  if (defaultMaterialTypeId.value != null) {
-    form.value.materialTypeId = defaultMaterialTypeId.value;
-  }
 };
 
 /** 修改按钮操作 */
@@ -336,7 +292,6 @@ const handleExport = () => {
 };
 
 onMounted(async () => {
-  await getMaterialTypeList();
   await getList();
 });
 </script>

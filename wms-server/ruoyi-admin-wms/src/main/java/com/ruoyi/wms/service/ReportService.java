@@ -34,10 +34,10 @@ public class ReportService {
 
     /**
      * 入库报表
-     * 按日期、型号、厂家统计
+     * 按日期、厂家统计
      */
     public TableDataInfo<Map<String, Object>> queryInboundReport(LocalDateTime startDate, LocalDateTime endDate,
-                                                                  String model, String manufacturer,
+                                                                  String manufacturer,
                                                                   Long warehouseId, PageQuery pageQuery) {
         // 查询入库单
         var bo = new com.ruoyi.wms.domain.bo.ReceiptOrderBo();
@@ -66,7 +66,7 @@ public class ReportService {
      * 出库报表
      */
     public TableDataInfo<Map<String, Object>> queryOutboundReport(LocalDateTime startDate, LocalDateTime endDate,
-                                                                   String model, String manufacturer,
+                                                                   String manufacturer,
                                                                    Long warehouseId, PageQuery pageQuery) {
         // 查询出库单
         var bo = new com.ruoyi.wms.domain.bo.ShipmentOrderBo();
@@ -122,7 +122,6 @@ public class ReportService {
      */
     public TableDataInfo<Map<String, Object>> queryInventoryStatistics(Long warehouseId,
                                                                         Long itemId,
-                                                                        String model,
                                                                         PageQuery pageQuery) {
         // 查询库存
         var bo = new com.ruoyi.wms.domain.bo.InventoryBo();
@@ -130,7 +129,7 @@ public class ReportService {
         var inventoryList = inventoryService.queryList(bo);
         
         // 统计逻辑
-        // 按物料、型号等维度统计
+        // 按物料等维度统计
         return TableDataInfo.build();
     }
 

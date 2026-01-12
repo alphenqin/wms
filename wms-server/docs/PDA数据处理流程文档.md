@@ -300,8 +300,7 @@ PDA请求 → 参数校验 → 业务逻辑处理 → 数据转换 → 数据库
 ```json
 {
   "valveNo": "V20250101-001",        // 阀门编号
-  "matCode": "MAT-DN50-001",         // 物料编码
-  "valveModel": "DN50",              // 阀门型号
+  "matCode": "MAT-V20250101-001",         // 物料编码
   "vendorName": "XX阀门厂",          // 厂家名称
   "inboundDate": "2025-01-15",       // 入库日期
   "palletNo": "11-01",               // 托盘号
@@ -313,7 +312,7 @@ PDA请求 → 参数校验 → 业务逻辑处理 → 数据转换 → 数据库
 
 #### 步骤1：参数校验
 - **位置**：`@Valid @RequestBody PdaValveBindRequest request`
-- **校验规则**：所有字段都使用`@NotBlank`注解校验，不能为空
+- **校验规则**：所有字段必填
 
 #### 步骤2：校验阀门编号是否已存在
 - **调用服务**：`ValveService.queryByValveNo()`
@@ -371,7 +370,6 @@ PDA请求 → 参数校验 → 业务逻辑处理 → 数据转换 → 数据库
   ```java
   Valve valve = new Valve();
   valve.setValveNo(request.getValveNo());                    // 阀门编号
-  valve.setModel(request.getValveModel());                   // 阀门型号
   valve.setManufacturer(request.getVendorName());            // 厂家名称
   valve.setPalletId(palletVo.getId());                       // 托盘ID
   valve.setPalletCode(request.getPalletNo());                // 托盘编号
@@ -398,11 +396,11 @@ PDA请求 → 参数校验 → 业务逻辑处理 → 数据转换 → 数据库
 - **数据库操作**：
   ```sql
   INSERT INTO wms_valve (
-      valve_no, model, manufacturer, pallet_id, pallet_code,
+      valve_no, manufacturer, pallet_id, pallet_code,
       current_bin_id, current_bin_code, status, production_date,
       create_time, create_by
   ) VALUES (
-      'V20250101-001', 'DN50', 'XX阀门厂', ?, '11-01',
+      'V20250101-001', 'XX阀门厂', ?, '11-01',
       ?, '2-01', 0, '2025-01-15',
       NOW(), ?
   )
@@ -459,7 +457,6 @@ PDA请求 → 参数校验 → 业务逻辑处理 → 数据转换 → 数据库
 | PDA请求字段 | 数据库字段 | 说明 |
 |------------|-----------|------|
 | valveNo | valve_no | 阀门编号 |
-| valveModel | model | 阀门型号 |
 | vendorName | manufacturer | 厂家名称 |
 | inboundDate | production_date | 入库日期（生产日期） |
 | palletNo | pallet_code | 托盘编号 |
@@ -484,7 +481,6 @@ PDA请求 → 参数校验 → 业务逻辑处理 → 数据转换 → 数据库
 {
   "vendorName": "XX阀门厂",      // 厂家名称（模糊查询，可选）
   "valveNo": "V20250101-001",    // 阀门编号（精确查询，可选）
-  "valveModel": "DN50",          // 阀门型号（模糊查询，可选）
   "inboundDate": "2025-01-15",   // 入库日期（可选）
   "valveStatus": "IN_STOCK",     // 阀门状态（可选）
   "pageNum": 1,                  // 页码（默认1）
@@ -512,11 +508,6 @@ PDA请求 → 参数校验 → 业务逻辑处理 → 数据转换 → 数据库
   // 阀门编号（精确查询）
   if (StrUtil.isNotBlank(request.getValveNo())) {
       wrapper.eq(Valve::getValveNo, request.getValveNo());
-  }
-  
-  // 阀门型号（模糊查询）
-  if (StrUtil.isNotBlank(request.getValveModel())) {
-      wrapper.like(Valve::getModel, request.getValveModel());
   }
   
   // 入库日期
@@ -560,7 +551,6 @@ PDA请求 → 参数校验 → 业务逻辑处理 → 数据转换 → 数据库
   SELECT * FROM wms_valve 
   WHERE manufacturer LIKE '%XX阀门厂%'
     AND valve_no = 'V20250101-001'
-    AND model LIKE '%DN50%'
     AND production_date = '2025-01-15'
     AND status = 0
   LIMIT 20 OFFSET 0
@@ -572,7 +562,6 @@ PDA请求 → 参数校验 → 业务逻辑处理 → 数据转换 → 数据库
   List<PdaValveInfo> list = result.getRecords().stream().map(valve -> {
       PdaValveInfo info = new PdaValveInfo();
       info.setValveNo(valve.getValveNo());                    // 阀门编号
-      info.setValveModel(valve.getModel());                    // 阀门型号
       info.setVendorName(valve.getManufacturer());             // 厂家名称
       info.setPalletNo(valve.getPalletCode());                 // 托盘编号
       info.setBinCode(valve.getCurrentBinCode());              // 库位编号
@@ -626,7 +615,6 @@ PDA请求 → 参数校验 → 业务逻辑处理 → 数据转换 → 数据库
         {
           "valveNo": "V20250101-001",
           "matCode": "MAT-V20250101-001",
-          "valveModel": "DN50",
           "vendorName": "XX阀门厂",
           "inboundDate": "2025-01-15",
           "palletNo": "11-01",
@@ -931,7 +919,6 @@ String dateStr = sdf.format(date);
 ### 7.4 物料编码生成
 
 - **当前实现**：`"MAT-" + valveNo`
-- **说明**：临时实现，后续可从物料类型表（`wms_material_type`）关联查询
 
 ---
 
@@ -1181,7 +1168,6 @@ wms_pallet_type (托盘类型表)
 ```
 wms_valve (阀门表)
   ├─ valve_no: 阀门编号 (唯一)
-  ├─ model: 阀门型号
   ├─ manufacturer: 厂家名称
   ├─ production_date: 生产日期
   ├─ pallet_id: 托盘ID → wms_pallet.id
@@ -1205,7 +1191,6 @@ wms_bin (库位表)
 ```
 wms_valve (阀门表)
   ├─ valve_no: 阀门编号
-  ├─ model: 阀门型号
   ├─ manufacturer: 厂家名称
   ├─ production_date: 生产日期
   ├─ pallet_code: 托盘编号

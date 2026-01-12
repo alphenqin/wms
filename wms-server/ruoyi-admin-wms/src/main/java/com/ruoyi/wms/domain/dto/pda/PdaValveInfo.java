@@ -28,11 +28,6 @@ public class PdaValveInfo implements Serializable {
     private String matCode;
 
     /**
-     * 阀门型号
-     */
-    private String valveModel;
-
-    /**
      * 厂家名称
      */
     private String vendorName;

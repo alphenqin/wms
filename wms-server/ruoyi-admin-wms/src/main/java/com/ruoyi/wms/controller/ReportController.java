@@ -40,11 +40,10 @@ public class ReportController extends BaseController {
     public TableDataInfo<Map<String, Object>> queryInboundReport(
             @RequestParam(required = false) LocalDateTime startDate,
             @RequestParam(required = false) LocalDateTime endDate,
-            @RequestParam(required = false) String model,
             @RequestParam(required = false) String manufacturer,
             @RequestParam(required = false) Long warehouseId,
             PageQuery pageQuery) {
-        return reportService.queryInboundReport(startDate, endDate, model, manufacturer, warehouseId, pageQuery);
+        return reportService.queryInboundReport(startDate, endDate, manufacturer, warehouseId, pageQuery);
     }
 
     /**
@@ -67,11 +66,10 @@ public class ReportController extends BaseController {
     public TableDataInfo<Map<String, Object>> queryOutboundReport(
             @RequestParam(required = false) LocalDateTime startDate,
             @RequestParam(required = false) LocalDateTime endDate,
-            @RequestParam(required = false) String model,
             @RequestParam(required = false) String manufacturer,
             @RequestParam(required = false) Long warehouseId,
             PageQuery pageQuery) {
-        return reportService.queryOutboundReport(startDate, endDate, model, manufacturer, warehouseId, pageQuery);
+        return reportService.queryOutboundReport(startDate, endDate, manufacturer, warehouseId, pageQuery);
     }
 
     /**
@@ -107,9 +105,8 @@ public class ReportController extends BaseController {
     public TableDataInfo<Map<String, Object>> queryInventoryStatistics(
             @RequestParam(required = false) Long warehouseId,
             @RequestParam(required = false) Long itemId,
-            @RequestParam(required = false) String model,
             PageQuery pageQuery) {
-        return reportService.queryInventoryStatistics(warehouseId, itemId, model, pageQuery);
+        return reportService.queryInventoryStatistics(warehouseId, itemId, pageQuery);
     }
 }
 

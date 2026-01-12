@@ -63,16 +63,6 @@ public class InventoryQueryController extends BaseController {
     }
 
     /**
-     * 按阀门型号查询
-     */
-    @SaCheckPermission("wms:inventory:list")
-    @GetMapping("/byValveModel")
-    public R<List<ValveVo>> queryByValveModel(@RequestParam String model,
-                                              @RequestParam(required = false) Long warehouseId) {
-        return R.ok(inventoryQueryService.queryByValveModel(model, warehouseId));
-    }
-
-    /**
      * 按库位查询库存
      */
     @SaCheckPermission("wms:inventory:list")
@@ -100,13 +90,12 @@ public class InventoryQueryController extends BaseController {
             @RequestParam(required = false) Date endDate,
             @RequestParam(required = false) String batchNo,
             @RequestParam(required = false) Long itemId,
-            @RequestParam(required = false) String model,
             @RequestParam(required = false) String binCode,
             @RequestParam(required = false) String palletCode,
             @RequestParam(required = false) Long warehouseId,
             PageQuery pageQuery) {
         return inventoryQueryService.queryInventoryComprehensive(
-            startDate, endDate, batchNo, itemId, model, binCode, palletCode, warehouseId, pageQuery);
+            startDate, endDate, batchNo, itemId, binCode, palletCode, warehouseId, pageQuery);
     }
 
     /**

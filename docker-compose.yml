@@ -35,7 +35,7 @@ services:
     container_name: wms-backend
     restart: always
     ports:
-      - "9080:8080"
+      - "8080:8080"
     environment:
       - SPRING_PROFILES_ACTIVE=prod
       - TZ=Asia/Shanghai

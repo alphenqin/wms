@@ -25,12 +25,6 @@ public class PdaValveBindRequest {
     private String matCode;
 
     /**
-     * 阀门型号
-     */
-    @NotBlank(message = "阀门型号不能为空")
-    private String valveModel;
-
-    /**
      * 厂家名称
      */
     @NotBlank(message = "厂家名称不能为空")

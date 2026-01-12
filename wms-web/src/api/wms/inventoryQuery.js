@@ -24,14 +24,6 @@ export function queryByMaterial(params) {
   });
 };
 
-export function queryByValveModel(params) {
-  return request({
-    url: '/wms/inventory/query/byValveModel',
-    method: 'get',
-    params: params
-  });
-};
-
 export function queryByBin(params) {
   return request({
     url: '/wms/inventory/query/byBin',

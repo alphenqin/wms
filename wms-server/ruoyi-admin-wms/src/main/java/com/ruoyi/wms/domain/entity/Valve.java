@@ -35,16 +35,6 @@ public class Valve extends BaseEntity {
     private String valveNo;
 
     /**
-     * 物料类型ID（ValveType）
-     */
-    private Long materialTypeId;
-
-    /**
-     * 型号（如：DN50、DN80）
-     */
-    private String model;
-
-    /**
      * 厂家
      */
     private String manufacturer;

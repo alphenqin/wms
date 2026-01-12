@@ -26,15 +26,6 @@ public class ValveVo extends BaseVo {
     @ExcelProperty(value = "阀门编号")
     private String valveNo;
 
-    @ExcelProperty(value = "物料类型ID")
-    private Long materialTypeId;
-
-    @ExcelProperty(value = "物料类型")
-    private String materialTypeName;
-
-    @ExcelProperty(value = "型号")
-    private String model;
-
     @ExcelProperty(value = "厂家")
     private String manufacturer;
 
@@ -68,4 +59,3 @@ public class ValveVo extends BaseVo {
     @ExcelProperty(value = "送检目标站点")
     private String inspectionTargetBin;
 }
-

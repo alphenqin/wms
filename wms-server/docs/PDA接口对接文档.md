@@ -108,8 +108,7 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
 | 字段名 | 类型 | 必填 | 说明 | 示例 |
 |--------|------|------|------|------|
 | valveNo | String | 是 | 阀门唯一编号（WMS内部主键） | "V20250101-001" |
-| matCode | String | 是 | 物料编码，对接AGV调度系统使用 | "MAT-DN50-001" |
-| valveModel | String | 是 | 阀门型号 | "DN50" |
+| matCode | String | 是 | 物料编码，对接AGV调度系统使用 | "MAT-V20250101-001" |
 | vendorName | String | 是 | 厂家名称 | "XX阀门厂" |
 | inboundDate | String | 是 | 入库日期（yyyy-MM-dd格式） | "2025-01-15" |
 | palletNo | String | 否 | 托盘号 | "11-01" |
@@ -121,8 +120,7 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
 ```json
 {
   "valveNo": "V20250101-001",
-  "matCode": "MAT-DN50-001",
-  "valveModel": "DN50",
+  "matCode": "MAT-V20250101-001",
   "vendorName": "XX阀门厂",
   "inboundDate": "2025-01-15",
   "palletNo": "11-01",
@@ -150,7 +148,7 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
 | createTime | String | 是 | 创建时间（yyyy-MM-dd HH:mm:ss格式） | "2025-01-15 14:58:30" |
 | palletNo | String | 否 | 托盘号 | "11-01" |
 | valveNo | String | 否 | 阀门编号 | "V20250101-001" |
-| matCode | String | 否 | 物料编码 | "MAT-DN50-001" |
+| matCode | String | 否 | 物料编码 | "MAT-V20250101-001" |
 | binCode | String | 否 | 库位号 | "2-01" |
 
 **JSON示例：**
@@ -163,7 +161,7 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
   "createTime": "2025-01-15 14:58:30",
   "palletNo": "11-01",
   "valveNo": "V20250101-001",
-  "matCode": "MAT-DN50-001",
+  "matCode": "MAT-V20250101-001",
   "binCode": "2-01"
 }
 ```
@@ -358,8 +356,7 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
 | 参数名 | 类型 | 必填 | 说明 | 示例 |
 |--------|------|------|------|------|
 | valveNo | String | 是 | 阀门唯一编号 | "V20250101-001" |
-| matCode | String | 是 | 物料编码 | "MAT-DN50-001" |
-| valveModel | String | 是 | 阀门型号 | "DN50" |
+| matCode | String | 是 | 物料编码 | "MAT-V20250101-001" |
 | vendorName | String | 是 | 厂家名称 | "XX阀门厂" |
 | inboundDate | String | 是 | 入库日期（yyyy-MM-dd格式） | "2025-01-15" |
 | palletNo | String | 是 | 托盘号 | "11-01" |
@@ -370,8 +367,7 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
 ```json
 {
   "valveNo": "V20250101-001",
-  "matCode": "MAT-DN50-001",
-  "valveModel": "DN50",
+  "matCode": "MAT-V20250101-001",
   "vendorName": "XX阀门厂",
   "inboundDate": "2025-01-15",
   "palletNo": "11-01",
@@ -424,7 +420,6 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
 |--------|------|------|------|------|
 | vendorName | String | 否 | 厂家名称（模糊查询） | "XX阀门厂" |
 | valveNo | String | 否 | 阀门编号（精确查询） | "V20250101-001" |
-| valveModel | String | 否 | 阀门型号（模糊查询） | "DN50" |
 | inboundDate | String | 否 | 入库日期（yyyy-MM-dd格式） | "2025-01-15" |
 | valveStatus | String | 否 | 阀门状态（见枚举） | "IN_STOCK" |
 | pageNum | Integer | 否 | 页码，默认1 | 1 |
@@ -436,7 +431,6 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
 {
   "vendorName": "XX阀门厂",
   "valveNo": "V20250101-001",
-  "valveModel": "DN50",
   "inboundDate": "2025-01-15",
   "valveStatus": "IN_STOCK",
   "pageNum": 1,
@@ -454,8 +448,7 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
     "list": [
       {
         "valveNo": "V20250101-001",
-        "matCode": "MAT-DN50-001",
-        "valveModel": "DN50",
+        "matCode": "MAT-V20250101-001",
         "vendorName": "XX阀门厂",
         "inboundDate": "2025-01-15",
         "palletNo": "11-01",
@@ -531,7 +524,7 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
         "createTime": "2025-01-15 14:58:30",
         "palletNo": "11-01",
         "valveNo": "V20250101-001",
-        "matCode": "MAT-DN50-001",
+        "matCode": "MAT-V20250101-001",
         "binCode": "2-01"
       }
     ],
@@ -571,7 +564,7 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
 | palletNo | String | 否 | 托盘号 | "11-01" |
 | fromBinCode | String | 是 | 起始站点/库位 | "WAREHOUSE_SWAP_1" |
 | toBinCode | String | 是 | 目标站点/库位 | "2-01" |
-| matCode | String | 否 | 物料编码 | "MAT-DN50-001" |
+| matCode | String | 否 | 物料编码 | "MAT-V20250101-001" |
 | remark | String | 否 | 备注 | "EMPTY_RETURN_FROM_SWAP" |
 | deviceCode | String | 是 | PDA设备编号 | "PDA-01" |
 
@@ -584,7 +577,7 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
   "palletNo": "11-01",
   "fromBinCode": "WAREHOUSE_SWAP_1",
   "toBinCode": "2-01",
-  "matCode": "MAT-DN50-001",
+  "matCode": "MAT-V20250101-001",
   "deviceCode": "PDA-01"
 }
 ```

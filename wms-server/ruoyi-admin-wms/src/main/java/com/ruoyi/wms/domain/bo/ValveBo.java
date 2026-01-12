@@ -23,9 +23,6 @@ public class ValveBo extends BaseEntity {
     @NotBlank(message = "阀门编号不能为空", groups = { AddGroup.class, EditGroup.class })
     private String valveNo;
 
-    @NotNull(message = "物料类型不能为空", groups = { AddGroup.class, EditGroup.class })
-    private Long materialTypeId;
-    private String model;
     private String manufacturer;
     private String batchNo;
     private Long palletId;

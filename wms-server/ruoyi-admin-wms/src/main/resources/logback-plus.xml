@@ -12,7 +12,7 @@
             <charset>utf-8</charset>
         </encoder>
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
-            <level>DEBUG</level>
+            <level>INFO</level>
         </filter>
     </appender>
 
@@ -31,7 +31,7 @@
         </encoder>
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
             <!-- 过滤的级别 -->
-            <level>INFO</level>
+            <level>WARN</level>
         </filter>
     </appender>
 

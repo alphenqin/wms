@@ -96,7 +96,6 @@ public class PdaAssistController extends BaseController {
 
             Map<String, Object> result = new HashMap<>();
             result.put("valveNo", valveVo.getValveNo());
-            result.put("model", valveVo.getModel());
             result.put("manufacturer", valveVo.getManufacturer());
             result.put("status", valveVo.getStatus());
             result.put("palletCode", valveVo.getPalletCode());

@@ -22,11 +22,6 @@ public class PdaValveQueryRequest {
     private String valveNo;
 
     /**
-     * 阀门型号（模糊查询）
-     */
-    private String valveModel;
-
-    /**
      * 入库日期（yyyy-MM-dd格式）
      */
     private String inboundDate;

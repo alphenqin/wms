@@ -79,15 +79,6 @@ public class InventoryQueryService {
     }
 
     /**
-     * 按阀门型号查询
-     */
-    public List<ValveVo> queryByValveModel(String model, Long warehouseId) {
-        var bo = new com.ruoyi.wms.domain.bo.ValveBo();
-        bo.setModel(model);
-        return valveService.queryList(bo);
-    }
-
-    /**
      * 按库位查询库存
      */
     public List<ValveVo> queryByBin(String binCode) {
@@ -118,7 +109,7 @@ public class InventoryQueryService {
      */
     public TableDataInfo<Map<String, Object>> queryInventoryComprehensive(
             Date startDate, Date endDate, String batchNo, Long itemId,
-            String model, String binCode, String palletCode, Long warehouseId,
+            String binCode, String palletCode, Long warehouseId,
             PageQuery pageQuery) {
         // 综合查询逻辑
         // 这里可以根据实际需求实现复杂的关联查询

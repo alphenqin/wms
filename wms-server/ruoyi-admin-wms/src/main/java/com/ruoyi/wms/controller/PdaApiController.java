@@ -375,7 +375,6 @@ public class PdaApiController {
             // 创建阀门实体
             Valve valve = new Valve();
             valve.setValveNo(request.getValveNo());
-            valve.setModel(request.getValveModel());
             valve.setManufacturer(request.getVendorName());
             
             // 解析入库日期
@@ -428,11 +427,6 @@ public class PdaApiController {
                 wrapper.eq(Valve::getValveNo, request.getValveNo());
             }
             
-            // 阀门型号（模糊查询）
-            if (StrUtil.isNotBlank(request.getValveModel())) {
-                wrapper.like(Valve::getModel, request.getValveModel());
-            }
-            
             // 入库日期
             if (StrUtil.isNotBlank(request.getInboundDate())) {
                 try {
@@ -461,7 +455,6 @@ public class PdaApiController {
             List<PdaValveInfo> list = result.getRecords().stream().map(valve -> {
                 PdaValveInfo info = new PdaValveInfo();
                 info.setValveNo(valve.getValveNo());
-                info.setValveModel(valve.getModel());
                 info.setVendorName(valve.getManufacturer());
                 info.setPalletNo(valve.getPalletCode());
                 info.setBinCode(valve.getCurrentBinCode());
