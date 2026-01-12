@@ -8,7 +8,7 @@
         <el-form-item label="任务类型" prop="taskType">
           <el-select v-model="queryParams.taskType" placeholder="请选择任务类型" clearable>
             <el-option label="托盘扫码" value="1" />
-            <el-option label="阀门扫码" value="2" />
+            <el-option label="样品扫码" value="2" />
             <el-option label="库位扫码" value="3" />
           </el-select>
         </el-form-item>
@@ -66,7 +66,7 @@
         <el-table-column label="任务类型" prop="taskType" width="120">
           <template #default="scope">
             <el-tag v-if="scope.row.taskType === 1">托盘扫码</el-tag>
-            <el-tag v-else-if="scope.row.taskType === 2" type="warning">阀门扫码</el-tag>
+            <el-tag v-else-if="scope.row.taskType === 2" type="warning">样品扫码</el-tag>
             <el-tag v-else-if="scope.row.taskType === 3" type="info">库位扫码</el-tag>
           </template>
         </el-table-column>
@@ -105,7 +105,7 @@
         <el-form-item label="任务类型" prop="taskType">
           <el-select v-model="form.taskType" placeholder="请选择任务类型" style="width: 100%">
             <el-option label="托盘扫码" :value="1" />
-            <el-option label="阀门扫码" :value="2" />
+            <el-option label="样品扫码" :value="2" />
             <el-option label="库位扫码" :value="3" />
           </el-select>
         </el-form-item>

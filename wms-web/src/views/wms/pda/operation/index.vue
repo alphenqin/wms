@@ -8,7 +8,7 @@
         <el-form-item label="操作类型" prop="operationType">
           <el-select v-model="queryParams.operationType" placeholder="请选择操作类型" clearable>
             <el-option label="托盘扫码" :value="1" />
-            <el-option label="阀门扫码" :value="2" />
+            <el-option label="样品扫码" :value="2" />
             <el-option label="库位扫码" :value="3" />
             <el-option label="入库" :value="4" />
             <el-option label="出库" :value="5" />
@@ -40,7 +40,7 @@
         <el-table-column label="操作类型" prop="operationType" width="120">
           <template #default="scope">
             <el-tag v-if="scope.row.operationType === 1">托盘扫码</el-tag>
-            <el-tag v-else-if="scope.row.operationType === 2" type="success">阀门扫码</el-tag>
+            <el-tag v-else-if="scope.row.operationType === 2" type="success">样品扫码</el-tag>
             <el-tag v-else-if="scope.row.operationType === 3" type="info">库位扫码</el-tag>
             <el-tag v-else-if="scope.row.operationType === 4" type="warning">入库</el-tag>
             <el-tag v-else-if="scope.row.operationType === 5" type="danger">出库</el-tag>
@@ -84,7 +84,7 @@
         <el-descriptions-item label="操作编号">{{ operationDetail.operationNo }}</el-descriptions-item>
         <el-descriptions-item label="操作类型">
           <el-tag v-if="operationDetail.operationType === 1">托盘扫码</el-tag>
-          <el-tag v-else-if="operationDetail.operationType === 2" type="success">阀门扫码</el-tag>
+          <el-tag v-else-if="operationDetail.operationType === 2" type="success">样品扫码</el-tag>
           <el-tag v-else-if="operationDetail.operationType === 3" type="info">库位扫码</el-tag>
           <el-tag v-else-if="operationDetail.operationType === 4" type="warning">入库</el-tag>
           <el-tag v-else-if="operationDetail.operationType === 5" type="danger">出库</el-tag>

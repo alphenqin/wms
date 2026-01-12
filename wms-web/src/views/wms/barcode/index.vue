@@ -8,7 +8,7 @@
         <el-form-item label="条码类型" prop="barcodeType">
           <el-select v-model="queryParams.barcodeType" placeholder="请选择条码类型" clearable>
             <el-option label="托盘条码" value="1" />
-            <el-option label="阀门条码" value="2" />
+            <el-option label="样品条码" value="2" />
             <el-option label="库位条码" value="3" />
           </el-select>
         </el-form-item>
@@ -64,7 +64,7 @@
         <el-table-column label="条码类型" prop="barcodeType" width="120">
           <template #default="scope">
             <el-tag v-if="scope.row.barcodeType === 1">托盘条码</el-tag>
-            <el-tag v-else-if="scope.row.barcodeType === 2" type="success">阀门条码</el-tag>
+            <el-tag v-else-if="scope.row.barcodeType === 2" type="success">样品条码</el-tag>
             <el-tag v-else-if="scope.row.barcodeType === 3" type="info">库位条码</el-tag>
           </template>
         </el-table-column>
@@ -105,14 +105,14 @@
         <el-form-item label="条码类型" prop="barcodeType">
           <el-select v-model="form.barcodeType" placeholder="请选择条码类型" style="width: 100%">
             <el-option label="托盘条码" :value="1" />
-            <el-option label="阀门条码" :value="2" />
+            <el-option label="样品条码" :value="2" />
             <el-option label="库位条码" :value="3" />
           </el-select>
         </el-form-item>
         <el-form-item label="关联对象类型" prop="objectType">
           <el-select v-model="form.objectType" placeholder="请选择关联对象类型" style="width: 100%">
             <el-option label="托盘" value="pallet" />
-            <el-option label="阀门" value="valve" />
+            <el-option label="样品" value="valve" />
             <el-option label="库位" value="bin" />
           </el-select>
         </el-form-item>

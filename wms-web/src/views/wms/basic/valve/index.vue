@@ -2,8 +2,8 @@
   <div class="app-container">
     <el-card>
       <el-form :model="queryParams" ref="queryFormRef" :inline="true" v-show="showSearch" label-width="68px">
-        <el-form-item label="阀门编号" prop="valveNo">
-          <el-input v-model="queryParams.valveNo" placeholder="请输入阀门编号" clearable @keyup.enter="handleQuery" />
+        <el-form-item label="样品编号" prop="valveNo">
+          <el-input v-model="queryParams.valveNo" placeholder="请输入样品编号" clearable @keyup.enter="handleQuery" />
         </el-form-item>
         <el-form-item label="型号" prop="model">
           <el-input v-model="queryParams.model" placeholder="请输入型号" clearable @keyup.enter="handleQuery" />
@@ -70,7 +70,7 @@
       <el-table v-loading="loading" :data="valveList" @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="55" align="center" />
         <el-table-column label="ID" prop="id" width="80" />
-        <el-table-column label="阀门编号" prop="valveNo" />
+        <el-table-column label="样品编号" prop="valveNo" />
         <el-table-column label="物料类型" prop="materialTypeName" />
         <el-table-column label="型号" prop="model" />
         <el-table-column label="厂家" prop="manufacturer" />
@@ -103,8 +103,8 @@
     <!-- 添加或修改阀门对话框 -->
     <el-dialog :title="dialog.title" v-model="dialog.visible" width="600px" append-to-body :close-on-click-modal="false">
       <el-form ref="valveFormRef" :model="form" :rules="rules" label-width="120px">
-        <el-form-item label="阀门编号" prop="valveNo">
-          <el-input v-model="form.valveNo" placeholder="请输入阀门编号" />
+        <el-form-item label="样品编号" prop="valveNo">
+          <el-input v-model="form.valveNo" placeholder="请输入样品编号" />
         </el-form-item>
         <el-form-item label="型号" prop="model">
           <el-input v-model="form.model" placeholder="请输入型号" />
@@ -208,7 +208,7 @@ const data = reactive({
   },
   rules: {
     valveNo: [
-      { required: true, message: "阀门编号不能为空", trigger: "blur" }
+      { required: true, message: "样品编号不能为空", trigger: "blur" }
     ],
     model: [
       { required: true, message: "型号不能为空", trigger: "blur" }
@@ -276,7 +276,7 @@ const handleSelectionChange = (selection) => {
 /** 新增按钮操作 */
 const handleAdd = () => {
   dialog.visible = true;
-  dialog.title = "添加阀门";
+  dialog.title = "添加样品";
   reset();
   if (defaultMaterialTypeId.value != null) {
     form.value.materialTypeId = defaultMaterialTypeId.value;
@@ -286,7 +286,7 @@ const handleAdd = () => {
 /** 修改按钮操作 */
 const handleUpdate = async (row) => {
   dialog.visible = true;
-  dialog.title = "修改阀门";
+  dialog.title = "修改样品";
   const _id = row.id || ids.value[0];
   const res = await getValve(_id);
   Object.assign(form.value, res.data);
@@ -321,7 +321,7 @@ const handleDelete = async (row) => {
     await proxy?.$modal.confirm('是否确认删除共"' + _ids.length + '"条数据项？');
     await delValves(_ids);
   } else {
-    await proxy?.$modal.confirm('是否确认删除阀门编号为"' + _ids + '"的数据项？');
+    await proxy?.$modal.confirm('是否确认删除样品编号为"' + _ids + '"的数据项？');
     await delValve(_ids);
   }
   proxy?.$modal.msgSuccess("删除成功");

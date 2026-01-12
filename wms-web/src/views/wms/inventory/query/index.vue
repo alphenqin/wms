@@ -64,7 +64,7 @@
             </el-form-item>
           </el-form>
           <el-table v-loading="batchLoading" :data="batchResultList" border>
-            <el-table-column label="阀门编号" prop="valveNo" />
+            <el-table-column label="样品编号" prop="valveNo" />
             <el-table-column label="型号" prop="model" />
             <el-table-column label="批次号" prop="batchNo" />
             <el-table-column label="状态" prop="status">
@@ -89,7 +89,7 @@
             </el-form-item>
           </el-form>
           <el-table v-loading="binLoading" :data="binResultList" border>
-            <el-table-column label="阀门编号" prop="valveNo" />
+            <el-table-column label="样品编号" prop="valveNo" />
             <el-table-column label="型号" prop="model" />
             <el-table-column label="托盘编号" prop="palletCode" />
             <el-table-column label="库位编号" prop="currentBinCode" />
@@ -107,7 +107,7 @@
             </el-form-item>
           </el-form>
           <el-table v-loading="palletLoading" :data="palletResultList" border>
-            <el-table-column label="阀门编号" prop="valveNo" />
+            <el-table-column label="样品编号" prop="valveNo" />
             <el-table-column label="型号" prop="model" />
             <el-table-column label="托盘编号" prop="palletCode" />
             <el-table-column label="状态" prop="status">
@@ -124,7 +124,7 @@
         <el-tab-pane label="状态统计" name="status">
           <el-card>
             <el-descriptions :column="3" border v-if="statusSummary">
-              <el-descriptions-item label="在库阀门">{{ statusSummary.valveInStock }}</el-descriptions-item>
+              <el-descriptions-item label="在库样品">{{ statusSummary.valveInStock }}</el-descriptions-item>
               <el-descriptions-item label="检测中">{{ statusSummary.valveInspecting }}</el-descriptions-item>
               <el-descriptions-item label="已检测">{{ statusSummary.valveInspected }}</el-descriptions-item>
               <el-descriptions-item label="已出库">{{ statusSummary.valveShipped }}</el-descriptions-item>
