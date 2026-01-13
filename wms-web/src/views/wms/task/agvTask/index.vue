@@ -5,12 +5,15 @@
         <el-form-item label="任务编号" prop="taskNo">
           <el-input v-model="queryParams.taskNo" placeholder="请输入任务编号" clearable @keyup.enter="handleQuery" />
         </el-form-item>
-        <el-form-item label="任务类型" prop="taskType">
-          <el-select v-model="queryParams.taskType" placeholder="请选择任务类型" clearable>
-            <el-option label="入库" value="1" />
-            <el-option label="送检" value="2" />
-            <el-option label="回库" value="3" />
-            <el-option label="出库" value="4" />
+        <el-form-item label="任务类型" prop="taskSubType">
+          <el-select v-model="queryParams.taskSubType" placeholder="请选择任务类型" clearable>
+            <el-option label="呼叫入库" value="CALL_INBOUND" />
+            <el-option label="呼叫送检" value="CALL_SEND_INSPECTION" />
+            <el-option label="送检空托回库" value="INSPECTION_EMPTY_RETURN" />
+            <el-option label="呼叫托盘" value="RETURN_CALL_PALLET" />
+            <el-option label="样品回库" value="VALVE_RETURN" />
+            <el-option label="呼叫出库" value="CALL_OUTBOUND" />
+            <el-option label="出库空托回库" value="OUTBOUND_EMPTY_RETURN" />
           </el-select>
         </el-form-item>
         <el-form-item label="任务状态" prop="status">
@@ -33,20 +36,15 @@
       </el-row>
 
       <el-table v-loading="loading" :data="agvTaskList">
-        <el-table-column label="ID" prop="id" width="80" />
         <el-table-column label="任务编号" prop="taskNo" width="150" />
         <el-table-column label="任务类型" prop="taskType">
           <template #default="scope">
-            <el-tag v-if="scope.row.taskType === 1" type="success">入库</el-tag>
-            <el-tag v-else-if="scope.row.taskType === 2" type="info">送检</el-tag>
-            <el-tag v-else-if="scope.row.taskType === 3">回库</el-tag>
-            <el-tag v-else-if="scope.row.taskType === 4" type="warning">出库</el-tag>
+            <el-tag :type="renderTaskTypeTag(scope.row)">{{ renderTaskTypeLabel(scope.row) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="托盘编号" prop="palletCode" />
         <el-table-column label="起始库位" prop="fromBinCode" />
         <el-table-column label="目标库位" prop="toBinCode" />
-        <el-table-column label="业务单号" prop="bizOrderNo" />
         <el-table-column label="任务状态" prop="status">
           <template #default="scope">
             <el-tag v-if="scope.row.status === 0" type="info">待执行</el-tag>
@@ -87,10 +85,7 @@
       <el-descriptions :column="2" border v-if="taskDetail">
         <el-descriptions-item label="任务编号">{{ taskDetail.taskNo }}</el-descriptions-item>
         <el-descriptions-item label="任务类型">
-          <el-tag v-if="taskDetail.taskType === 1" type="success">入库</el-tag>
-          <el-tag v-else-if="taskDetail.taskType === 2" type="info">送检</el-tag>
-          <el-tag v-else-if="taskDetail.taskType === 3">回库</el-tag>
-          <el-tag v-else-if="taskDetail.taskType === 4" type="warning">出库</el-tag>
+          <el-tag :type="renderTaskTypeTag(taskDetail)">{{ renderTaskTypeLabel(taskDetail) }}</el-tag>
         </el-descriptions-item>
         <el-descriptions-item label="托盘编号">{{ taskDetail.palletCode }}</el-descriptions-item>
         <el-descriptions-item label="任务状态">
@@ -134,7 +129,7 @@ const data = reactive({
     pageNum: 1,
     pageSize: 10,
     taskNo: undefined,
-    taskType: undefined,
+    taskSubType: undefined,
     status: undefined,
   }
 });
@@ -183,6 +178,46 @@ const handleCancel = async (row) => {
 };
 
 const total = ref(0);
+
+const taskTypeRemarkLabels = {
+  RETURN_CALL_PALLET: '呼叫托盘',
+  VALVE_RETURN: '样品回库',
+  INSPECTION_EMPTY_RETURN: '送检空托回库',
+  EMPTY_RETURN_FROM_INSPECTION: '送检空托回库',
+  OUTBOUND_EMPTY_RETURN: '出库空托回库'
+};
+
+const renderTaskTypeLabel = (row) => {
+  const taskType = Number(row?.taskType);
+  if (taskType === 1) {
+    return '呼叫入库';
+  }
+  if (taskType === 2) {
+    return '呼叫送检';
+  }
+  if (taskType === 4) {
+    return '呼叫出库';
+  }
+  if (taskType === 3) {
+    const remark = String(row?.remark || '').trim().toUpperCase();
+    return taskTypeRemarkLabels[remark] || '回库';
+  }
+  return '-';
+};
+
+const renderTaskTypeTag = (row) => {
+  const taskType = Number(row?.taskType);
+  if (taskType === 1) {
+    return 'success';
+  }
+  if (taskType === 2) {
+    return 'info';
+  }
+  if (taskType === 4) {
+    return 'warning';
+  }
+  return '';
+};
 
 onMounted(async () => {
   await getList();

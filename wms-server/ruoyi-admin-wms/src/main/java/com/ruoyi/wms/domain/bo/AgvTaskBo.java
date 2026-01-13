@@ -21,6 +21,7 @@ public class AgvTaskBo extends BaseEntity {
 
     private String taskNo;
     private Integer taskType;
+    private String taskSubType;
     private String bizOrderNo;
     private Long bizOrderId;
     private String palletCode;

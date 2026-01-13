@@ -36,6 +36,9 @@ public class AgvTaskService extends ServiceImpl<AgvTaskMapper, AgvTask> {
     private final ValveMapper valveMapper;
     private static final String INSPECTION_EMPTY_RETURN_REMARK = "INSPECTION_EMPTY_RETURN";
     private static final String INSPECTION_EMPTY_RETURN_REMARK_LEGACY = "EMPTY_RETURN_FROM_INSPECTION";
+    private static final String OUTBOUND_EMPTY_RETURN_REMARK = "OUTBOUND_EMPTY_RETURN";
+    private static final String RETURN_CALL_PALLET_REMARK = "RETURN_CALL_PALLET";
+    private static final String VALVE_RETURN_REMARK = "VALVE_RETURN";
 
     public AgvTaskVo queryById(Long id) {
         return agvTaskMapper.selectVoById(id);
@@ -90,7 +93,40 @@ public class AgvTaskService extends ServiceImpl<AgvTaskMapper, AgvTask> {
         Map<String, Object> params = bo.getParams();
         LambdaQueryWrapper<AgvTask> lqw = Wrappers.lambdaQuery();
         lqw.eq(StrUtil.isNotBlank(bo.getTaskNo()), AgvTask::getTaskNo, bo.getTaskNo());
-        lqw.eq(bo.getTaskType() != null, AgvTask::getTaskType, bo.getTaskType());
+        String taskSubType = StrUtil.trimToNull(bo.getTaskSubType());
+        if (StrUtil.isNotBlank(taskSubType)) {
+            switch (taskSubType.toUpperCase()) {
+                case "CALL_INBOUND":
+                    lqw.eq(AgvTask::getTaskType, 1);
+                    break;
+                case "CALL_SEND_INSPECTION":
+                    lqw.eq(AgvTask::getTaskType, 2);
+                    break;
+                case "INSPECTION_EMPTY_RETURN":
+                    lqw.eq(AgvTask::getTaskType, 3);
+                    lqw.in(AgvTask::getRemark, INSPECTION_EMPTY_RETURN_REMARK, INSPECTION_EMPTY_RETURN_REMARK_LEGACY);
+                    break;
+                case "RETURN_CALL_PALLET":
+                    lqw.eq(AgvTask::getTaskType, 3);
+                    lqw.eq(AgvTask::getRemark, RETURN_CALL_PALLET_REMARK);
+                    break;
+                case "VALVE_RETURN":
+                    lqw.eq(AgvTask::getTaskType, 3);
+                    lqw.eq(AgvTask::getRemark, VALVE_RETURN_REMARK);
+                    break;
+                case "CALL_OUTBOUND":
+                    lqw.eq(AgvTask::getTaskType, 4);
+                    break;
+                case "OUTBOUND_EMPTY_RETURN":
+                    lqw.eq(AgvTask::getTaskType, 3);
+                    lqw.eq(AgvTask::getRemark, OUTBOUND_EMPTY_RETURN_REMARK);
+                    break;
+                default:
+                    break;
+            }
+        } else {
+            lqw.eq(bo.getTaskType() != null, AgvTask::getTaskType, bo.getTaskType());
+        }
         lqw.eq(StrUtil.isNotBlank(bo.getBizOrderNo()), AgvTask::getBizOrderNo, bo.getBizOrderNo());
         lqw.eq(bo.getBizOrderId() != null, AgvTask::getBizOrderId, bo.getBizOrderId());
         lqw.eq(StrUtil.isNotBlank(bo.getPalletCode()), AgvTask::getPalletCode, bo.getPalletCode());
