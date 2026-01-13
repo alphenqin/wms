@@ -114,6 +114,8 @@ public class PdaApiController {
     private static final String INSPECTION_EMPTY_RETURN_REMARK = "INSPECTION_EMPTY_RETURN";
     private static final String INSPECTION_EMPTY_RETURN_REMARK_LEGACY = "EMPTY_RETURN_FROM_INSPECTION";
     private static final String OUTBOUND_EMPTY_RETURN_REMARK = "OUTBOUND_EMPTY_RETURN";
+    private static final String RETURN_CALL_PALLET_REMARK = "RETURN_CALL_PALLET";
+    private static final String VALVE_RETURN_REMARK = "VALVE_RETURN";
     private static final String AGV_OPEN_TASK_STATUS_FINISHED = "08";
     private static final String AGV_OPEN_TASK_STATUS_CLEARED = "09";
     private static final long AGV_OPEN_TASK_POLL_INTERVAL_MS = 10_000L;
@@ -765,6 +767,135 @@ public class PdaApiController {
                 updateValveInspectionTarget(request.getValveNo(), palletNo, targetBinCode, area);
                 updateValveStatus(request.getValveNo(), palletNo, 1); // 更新阀门状态为IN_INSPECTION（检测中）
                 dispatchInspectionFollowupSteps(taskNo, route, matCode);
+            } catch (Exception e) {
+                agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
+                return R.fail(500, "任务下发失败: " + e.getMessage());
+            }
+
+            PdaTaskDispatchResponse response = new PdaTaskDispatchResponse();
+            response.setOutID(taskNo);
+            response.setTaskType(taskTypeName);
+            response.setStatus("PENDING");
+            response.setToBinCode(targetBinCode);
+            return R.ok(response);
+        }
+
+        if (taskType == 3 && isReturnCallPalletRequest(request)) {
+            if (palletNo == null) {
+                return R.fail(400, "托盘号不能为空");
+            }
+            if (fromBinCode == null) {
+                return R.fail(400, "起始站点不能为空");
+            }
+            String targetBinCode = toBinCode;
+            if (targetBinCode == null) {
+                targetBinCode = resolveInspectionTargetBinForReturn(request.getValveNo(), palletNo);
+            }
+            if (targetBinCode == null) {
+                return R.fail(400, "送检目标站点未设置");
+            }
+            String palletType = resolvePalletTypeCode(palletNo);
+            if (palletType == null) {
+                return R.fail(400, "托盘类型错误");
+            }
+            InspectionRoute route = buildReturnCallPalletRoute(palletType, fromBinCode, targetBinCode);
+            if (route == null) {
+                return R.fail(400, "呼叫托盘参数错误");
+            }
+
+            AgvTaskBo taskBo = new AgvTaskBo();
+            taskBo.setTaskType(taskType);
+            taskBo.setTaskNo(StrUtil.trimToNull(request.getOutID()));
+            taskBo.setPalletCode(palletNo);
+            taskBo.setFromBinCode(fromBinCode);
+            taskBo.setToBinCode(targetBinCode);
+            taskBo.setRemark(RETURN_CALL_PALLET_REMARK);
+            taskBo.setTaskSource(TASK_SOURCE_PDA);
+            taskBo.setPdaDeviceNo(StrUtil.trimToNull(request.getDeviceCode()));
+            agvTaskService.insertByBo(taskBo);
+
+            String taskNo = taskBo.getTaskNo();
+            try {
+                String step1OutId = buildReturnCallPalletStepOutId(taskNo, 1);
+                AgvOpenTaskBo first = buildPickDropTask(step1OutId,
+                    route.firstStep.fromBinCode,
+                    route.firstStep.toBinCode,
+                    null,
+                    route.firstStep.agvRange);
+                Map<String, Object> agvResp = agvOpenTaskService.sendTask(first);
+                String code = MapUtil.getStr(agvResp, "code");
+                String message = MapUtil.getStr(agvResp, "message");
+                if (!"20000".equals(code)) {
+                    agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, StrUtil.emptyToDefault(message, "AGV任务下发失败"));
+                    return R.fail(500, StrUtil.emptyToDefault(message, "AGV任务下发失败"));
+                }
+                agvTaskService.updateTaskStatusByTaskNo(taskNo, 1, null);
+                dispatchReturnCallPalletFollowupSteps(taskNo, route);
+            } catch (Exception e) {
+                agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
+                return R.fail(500, "任务下发失败: " + e.getMessage());
+            }
+
+            PdaTaskDispatchResponse response = new PdaTaskDispatchResponse();
+            response.setOutID(taskNo);
+            response.setTaskType(taskTypeName);
+            response.setStatus("PENDING");
+            response.setToBinCode(targetBinCode);
+            return R.ok(response);
+        }
+
+        if (taskType == 3 && isValveReturnRequest(request)) {
+            if (palletNo == null) {
+                return R.fail(400, "托盘号不能为空");
+            }
+            String targetBinCode = toBinCode;
+            if (targetBinCode == null) {
+                return R.fail(400, "目标站点不能为空");
+            }
+            String inspectionTargetBin = fromBinCode;
+            if (inspectionTargetBin == null) {
+                inspectionTargetBin = resolveInspectionTargetBinForReturn(request.getValveNo(), palletNo);
+            }
+            if (inspectionTargetBin == null) {
+                return R.fail(400, "送检目标站点未设置");
+            }
+            String palletType = resolvePalletTypeCode(palletNo);
+            if (palletType == null) {
+                return R.fail(400, "托盘类型错误");
+            }
+            InspectionRoute route = buildValveReturnRoute(palletType, inspectionTargetBin, targetBinCode);
+            if (route == null) {
+                return R.fail(400, "样品回库参数错误");
+            }
+
+            AgvTaskBo taskBo = new AgvTaskBo();
+            taskBo.setTaskType(taskType);
+            taskBo.setTaskNo(StrUtil.trimToNull(request.getOutID()));
+            taskBo.setPalletCode(palletNo);
+            taskBo.setFromBinCode(inspectionTargetBin);
+            taskBo.setToBinCode(targetBinCode);
+            taskBo.setRemark(VALVE_RETURN_REMARK);
+            taskBo.setTaskSource(TASK_SOURCE_PDA);
+            taskBo.setPdaDeviceNo(StrUtil.trimToNull(request.getDeviceCode()));
+            agvTaskService.insertByBo(taskBo);
+
+            String taskNo = taskBo.getTaskNo();
+            try {
+                String step1OutId = buildValveReturnStepOutId(taskNo, 1);
+                AgvOpenTaskBo first = buildPickDropTask(step1OutId,
+                    route.firstStep.fromBinCode,
+                    route.firstStep.toBinCode,
+                    null,
+                    route.firstStep.agvRange);
+                Map<String, Object> agvResp = agvOpenTaskService.sendTask(first);
+                String code = MapUtil.getStr(agvResp, "code");
+                String message = MapUtil.getStr(agvResp, "message");
+                if (!"20000".equals(code)) {
+                    agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, StrUtil.emptyToDefault(message, "AGV任务下发失败"));
+                    return R.fail(500, StrUtil.emptyToDefault(message, "AGV任务下发失败"));
+                }
+                agvTaskService.updateTaskStatusByTaskNo(taskNo, 1, null);
+                dispatchValveReturnFollowupSteps(taskNo, route, matCode);
             } catch (Exception e) {
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
                 return R.fail(500, "任务下发失败: " + e.getMessage());
@@ -1645,6 +1776,32 @@ public class PdaApiController {
         return new InspectionRoute(targetBinCode, first, second);
     }
 
+    private InspectionRoute buildReturnCallPalletRoute(String palletTypeCode, String fromBinCode, String targetBinCode) {
+        boolean isSmall = StrUtil.equalsIgnoreCase(palletTypeCode, PALLET_TYPE_SMALL_CODE);
+        boolean isLarge = StrUtil.equalsIgnoreCase(palletTypeCode, PALLET_TYPE_LARGE_CODE);
+        if (!isSmall && !isLarge) {
+            return null;
+        }
+        String bufferBin = isSmall ? INBOUND_SMALL_BUFFER_BIN : INBOUND_LARGE_BUFFER_BIN;
+        String dockBin = isSmall ? INBOUND_SMALL_DOCK_BIN : INBOUND_LARGE_DOCK_BIN;
+        InspectionStep first = new InspectionStep(AGV_RANGE_NARROW, fromBinCode, bufferBin);
+        InspectionStep second = new InspectionStep(AGV_RANGE_WIDE, dockBin, targetBinCode);
+        return new InspectionRoute(targetBinCode, first, second);
+    }
+
+    private InspectionRoute buildValveReturnRoute(String palletTypeCode, String inspectionTargetBin, String targetBinCode) {
+        boolean isSmall = StrUtil.equalsIgnoreCase(palletTypeCode, PALLET_TYPE_SMALL_CODE);
+        boolean isLarge = StrUtil.equalsIgnoreCase(palletTypeCode, PALLET_TYPE_LARGE_CODE);
+        if (!isSmall && !isLarge) {
+            return null;
+        }
+        String bufferBin = isSmall ? INBOUND_SMALL_BUFFER_BIN : INBOUND_LARGE_BUFFER_BIN;
+        String dockBin = isSmall ? INBOUND_SMALL_DOCK_BIN : INBOUND_LARGE_DOCK_BIN;
+        InspectionStep first = new InspectionStep(AGV_RANGE_WIDE, inspectionTargetBin, dockBin);
+        InspectionStep second = new InspectionStep(AGV_RANGE_NARROW, bufferBin, targetBinCode);
+        return new InspectionRoute(targetBinCode, first, second);
+    }
+
     private OutboundRoute buildOutboundRoute(String palletTypeCode, String fromBinCode, String targetBinCode) {
         boolean isSmall = StrUtil.equalsIgnoreCase(palletTypeCode, PALLET_TYPE_SMALL_CODE);
         boolean isLarge = StrUtil.equalsIgnoreCase(palletTypeCode, PALLET_TYPE_LARGE_CODE);
@@ -1667,6 +1824,16 @@ public class PdaApiController {
     private boolean isOutboundEmptyReturnRequest(PdaTaskDispatchRequest request) {
         String remark = StrUtil.trimToNull(request.getRemark());
         return OUTBOUND_EMPTY_RETURN_REMARK.equalsIgnoreCase(remark);
+    }
+
+    private boolean isReturnCallPalletRequest(PdaTaskDispatchRequest request) {
+        String remark = StrUtil.trimToNull(request.getRemark());
+        return RETURN_CALL_PALLET_REMARK.equalsIgnoreCase(remark);
+    }
+
+    private boolean isValveReturnRequest(PdaTaskDispatchRequest request) {
+        String remark = StrUtil.trimToNull(request.getRemark());
+        return VALVE_RETURN_REMARK.equalsIgnoreCase(remark);
     }
 
     private String resolveInspectionTargetBinForReturn(String valveNo, String palletNo) {
@@ -1717,6 +1884,14 @@ public class PdaApiController {
         return baseTaskNo + "-OR" + stepIndex;
     }
 
+    private String buildReturnCallPalletStepOutId(String baseTaskNo, int stepIndex) {
+        return baseTaskNo + "-RC" + stepIndex;
+    }
+
+    private String buildValveReturnStepOutId(String baseTaskNo, int stepIndex) {
+        return baseTaskNo + "-VR" + stepIndex;
+    }
+
     private void dispatchInspectionEmptyReturnFollowupSteps(String taskNo, InspectionRoute route) {
         CompletableFuture.runAsync(() -> {
             try {
@@ -1725,6 +1900,40 @@ public class PdaApiController {
                     return;
                 }
                 if (!dispatchInspectionEmptyReturnStep(taskNo, 2, route.secondStep, route.targetBinCode)) {
+                    return;
+                }
+                agvTaskService.updateTaskStatusByTaskNo(taskNo, 2, null);
+            } catch (Exception e) {
+                agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
+            }
+        }, inboundExecutor);
+    }
+
+    private void dispatchReturnCallPalletFollowupSteps(String taskNo, InspectionRoute route) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                if (!waitForOpenTaskFinished(buildReturnCallPalletStepOutId(taskNo, 1))) {
+                    agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "呼叫托盘步骤1未完成");
+                    return;
+                }
+                if (!dispatchReturnCallPalletStep(taskNo, 2, route.secondStep, route.targetBinCode)) {
+                    return;
+                }
+                agvTaskService.updateTaskStatusByTaskNo(taskNo, 2, null);
+            } catch (Exception e) {
+                agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
+            }
+        }, inboundExecutor);
+    }
+
+    private void dispatchValveReturnFollowupSteps(String taskNo, InspectionRoute route, String matCode) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                if (!waitForOpenTaskFinished(buildValveReturnStepOutId(taskNo, 1))) {
+                    agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "样品回库步骤1未完成");
+                    return;
+                }
+                if (!dispatchValveReturnStep(taskNo, 2, route.secondStep, route.targetBinCode, matCode)) {
                     return;
                 }
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 2, null);
@@ -1788,6 +1997,53 @@ public class PdaApiController {
             }
             if (!waitForOpenTaskFinished(outId)) {
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "空托回库步骤" + stepIndex + "未完成");
+                return false;
+            }
+            return true;
+        } catch (Exception e) {
+            agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
+            return false;
+        }
+    }
+
+    private boolean dispatchReturnCallPalletStep(String taskNo, int stepIndex, InspectionStep step,
+                                                 String targetBinCode) {
+        try {
+            String outId = buildReturnCallPalletStepOutId(taskNo, stepIndex);
+            AgvOpenTaskBo taskBo = buildPickDropTask(outId, step.fromBinCode, step.toBinCode, null, step.agvRange);
+            Map<String, Object> agvResp = agvOpenTaskService.sendTask(taskBo);
+            String code = MapUtil.getStr(agvResp, "code");
+            String message = MapUtil.getStr(agvResp, "message");
+            if (!"20000".equals(code)) {
+                agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, StrUtil.emptyToDefault(message, "AGV任务下发失败"));
+                return false;
+            }
+            if (!waitForOpenTaskFinished(outId)) {
+                agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "呼叫托盘步骤" + stepIndex + "未完成");
+                return false;
+            }
+            return true;
+        } catch (Exception e) {
+            agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
+            return false;
+        }
+    }
+
+    private boolean dispatchValveReturnStep(String taskNo, int stepIndex, InspectionStep step,
+                                            String targetBinCode, String matCode) {
+        try {
+            String outId = buildValveReturnStepOutId(taskNo, stepIndex);
+            String dropMatCode = step.toBinCode.equals(targetBinCode) ? matCode : null;
+            AgvOpenTaskBo taskBo = buildPickDropTask(outId, step.fromBinCode, step.toBinCode, dropMatCode, step.agvRange);
+            Map<String, Object> agvResp = agvOpenTaskService.sendTask(taskBo);
+            String code = MapUtil.getStr(agvResp, "code");
+            String message = MapUtil.getStr(agvResp, "message");
+            if (!"20000".equals(code)) {
+                agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, StrUtil.emptyToDefault(message, "AGV任务下发失败"));
+                return false;
+            }
+            if (!waitForOpenTaskFinished(outId)) {
+                agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "样品回库步骤" + stepIndex + "未完成");
                 return false;
             }
             return true;

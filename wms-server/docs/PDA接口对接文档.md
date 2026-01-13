@@ -729,6 +729,7 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
 2. **呼叫送检** → 调用`POST /api/task/dispatch`
 
 3. **空托回库** → 调用`POST /api/task/dispatch`
+   - 备注：`remark=INSPECTION_EMPTY_RETURN`（WMS 内部按两阶段处理）
 
 **WMS需要做的事情：**
 
@@ -746,8 +747,10 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
    - 输出：阀门列表
 
 2. **呼叫托盘** → 调用`POST /api/task/dispatch`
+   - 备注：`remark=RETURN_CALL_PALLET`（WMS 内部按两阶段处理）
 
 3. **阀门回库** → 调用`POST /api/task/dispatch`
+   - 备注：`remark=VALVE_RETURN`（WMS 内部按两阶段处理）
 
 **WMS需要做的事情：**
 
@@ -767,6 +770,7 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
 2. **呼叫出库** → 调用`POST /api/task/dispatch`
 
 3. **空托回库** → 调用`POST /api/task/dispatch`
+   - 备注：`remark=OUTBOUND_EMPTY_RETURN`（WMS 内部按两阶段处理）
 
 **WMS需要做的事情：**
 
