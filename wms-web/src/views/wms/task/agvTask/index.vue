@@ -29,21 +29,10 @@
       </el-form>
 
       <el-row :gutter="10" class="mb8">
-        <el-col :span="1.5">
-          <el-button
-            type="danger"
-            plain
-            icon="Close"
-            :disabled="single"
-            @click="handleCancel"
-            v-hasPermi="['wms:agvTask:edit']"
-          >取消任务</el-button>
-        </el-col>
         <right-toolbar v-model:showSearch="showSearch" @queryTable="getList"></right-toolbar>
       </el-row>
 
-      <el-table v-loading="loading" :data="agvTaskList" @selection-change="handleSelectionChange">
-        <el-table-column type="selection" width="55" align="center" />
+      <el-table v-loading="loading" :data="agvTaskList">
         <el-table-column label="ID" prop="id" width="80" />
         <el-table-column label="任务编号" prop="taskNo" width="150" />
         <el-table-column label="任务类型" prop="taskType">
@@ -72,12 +61,12 @@
         <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="120">
           <template #default="scope">
             <el-button link type="primary" icon="View" @click="handleView(scope.row)" v-hasPermi="['wms:agvTask:list']">查看</el-button>
-            <el-button 
+            <el-button
               v-if="scope.row.status === 0 || scope.row.status === 1"
-              link 
-              type="danger" 
-              icon="Close" 
-              @click="handleCancel(scope.row)" 
+              link
+              type="danger"
+              icon="Close"
+              @click="handleCancel(scope.row)"
               v-hasPermi="['wms:agvTask:edit']"
             >取消</el-button>
           </template>
@@ -135,8 +124,6 @@ const agvTaskList = ref([]);
 const taskDetail = ref(null);
 const loading = ref(false);
 const showSearch = ref(true);
-const ids = ref([]);
-const single = ref(true);
 const queryFormRef = ref();
 const detailDialog = reactive({
   visible: false
@@ -176,12 +163,6 @@ const resetQuery = () => {
   handleQuery();
 };
 
-/** 多选框选中数据 */
-const handleSelectionChange = (selection) => {
-  ids.value = selection.map(item => item.id);
-  single.value = selection.length !== 1;
-};
-
 /** 查看任务详情 */
 const handleView = async (row) => {
   const res = await getAgvTask(row.id);
@@ -191,13 +172,12 @@ const handleView = async (row) => {
 
 /** 取消任务 */
 const handleCancel = async (row) => {
-  const selected = row || agvTaskList.value.find(t => ids.value.includes(t.id));
-  if (!selected?.id) {
+  if (!row?.id) {
     proxy?.$modal.msgError('请选择要取消的任务');
     return;
   }
-  await proxy?.$modal.confirm('确认取消任务【' + selected.taskNo + '】吗？');
-  await cancelAgvTask(selected.id);
+  await proxy?.$modal.confirm('确认取消任务【' + row.taskNo + '】吗？');
+  await cancelAgvTask(row.id);
   proxy?.$modal.msgSuccess("取消成功");
   await getList();
 };

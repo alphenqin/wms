@@ -136,7 +136,7 @@
 </template>
 
 <script setup name="Valve">
-import { listValve, getValve, delValve, addValve, updateValve, exportValve } from '@/api/wms/valve';
+import { listValve, getValve, delValve, delValves, addValve, updateValve, exportValve } from '@/api/wms/valve';
 import { getCurrentInstance, reactive, ref, toRefs, onMounted } from 'vue';
 import { useDict } from '@/utils/dict';
 
@@ -272,8 +272,12 @@ const submitForm = () => {
 
 /** 删除按钮操作 */
 const handleDelete = async (row) => {
-  const _ids = row.id || ids.value;
+  const _ids = row?.id ?? ids.value;
   if (Array.isArray(_ids)) {
+    if (!_ids.length) {
+      proxy?.$modal.msgError('请选择要删除的数据');
+      return;
+    }
     await proxy?.$modal.confirm('是否确认删除共"' + _ids.length + '"条数据项？');
     await delValves(_ids);
   } else {
