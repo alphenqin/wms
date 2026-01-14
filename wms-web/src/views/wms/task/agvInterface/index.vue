@@ -1,8 +1,8 @@
 <template>
   <div class="app-container">
     <el-card>
-      <el-tabs v-model="activeTab">
-        <el-tab-pane label="任务下发" name="dispatch">
+      <el-tabs v-model="activeTab" :class="{ 'agv-tabs--hidden': !showTabs }">
+        <el-tab-pane v-if="visibleTabs.includes('dispatch')" label="任务下发" name="dispatch">
           <el-form ref="sendFormRef" :model="sendForm" :rules="sendRules" label-width="110px">
             <el-row :gutter="16">
               <el-col :span="12">
@@ -104,7 +104,7 @@
           </el-form>
         </el-tab-pane>
 
-        <el-tab-pane label="任务结果" name="result">
+        <el-tab-pane v-if="visibleTabs.includes('result')" label="任务结果" name="result">
           <el-form :inline="true" :model="resultForm" label-width="100px">
             <el-form-item label="外部业务ID" prop="outId">
               <el-input v-model="resultForm.outId" placeholder="请输入outID" @keyup.enter="handleQueryResult" />
@@ -134,7 +134,7 @@
           </el-table>
         </el-tab-pane>
 
-        <el-tab-pane label="库位/AGV" name="bin">
+        <el-tab-pane v-if="visibleTabs.includes('bin')" label="库位/AGV" name="bin">
           <el-row :gutter="16">
             <el-col :span="12">
               <el-card shadow="never" header="分配库位">
@@ -223,7 +223,7 @@
           </el-card>
         </el-tab-pane>
 
-        <el-tab-pane label="任务记录" name="record">
+        <el-tab-pane v-if="visibleTabs.includes('record')" label="任务记录" name="record">
           <el-form :model="recordQuery" ref="recordQueryRef" :inline="true" label-width="90px" v-show="showRecordSearch">
             <el-form-item label="外部业务ID">
               <el-input v-model="recordQuery.outId" placeholder="模糊查询" clearable @keyup.enter="loadTaskList" />
@@ -277,6 +277,7 @@
 
 <script setup name="AgvInterface">
 import { getCurrentInstance, reactive, ref, computed, onMounted, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import {
   sendAgvTask,
   listAgvOpenTask,
@@ -287,8 +288,35 @@ import {
   fetchAgvInfo
 } from '@/api/wms/agvOpen';
 
+const props = defineProps({
+  mode: {
+    type: String,
+    default: ''
+  },
+  showTabs: {
+    type: Boolean,
+    default: true
+  }
+});
+
 const { proxy } = getCurrentInstance();
-const activeTab = ref('dispatch');
+const route = useRoute();
+const tabOptions = ['dispatch', 'result', 'bin', 'record'];
+const resolveTab = (tab) => (tabOptions.includes(tab) ? tab : 'dispatch');
+const activeTab = ref(resolveTab(props.mode || route.query.tab));
+const visibleTabs = computed(() => (props.mode ? [resolveTab(props.mode)] : tabOptions));
+
+watch(() => props.mode, (tab) => {
+  if (tab) {
+    activeTab.value = resolveTab(tab);
+  }
+});
+
+watch(() => route.query.tab, (tab) => {
+  if (!props.mode) {
+    activeTab.value = resolveTab(tab);
+  }
+});
 
 const taskTypeOptions = [
   { label: '01-取放货', value: '01' },
@@ -567,5 +595,11 @@ onMounted(() => {
 <style scoped>
 .mt10 { margin-top: 10px; }
 .text-right { text-align: right; }
+:deep(.agv-tabs--hidden > .el-tabs__header) {
+  display: none;
+}
+:deep(.agv-tabs--hidden > .el-tabs__content) {
+  margin-top: 0;
+}
 </style>
 
