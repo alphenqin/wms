@@ -138,6 +138,8 @@ security:
     # actuator 监控配置
     - /actuator
     - /actuator/**
+    # PDA 接口（放开全部 /api）
+    - /api/**
 
 # MyBatisPlus配置
 # https://baomidou.com/config/
