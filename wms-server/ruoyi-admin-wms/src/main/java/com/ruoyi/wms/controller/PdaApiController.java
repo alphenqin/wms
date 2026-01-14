@@ -1170,26 +1170,35 @@ public class PdaApiController {
     }
 
     /**
-     * 入库任务锁定状态
+     * 任务锁定状态（统一入口）
      */
-    @PostMapping("/task/inbound/lock")
-    public R<PdaInboundLockResponse> inboundLockStatus() {
-        long count = countActiveInboundTasks();
-        PdaInboundLockResponse response = new PdaInboundLockResponse();
-        response.setLocked(isInboundLocked());
-        response.setCount(count);
-        return R.ok(response);
-    }
+    @PostMapping("/task/lock/status")
+    public R<PdaTaskLockStatusResponse> taskLockStatus() {
+        long inboundCount = countActiveInboundTasks();
+        long inspectionCount = countActiveInspectionTasks();
+        long inspectionEmptyReturnCount = countActiveInspectionEmptyReturnTasks();
+        long returnCallCount = countActiveReturnCallTasks();
+        long returnValveCount = countActiveReturnValveTasks();
+        long outboundCount = countActiveOutboundTasks();
+        long outboundEmptyReturnCount = countActiveOutboundEmptyReturnTasks();
 
-    /**
-     * 送检任务锁定状态
-     */
-    @PostMapping("/task/inspection/lock")
-    public R<PdaInboundLockResponse> inspectionLockStatus() {
-        long count = countActiveInspectionTasks();
-        PdaInboundLockResponse response = new PdaInboundLockResponse();
-        response.setLocked(isInspectionLocked());
-        response.setCount(count);
+        PdaTaskLockStatusResponse response = new PdaTaskLockStatusResponse();
+        response.setInboundCount(inboundCount);
+        response.setInspectionCount(inspectionCount);
+        response.setInspectionEmptyReturnCount(inspectionEmptyReturnCount);
+        response.setReturnCallCount(returnCallCount);
+        response.setReturnValveCount(returnValveCount);
+        response.setOutboundCount(outboundCount);
+        response.setOutboundEmptyReturnCount(outboundEmptyReturnCount);
+
+        response.setInboundLocked(isLockedByLatest(inboundCount, getLatestInboundTask()));
+        response.setInspectionLocked(isLockedByLatest(inspectionCount, getLatestInspectionTask()));
+        response.setInspectionEmptyReturnLocked(isLockedByLatest(inspectionEmptyReturnCount, getLatestInspectionEmptyReturnTask()));
+        response.setReturnCallLocked(isLockedByLatest(returnCallCount, getLatestReturnCallTask()));
+        response.setReturnValveLocked(isLockedByLatest(returnValveCount, getLatestReturnValveTask()));
+        response.setOutboundLocked(isLockedByLatest(outboundCount, getLatestOutboundTask()));
+        response.setOutboundEmptyReturnLocked(isLockedByLatest(outboundEmptyReturnCount, getLatestOutboundEmptyReturnTask()));
+
         return R.ok(response);
     }
 
@@ -1356,25 +1365,21 @@ public class PdaApiController {
     }
 
     private boolean isInboundLocked() {
-        if (countActiveInboundTasks() > 0) {
-            return true;
-        }
-        AgvTask latest = getLatestInboundTask();
-        if (latest == null) {
-            return false;
-        }
-        Integer status = latest.getStatus();
-        if (status == null) {
-            return true;
-        }
-        return status != 2 && status != 3 && status != 4;
+        return isLockedByLatest(countActiveInboundTasks(), getLatestInboundTask());
     }
 
     private boolean isInspectionLocked() {
-        if (countActiveInspectionTasks() > 0) {
+        return isLockedByLatest(countActiveInspectionTasks(), getLatestInspectionTask());
+    }
+
+    private boolean isInspectionEmptyReturnLocked() {
+        return isLockedByLatest(countActiveInspectionEmptyReturnTasks(), getLatestInspectionEmptyReturnTask());
+    }
+
+    private boolean isLockedByLatest(long activeCount, AgvTask latest) {
+        if (activeCount > 0) {
             return true;
         }
-        AgvTask latest = getLatestInspectionTask();
         if (latest == null) {
             return false;
         }
@@ -1394,11 +1399,47 @@ public class PdaApiController {
 
     private long countActiveInspectionTasks() {
         LambdaQueryWrapper<AgvTask> wrapper = Wrappers.lambdaQuery();
+        wrapper.eq(AgvTask::getTaskType, 2);
         wrapper.in(AgvTask::getStatus, 0, 1);
-        wrapper.and(w -> w.eq(AgvTask::getTaskType, 2)
-            .or()
-            .eq(AgvTask::getTaskType, 3)
-            .in(AgvTask::getRemark, INSPECTION_EMPTY_RETURN_REMARK, INSPECTION_EMPTY_RETURN_REMARK_LEGACY));
+        return agvTaskMapper.selectCount(wrapper);
+    }
+
+    private long countActiveInspectionEmptyReturnTasks() {
+        LambdaQueryWrapper<AgvTask> wrapper = Wrappers.lambdaQuery();
+        wrapper.eq(AgvTask::getTaskType, 3);
+        wrapper.in(AgvTask::getRemark, INSPECTION_EMPTY_RETURN_REMARK, INSPECTION_EMPTY_RETURN_REMARK_LEGACY);
+        wrapper.in(AgvTask::getStatus, 0, 1);
+        return agvTaskMapper.selectCount(wrapper);
+    }
+
+    private long countActiveReturnCallTasks() {
+        LambdaQueryWrapper<AgvTask> wrapper = Wrappers.lambdaQuery();
+        wrapper.eq(AgvTask::getTaskType, 3);
+        wrapper.eq(AgvTask::getRemark, RETURN_CALL_PALLET_REMARK);
+        wrapper.in(AgvTask::getStatus, 0, 1);
+        return agvTaskMapper.selectCount(wrapper);
+    }
+
+    private long countActiveReturnValveTasks() {
+        LambdaQueryWrapper<AgvTask> wrapper = Wrappers.lambdaQuery();
+        wrapper.eq(AgvTask::getTaskType, 3);
+        wrapper.eq(AgvTask::getRemark, VALVE_RETURN_REMARK);
+        wrapper.in(AgvTask::getStatus, 0, 1);
+        return agvTaskMapper.selectCount(wrapper);
+    }
+
+    private long countActiveOutboundTasks() {
+        LambdaQueryWrapper<AgvTask> wrapper = Wrappers.lambdaQuery();
+        wrapper.eq(AgvTask::getTaskType, 4);
+        wrapper.in(AgvTask::getStatus, 0, 1);
+        return agvTaskMapper.selectCount(wrapper);
+    }
+
+    private long countActiveOutboundEmptyReturnTasks() {
+        LambdaQueryWrapper<AgvTask> wrapper = Wrappers.lambdaQuery();
+        wrapper.eq(AgvTask::getTaskType, 3);
+        wrapper.eq(AgvTask::getRemark, OUTBOUND_EMPTY_RETURN_REMARK);
+        wrapper.in(AgvTask::getStatus, 0, 1);
         return agvTaskMapper.selectCount(wrapper);
     }
 
@@ -1412,10 +1453,51 @@ public class PdaApiController {
 
     private AgvTask getLatestInspectionTask() {
         LambdaQueryWrapper<AgvTask> wrapper = Wrappers.lambdaQuery();
-        wrapper.and(w -> w.eq(AgvTask::getTaskType, 2)
-            .or()
-            .eq(AgvTask::getTaskType, 3)
-            .in(AgvTask::getRemark, INSPECTION_EMPTY_RETURN_REMARK, INSPECTION_EMPTY_RETURN_REMARK_LEGACY));
+        wrapper.eq(AgvTask::getTaskType, 2);
+        wrapper.orderByDesc(AgvTask::getCreateTime);
+        wrapper.last("limit 1");
+        return agvTaskMapper.selectOne(wrapper);
+    }
+
+    private AgvTask getLatestInspectionEmptyReturnTask() {
+        LambdaQueryWrapper<AgvTask> wrapper = Wrappers.lambdaQuery();
+        wrapper.eq(AgvTask::getTaskType, 3);
+        wrapper.in(AgvTask::getRemark, INSPECTION_EMPTY_RETURN_REMARK, INSPECTION_EMPTY_RETURN_REMARK_LEGACY);
+        wrapper.orderByDesc(AgvTask::getCreateTime);
+        wrapper.last("limit 1");
+        return agvTaskMapper.selectOne(wrapper);
+    }
+
+    private AgvTask getLatestReturnCallTask() {
+        LambdaQueryWrapper<AgvTask> wrapper = Wrappers.lambdaQuery();
+        wrapper.eq(AgvTask::getTaskType, 3);
+        wrapper.eq(AgvTask::getRemark, RETURN_CALL_PALLET_REMARK);
+        wrapper.orderByDesc(AgvTask::getCreateTime);
+        wrapper.last("limit 1");
+        return agvTaskMapper.selectOne(wrapper);
+    }
+
+    private AgvTask getLatestReturnValveTask() {
+        LambdaQueryWrapper<AgvTask> wrapper = Wrappers.lambdaQuery();
+        wrapper.eq(AgvTask::getTaskType, 3);
+        wrapper.eq(AgvTask::getRemark, VALVE_RETURN_REMARK);
+        wrapper.orderByDesc(AgvTask::getCreateTime);
+        wrapper.last("limit 1");
+        return agvTaskMapper.selectOne(wrapper);
+    }
+
+    private AgvTask getLatestOutboundTask() {
+        LambdaQueryWrapper<AgvTask> wrapper = Wrappers.lambdaQuery();
+        wrapper.eq(AgvTask::getTaskType, 4);
+        wrapper.orderByDesc(AgvTask::getCreateTime);
+        wrapper.last("limit 1");
+        return agvTaskMapper.selectOne(wrapper);
+    }
+
+    private AgvTask getLatestOutboundEmptyReturnTask() {
+        LambdaQueryWrapper<AgvTask> wrapper = Wrappers.lambdaQuery();
+        wrapper.eq(AgvTask::getTaskType, 3);
+        wrapper.eq(AgvTask::getRemark, OUTBOUND_EMPTY_RETURN_REMARK);
         wrapper.orderByDesc(AgvTask::getCreateTime);
         wrapper.last("limit 1");
         return agvTaskMapper.selectOne(wrapper);

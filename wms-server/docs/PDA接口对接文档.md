@@ -665,11 +665,11 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
 
 ---
 
-### 3.9 入库锁定状态接口
+### 3.9 任务锁定状态接口（统一）
 
-**接口说明：** 查询是否存在未完成入库任务（全局锁）。
+**接口说明：** 统一返回所有业务操作的锁定状态（七种锁）。
 
-**接口地址：** `POST /api/task/inbound/lock`
+**接口地址：** `POST /api/task/lock/status`
 
 **请求头：** 需要Token
 
@@ -682,8 +682,20 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
   "code": 200,
   "msg": "操作成功",
   "data": {
-    "locked": true,
-    "count": 3
+    "inboundLocked": false,
+    "inboundCount": 0,
+    "inspectionLocked": false,
+    "inspectionCount": 0,
+    "inspectionEmptyReturnLocked": false,
+    "inspectionEmptyReturnCount": 0,
+    "returnCallLocked": false,
+    "returnCallCount": 0,
+    "returnValveLocked": false,
+    "returnValveCount": 0,
+    "outboundLocked": false,
+    "outboundCount": 0,
+    "outboundEmptyReturnLocked": false,
+    "outboundEmptyReturnCount": 0
   }
 }
 ```
@@ -692,7 +704,7 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
 
 ## 4. 业务流程说明
 
-**统一约束：** 送检/回库/出库前需调用`POST /api/task/inbound/lock`，若返回`locked=true`则禁止操作。
+**统一约束：** 入库/送检/回库/出库前需调用`POST /api/task/lock/status`，若对应锁为`true`则禁止操作。
 
 ### 4.1 入库流程
 
@@ -935,7 +947,7 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
 | 6 | 任务下发接口 | `/api/task/dispatch` | POST | 下发AGV任务并落库 |
 | 7 | 任务取消接口 | `/api/task/cancel` | POST | 取消指定任务 |
 | 8 | AGV信息查询接口 | `/api/agv/info` | POST | 查询AGV状态 |
-| 9 | 入库锁定状态接口 | `/api/task/inbound/lock` | POST | 查询入库锁状态 |
+| 9 | 任务锁定状态接口 | `/api/task/lock/status` | POST | 查询所有锁状态 |
 
 ### 7.2 枚举值汇总
 
