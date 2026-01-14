@@ -2,6 +2,7 @@ package com.ruoyi.wms.service;
 
 import cn.hutool.core.util.StrUtil;
 import com.ruoyi.common.core.exception.ServiceException;
+import com.ruoyi.common.json.utils.JsonUtils;
 import com.ruoyi.wms.domain.bo.AgvTaskBo;
 import com.ruoyi.wms.domain.vo.AgvTaskVo;
 import lombok.RequiredArgsConstructor;
@@ -321,9 +322,11 @@ public class AgvIntegrationService {
         String url = agvApiUrl + endpoint;
 
         try {
+            log.info("AGV request -> url={}, payload={}", url, JsonUtils.toJsonString(requestBody));
             ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.POST, entity, Map.class);
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 Map<String, Object> body = response.getBody();
+                log.info("AGV response <- url={}, status={}, body={}", url, response.getStatusCode(), JsonUtils.toJsonString(body));
                 String taskId = body.get("taskId") != null ? String.valueOf(body.get("taskId")) : null;
                 if (StrUtil.isBlank(taskId)) {
                     throw new ServiceException("AGV接口返回任务ID为空");
@@ -357,8 +360,10 @@ public class AgvIntegrationService {
         String url = agvApiUrl + endpoint;
 
         try {
+            log.info("AGV request -> url={}, payload={}", url, JsonUtils.toJsonString(requestBody));
             ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.POST, entity, Map.class);
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                log.info("AGV response <- url={}, status={}, body={}", url, response.getStatusCode(), JsonUtils.toJsonString(response.getBody()));
                 return response.getBody();
             }
             throw new ServiceException("AGV接口返回错误");

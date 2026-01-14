@@ -241,10 +241,12 @@ public class AgvOpenTaskService extends ServiceImpl<AgvOpenTaskMapper, AgvOpenTa
         HttpEntity<Object> entity = new HttpEntity<>(payload, headers);
         String url = formatUrl(path);
         try {
+            log.info("AGV request -> url={}, payload={}", url, JsonUtils.toJsonString(payload));
             ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.POST, entity, Map.class);
             if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
                 throw new ServiceException("AGV接口调用失败: " + url + ", 状态码: " + response.getStatusCode());
             }
+            log.info("AGV response <- url={}, status={}, body={}", url, response.getStatusCode(), JsonUtils.toJsonString(response.getBody()));
             return response.getBody();
         } catch (RestClientException e) {
             String errorMsg = e.getMessage();
