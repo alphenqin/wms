@@ -17,5 +17,10 @@ public class PdaPalletScanRequest {
      */
     @NotBlank(message = "条码不能为空")
     private String barcode;
+
+    /**
+     * PDA设备编号（可选）
+     */
+    private String deviceCode;
 }
 

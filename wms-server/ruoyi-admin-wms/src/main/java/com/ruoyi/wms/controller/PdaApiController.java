@@ -20,6 +20,7 @@ import com.ruoyi.system.service.SysUserService;
 import com.ruoyi.system.domain.vo.SysUserVo;
 import com.ruoyi.wms.domain.bo.AgvOpenTaskBo;
 import com.ruoyi.wms.domain.bo.AgvTaskBo;
+import com.ruoyi.wms.domain.bo.PdaOperationBo;
 import com.ruoyi.wms.domain.dto.pda.*;
 import com.ruoyi.wms.domain.entity.*;
 import com.ruoyi.wms.domain.vo.AgvTaskVo;
@@ -66,6 +67,7 @@ public class PdaApiController {
     private final PalletTypeService palletTypeService;
     private final ValveService valveService;
     private final AgvTaskService agvTaskService;
+    private final PdaOperationService pdaOperationService;
     private final BinService binService;
     private final AgvOpenTaskService agvOpenTaskService;
     private final WmsConfigService wmsConfigService;
@@ -216,12 +218,14 @@ public class PdaApiController {
             // 查询条码信息
             var barcodeVo = barcodeService.queryByBarcode(request.getBarcode());
             if (barcodeVo == null) {
+                recordOperation(1, request.getDeviceCode(), request.getBarcode(), null, null, 0, null, "托盘不存在");
                 return R.fail(404, "托盘不存在");
             }
 
             // 查询托盘信息
             PalletVo palletVo = palletService.queryByPalletCode(barcodeVo.getObjectCode());
             if (palletVo == null) {
+                recordOperation(1, request.getDeviceCode(), request.getBarcode(), null, null, 0, null, "托盘不存在");
                 return R.fail(404, "托盘不存在");
             }
 
@@ -252,9 +256,11 @@ public class PdaApiController {
             
             response.setBinCode(palletVo.getCurrentBinCode());
 
+            recordOperation(1, request.getDeviceCode(), request.getBarcode(), null, null, 1, "托盘扫码成功", null);
             return R.ok(response);
         } catch (Exception e) {
             log.error("托盘扫码失败", e);
+            recordOperation(1, request.getDeviceCode(), request.getBarcode(), null, null, 0, null, e.getMessage());
             return R.fail(500, "托盘扫码失败: " + e.getMessage());
         }
     }
@@ -336,12 +342,14 @@ public class PdaApiController {
             // 校验阀门编号是否已存在
             ValveVo existingValve = valveService.queryByValveNo(request.getValveNo());
             if (existingValve != null) {
+                recordOperation(2, request.getDeviceCode(), request.getValveNo(), null, null, 0, null, "阀门编号已存在");
                 return R.fail(400, "阀门编号已存在");
             }
 
             // 查询库位信息
             var binVo = binService.queryByBinCode(request.getBinCode());
             if (binVo == null) {
+                recordOperation(2, request.getDeviceCode(), request.getValveNo(), null, null, 0, null, "库位不存在");
                 return R.fail(400, "库位不存在");
             }
 
@@ -351,10 +359,12 @@ public class PdaApiController {
             PalletVo palletVo = palletService.queryByPalletCode(request.getPalletNo());
             if (palletScanEnabled) {
                 if (palletVo == null) {
+                    recordOperation(2, request.getDeviceCode(), request.getValveNo(), null, null, 0, null, "托盘不存在");
                     return R.fail(400, "托盘不存在");
                 }
                 // 校验库位号是否匹配
                 if (!request.getBinCode().equals(palletVo.getCurrentBinCode())) {
+                    recordOperation(2, request.getDeviceCode(), request.getValveNo(), null, null, 0, null, "托盘号和库位号不匹配");
                     return R.fail(400, "托盘号和库位号不匹配");
                 }
             } else {
@@ -373,6 +383,7 @@ public class PdaApiController {
                     palletVo = palletService.queryByPalletCode(request.getPalletNo());
                 }
                 if (palletVo == null) {
+                    recordOperation(2, request.getDeviceCode(), request.getValveNo(), null, null, 0, null, "托盘创建失败");
                     return R.fail(500, "托盘创建失败");
                 }
             }
@@ -404,11 +415,14 @@ public class PdaApiController {
 
             Map<String, Object> result = new HashMap<>();
             result.put("success", true);
+            recordOperation(2, request.getDeviceCode(), request.getValveNo(), null, null, 1, "阀门绑定成功", null);
             return R.ok(result);
         } catch (ServiceException e) {
+            recordOperation(2, request.getDeviceCode(), request.getValveNo(), null, null, 0, null, e.getMessage());
             return R.fail(e.getCode(), e.getMessage());
         } catch (Exception e) {
             log.error("阀门绑定失败", e);
+            recordOperation(2, request.getDeviceCode(), request.getValveNo(), null, null, 0, null, e.getMessage());
             return R.fail(500, "阀门绑定失败: " + e.getMessage());
         }
     }
@@ -710,6 +724,7 @@ public class PdaApiController {
             response.setTaskType(taskTypeName);
             response.setStatus("PENDING");
             response.setToBinCode(targetBinCode);
+            recordTaskOperation(taskType, deviceCode, palletNo, taskNo, "入库任务下发成功", 1, null);
             return R.ok(response);
         }
 
@@ -777,6 +792,7 @@ public class PdaApiController {
             response.setTaskType(taskTypeName);
             response.setStatus("PENDING");
             response.setToBinCode(targetBinCode);
+            recordTaskOperation(taskType, deviceCode, palletNo, taskNo, "送检任务下发成功", 1, null);
             return R.ok(response);
         }
 
@@ -841,6 +857,7 @@ public class PdaApiController {
             response.setTaskType(taskTypeName);
             response.setStatus("PENDING");
             response.setToBinCode(targetBinCode);
+            recordTaskOperation(taskType, deviceCode, palletNo, taskNo, "呼叫托盘任务下发成功", 1, null);
             return R.ok(response);
         }
 
@@ -906,6 +923,7 @@ public class PdaApiController {
             response.setTaskType(taskTypeName);
             response.setStatus("PENDING");
             response.setToBinCode(targetBinCode);
+            recordTaskOperation(taskType, deviceCode, palletNo, taskNo, "样品回库任务下发成功", 1, null);
             return R.ok(response);
         }
 
@@ -968,6 +986,7 @@ public class PdaApiController {
             response.setTaskType(taskTypeName);
             response.setStatus("PENDING");
             response.setToBinCode(targetBinCode);
+            recordTaskOperation(taskType, deviceCode, palletNo, taskNo, "送检空托回库任务下发成功", 1, null);
             return R.ok(response);
         }
         if (taskType == 3 && isOutboundEmptyReturnRequest(request)) {
@@ -1029,6 +1048,7 @@ public class PdaApiController {
             response.setTaskType(taskTypeName);
             response.setStatus("PENDING");
             response.setToBinCode(targetBinCode);
+            recordTaskOperation(taskType, deviceCode, palletNo, taskNo, "出库空托回库任务下发成功", 1, null);
             return R.ok(response);
         }
 
@@ -1090,6 +1110,7 @@ public class PdaApiController {
             response.setTaskType(taskTypeName);
             response.setStatus("PENDING");
             response.setToBinCode(targetBinCode);
+            recordTaskOperation(taskType, deviceCode, palletNo, taskNo, "出库任务下发成功", 1, null);
             return R.ok(response);
         }
         if (fromBinCode == null || toBinCode == null) {
@@ -1124,6 +1145,7 @@ public class PdaApiController {
             response.setTaskType(taskTypeName);
             response.setStatus("PENDING");
             response.setToBinCode(toBinCode);
+            recordTaskOperation(taskType, deviceCode, palletNo, taskNo, "任务下发成功", 1, null);
             return R.ok(response);
         } catch (Exception e) {
             agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
@@ -1141,13 +1163,16 @@ public class PdaApiController {
         try {
             AgvTaskVo taskVo = agvTaskService.queryByTaskNo(outId);
             if (taskVo == null) {
+                recordOperation(9, deviceCode, outId, outId, null, 0, null, "任务不存在");
                 return R.fail(404, "任务不存在");
             }
             if (!TASK_SOURCE_PDA.equals(taskVo.getTaskSource())
                 || !StrUtil.equals(deviceCode, taskVo.getPdaDeviceNo())) {
+                recordOperation(9, deviceCode, outId, outId, null, 0, null, "无权限取消该任务");
                 return R.fail(403, "无权限取消该任务");
             }
             if (taskVo.getStatus() != null && taskVo.getStatus() != 0) {
+                recordOperation(9, deviceCode, outId, outId, null, 0, null, "只能取消待执行任务");
                 return R.fail(409, "只能取消待执行任务");
             }
 
@@ -1159,14 +1184,75 @@ public class PdaApiController {
             String code = MapUtil.getStr(agvResp, "code");
             String message = MapUtil.getStr(agvResp, "message");
             if (!"20000".equals(code)) {
+                recordOperation(9, deviceCode, outId, outId, null, 0, null, StrUtil.emptyToDefault(message, "取消任务失败"));
                 return R.fail(500, StrUtil.emptyToDefault(message, "取消任务失败"));
             }
 
             agvTaskService.cancelTask(taskVo.getId());
+            recordOperation(9, deviceCode, outId, outId, null, 1, "任务取消成功", null);
             return R.ok();
         } catch (Exception e) {
+            recordOperation(9, deviceCode, outId, outId, null, 0, null, e.getMessage());
             return R.fail(500, "取消任务失败: " + e.getMessage());
         }
+    }
+
+    private void recordTaskOperation(Integer taskType, String pdaDeviceNo, String palletNo, String outId,
+                                     String resultMsg, Integer result, String errorMsg) {
+        Integer operationType = mapTaskTypeToOperationType(taskType);
+        if (operationType == null) {
+            return;
+        }
+        recordOperation(operationType, pdaDeviceNo, palletNo, outId, null, result, resultMsg, errorMsg);
+    }
+
+    private Integer mapTaskTypeToOperationType(Integer taskType) {
+        if (taskType == null) {
+            return null;
+        }
+        if (taskType == 1) {
+            return 4; // 入库
+        }
+        if (taskType == 2) {
+            return 6; // 送检
+        }
+        if (taskType == 3) {
+            return 7; // 回库（含呼叫托盘/空托回库/样品回库）
+        }
+        if (taskType == 4) {
+            return 5; // 出库
+        }
+        return null;
+    }
+
+    private void recordOperation(Integer operationType, String pdaDeviceNo, String scannedCode, String bizOrderNo,
+                                 Long bizOrderId, Integer result, String resultMsg, String errorMsg) {
+        try {
+            PdaOperationBo bo = new PdaOperationBo();
+            bo.setOperationType(operationType);
+            bo.setOperator(resolveOperator());
+            bo.setPdaDeviceNo(pdaDeviceNo);
+            bo.setScannedCode(scannedCode);
+            bo.setBizOrderNo(bizOrderNo);
+            bo.setBizOrderId(bizOrderId);
+            bo.setResult(result);
+            bo.setResultMsg(resultMsg);
+            bo.setErrorMsg(errorMsg);
+            pdaOperationService.insertByBo(bo);
+        } catch (Exception e) {
+            log.error("记录PDA操作失败", e);
+        }
+    }
+
+    private String resolveOperator() {
+        try {
+            LoginUser loginUser = LoginHelper.getLoginUser();
+            if (loginUser != null) {
+                return loginUser.getUsername();
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
     }
 
     /**

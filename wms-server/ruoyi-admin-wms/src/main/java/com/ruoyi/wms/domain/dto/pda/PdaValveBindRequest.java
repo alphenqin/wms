@@ -47,5 +47,10 @@ public class PdaValveBindRequest {
      */
     @NotBlank(message = "库位号不能为空")
     private String binCode;
+
+    /**
+     * PDA设备编号（可选）
+     */
+    private String deviceCode;
 }
 
