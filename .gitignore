@@ -8,6 +8,7 @@
 **/classes/
 **/generated-sources/
 **/generated-test-sources/
+*.class
 
 # Maven包装器
 .mvn/wrapper/maven-wrapper.jar
