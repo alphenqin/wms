@@ -17,6 +17,7 @@ import com.ruoyi.wms.domain.vo.AgvTaskVo;
 import com.ruoyi.wms.mapper.AgvTaskMapper;
 import com.ruoyi.wms.mapper.ValveMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +32,7 @@ import java.util.Map;
  * @author wms
  * @date 2024
  */
+@Slf4j
 @RequiredArgsConstructor
 @Service
 public class AgvTaskService extends ServiceImpl<AgvTaskMapper, AgvTask> {
@@ -301,11 +303,18 @@ public class AgvTaskService extends ServiceImpl<AgvTaskMapper, AgvTask> {
         openTaskBo.setTaskType("13");
         openTaskBo.setClearOutId(outId);
         openTaskBo.setOutId(outId);
-        Map<String, Object> agvResp = agvOpenTaskService.sendTask(openTaskBo);
-        String code = MapUtil.getStr(agvResp, "code");
-        if (!"20000".equals(code)) {
-            String message = MapUtil.getStr(agvResp, "message");
-            throw new ServiceException(StrUtil.emptyToDefault(message, "取消任务失败"));
+        log.info("AGV取消请求 -> outID={}", outId);
+        try {
+            Map<String, Object> agvResp = agvOpenTaskService.sendTask(openTaskBo);
+            String code = MapUtil.getStr(agvResp, "code");
+            if (!"20000".equals(code)) {
+                String message = MapUtil.getStr(agvResp, "message");
+                log.warn("AGV取消请求返回失败 <- outID={}, code={}, message={}", outId, code, message);
+            } else {
+                log.info("AGV取消请求成功 <- outID={}, code={}", outId, code);
+            }
+        } catch (Exception e) {
+            log.warn("AGV取消请求异常 <- outID={}, error={}", outId, e.getMessage());
         }
         task.setStatus(4); // CANCELLED
         task.setFinishTime(new Date());
