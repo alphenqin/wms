@@ -39,7 +39,7 @@
                </div>
             </el-card>
          </el-col>
-         <el-col :span="18" :xs="24" v-if="state.user.userName!=='wms2'">
+         <el-col :span="18" :xs="24">
             <el-card>
                <template v-slot:header>
                  <div class="clearfix">
