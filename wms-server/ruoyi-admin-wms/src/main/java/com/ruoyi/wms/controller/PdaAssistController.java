@@ -157,7 +157,7 @@ public class PdaAssistController extends BaseController {
                 return R.fail("任务不存在");
             }
 
-            agvTaskService.cancelTask(taskVo.getId());
+            agvTaskService.cancelTaskWithAgv(taskVo.getId());
             recordOperation(9, operator, pdaDeviceNo, taskNo, taskVo.getBizOrderNo(), taskVo.getBizOrderId(), 1, "任务取消成功", null);
             return R.ok();
         } catch (Exception e) {

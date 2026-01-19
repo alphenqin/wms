@@ -104,7 +104,7 @@ public class AgvTaskController extends BaseController {
     @Log(title = "AGV任务", businessType = BusinessType.UPDATE)
     @PutMapping("/{id}/cancel")
     public R<Void> cancelTask(@PathVariable Long id) {
-        agvTaskService.cancelTask(id);
+        agvTaskService.cancelTaskWithAgv(id);
         return R.ok();
     }
 

@@ -1176,19 +1176,7 @@ public class PdaApiController {
                 return R.fail(409, "只能取消待执行任务");
             }
 
-            AgvOpenTaskBo openTaskBo = new AgvOpenTaskBo();
-            openTaskBo.setTaskType("13");
-            openTaskBo.setClearOutId(outId);
-            openTaskBo.setOutId(outId);
-            Map<String, Object> agvResp = agvOpenTaskService.sendTask(openTaskBo);
-            String code = MapUtil.getStr(agvResp, "code");
-            String message = MapUtil.getStr(agvResp, "message");
-            if (!"20000".equals(code)) {
-                recordOperation(9, deviceCode, outId, outId, null, 0, null, StrUtil.emptyToDefault(message, "取消任务失败"));
-                return R.fail(500, StrUtil.emptyToDefault(message, "取消任务失败"));
-            }
-
-            agvTaskService.cancelTask(taskVo.getId());
+            agvTaskService.cancelTaskWithAgv(taskVo.getId());
             recordOperation(9, deviceCode, outId, outId, null, 1, "任务取消成功", null);
             return R.ok();
         } catch (Exception e) {

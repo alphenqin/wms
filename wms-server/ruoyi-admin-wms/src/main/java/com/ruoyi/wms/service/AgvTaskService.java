@@ -1,13 +1,16 @@
 package com.ruoyi.wms.service;
 
+import cn.hutool.core.map.MapUtil;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.ruoyi.common.core.exception.ServiceException;
 import com.ruoyi.common.core.utils.MapstructUtils;
 import com.ruoyi.common.mybatis.core.page.PageQuery;
 import com.ruoyi.common.mybatis.core.page.TableDataInfo;
+import com.ruoyi.wms.domain.bo.AgvOpenTaskBo;
 import com.ruoyi.wms.domain.bo.AgvTaskBo;
 import com.ruoyi.wms.domain.entity.AgvTask;
 import com.ruoyi.wms.domain.vo.AgvTaskVo;
@@ -33,6 +36,7 @@ import java.util.Map;
 public class AgvTaskService extends ServiceImpl<AgvTaskMapper, AgvTask> {
 
     private final AgvTaskMapper agvTaskMapper;
+    private final AgvOpenTaskService agvOpenTaskService;
     private final ValveMapper valveMapper;
     private static final String INSPECTION_EMPTY_RETURN_REMARK = "INSPECTION_EMPTY_RETURN";
     private static final String INSPECTION_EMPTY_RETURN_REMARK_LEGACY = "EMPTY_RETURN_FROM_INSPECTION";
@@ -270,6 +274,38 @@ public class AgvTaskService extends ServiceImpl<AgvTaskMapper, AgvTask> {
         if (task.getStatus() == 2 || task.getStatus() == 3) {
             // 已完成或失败的任务不能取消
             return;
+        }
+        task.setStatus(4); // CANCELLED
+        task.setFinishTime(new Date());
+        agvTaskMapper.updateById(task);
+    }
+
+    /**
+     * 取消任务并通知AGV调度系统清空任务
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void cancelTaskWithAgv(Long id) {
+        AgvTask task = agvTaskMapper.selectById(id);
+        if (task == null) {
+            return;
+        }
+        if (task.getStatus() == 2 || task.getStatus() == 3) {
+            // 已完成或失败的任务不能取消
+            return;
+        }
+        String outId = StrUtil.trimToNull(task.getTaskNo());
+        if (StrUtil.isBlank(outId)) {
+            throw new ServiceException("任务编号不能为空，无法取消");
+        }
+        AgvOpenTaskBo openTaskBo = new AgvOpenTaskBo();
+        openTaskBo.setTaskType("13");
+        openTaskBo.setClearOutId(outId);
+        openTaskBo.setOutId(outId);
+        Map<String, Object> agvResp = agvOpenTaskService.sendTask(openTaskBo);
+        String code = MapUtil.getStr(agvResp, "code");
+        if (!"20000".equals(code)) {
+            String message = MapUtil.getStr(agvResp, "message");
+            throw new ServiceException(StrUtil.emptyToDefault(message, "取消任务失败"));
         }
         task.setStatus(4); // CANCELLED
         task.setFinishTime(new Date());
