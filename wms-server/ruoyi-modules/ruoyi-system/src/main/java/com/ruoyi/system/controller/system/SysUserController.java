@@ -154,7 +154,6 @@ public class SysUserController extends BaseController {
     @Log(title = "用户管理", businessType = BusinessType.UPDATE)
     @PutMapping
     public R<Void> edit(@Validated @RequestBody SysUserBo user) {
-        userService.checkUserAllowed(user.getUserId());
         userService.checkUserDataScope(user.getUserId());
         deptService.checkDeptDataScope(user.getDeptId());
         if (!userService.checkUserNameUnique(user)) {
@@ -176,21 +175,15 @@ public class SysUserController extends BaseController {
     @Log(title = "用户管理", businessType = BusinessType.DELETE)
     @DeleteMapping("/{userIds}")
     public R<Void> remove(@PathVariable Long[] userIds) {
-        if (ArrayUtil.contains(userIds, LoginHelper.getUserId())) {
-            return R.fail("当前用户不能删除");
-        }
         return toAjax(userService.deleteUserByIds(userIds));
     }
 
     /**
      * 重置密码
      */
-    @SaCheckPermission("system:user:resetPwd")
     @Log(title = "用户管理", businessType = BusinessType.UPDATE)
     @PutMapping("/resetPwd")
     public R<Void> resetPwd(@RequestBody SysUserBo user) {
-        userService.checkUserAllowed(user.getUserId());
-        userService.checkUserDataScope(user.getUserId());
         String hashpw = BCrypt.hashpw(user.getPassword());
         log.info("user.getPassword：{}",user.getPassword());
         log.info("hashpw:{}", hashpw);
@@ -205,7 +198,6 @@ public class SysUserController extends BaseController {
     @Log(title = "用户管理", businessType = BusinessType.UPDATE)
     @PutMapping("/changeStatus")
     public R<Void> changeStatus(@RequestBody SysUserBo user) {
-        userService.checkUserAllowed(user.getUserId());
         userService.checkUserDataScope(user.getUserId());
         return toAjax(userService.updateUserStatus(user.getUserId(), user.getStatus()));
     }

@@ -229,9 +229,7 @@ public class SysUserService implements UserService {
      * @param userId 用户ID
      */
     public void checkUserAllowed(Long userId) {
-        if (ObjectUtil.isNotNull(userId) && LoginHelper.isAdmin(userId)) {
-            throw new ServiceException("不允许操作超级管理员用户");
-        }
+        // no-op: allow operations on any user, including admin
     }
 
     /**
@@ -445,10 +443,6 @@ public class SysUserService implements UserService {
      */
     @Transactional(rollbackFor = Exception.class)
     public int deleteUserByIds(Long[] userIds) {
-        for (Long userId : userIds) {
-            checkUserAllowed(userId);
-            checkUserDataScope(userId);
-        }
         List<Long> ids = Arrays.asList(userIds);
         // 删除用户与角色关联
         userRoleMapper.delete(new LambdaQueryWrapper<SysUserRole>().in(SysUserRole::getUserId, ids));
