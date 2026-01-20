@@ -88,7 +88,12 @@
 
       <el-table v-loading="loading" :data="binList" @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="55" align="center" />
-        <el-table-column label="ID" prop="id" width="120" />
+        <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="180">
+          <template #default="scope">
+            <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['wms:bin:edit']">修改</el-button>
+            <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['wms:bin:edit']">删除</el-button>
+          </template>
+        </el-table-column>
         <el-table-column label="货位编号" prop="binCode" />
         <el-table-column label="货位名称" prop="binName" />
         <el-table-column label="所属仓库" prop="warehouseName" />
@@ -117,12 +122,6 @@
         </el-table-column>
         <el-table-column label="排序" prop="orderNum" width="100" />
         <el-table-column label="创建时间" prop="createTime" width="180" />
-        <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="180">
-          <template #default="scope">
-            <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['wms:bin:edit']">修改</el-button>
-            <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['wms:bin:edit']">删除</el-button>
-          </template>
-        </el-table-column>
       </el-table>
 
       <pagination
