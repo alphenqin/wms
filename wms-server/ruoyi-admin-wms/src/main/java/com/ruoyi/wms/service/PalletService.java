@@ -179,6 +179,7 @@ public class PalletService extends ServiceImpl<PalletMapper, Pallet> {
         lqw.eq(bo.getIsEmpty() != null, Pallet::getIsEmpty, bo.getIsEmpty());
         lqw.eq(bo.getIsBound() != null, Pallet::getIsBound, bo.getIsBound());
         lqw.eq(StrUtil.isNotBlank(bo.getStatus()), Pallet::getStatus, bo.getStatus());
+        lqw.orderByAsc(Pallet::getPalletCode);
         return lqw;
     }
 

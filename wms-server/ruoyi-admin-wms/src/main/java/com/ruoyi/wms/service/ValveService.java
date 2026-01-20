@@ -75,6 +75,7 @@ public class ValveService extends ServiceImpl<ValveMapper, Valve> {
         lqw.eq(bo.getPalletId() != null, Valve::getPalletId, bo.getPalletId());
         lqw.eq(bo.getCurrentBinId() != null, Valve::getCurrentBinId, bo.getCurrentBinId());
         lqw.eq(bo.getStatus() != null, Valve::getStatus, bo.getStatus());
+        lqw.orderByAsc(Valve::getValveNo);
         return lqw;
     }
 
