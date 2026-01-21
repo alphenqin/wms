@@ -184,6 +184,9 @@ public class AgvTaskCompensateJob {
             return;
         }
         if (TASK_OUTBOUND == taskType) {
+            if (task.getPalletCode() != null && !task.getPalletCode().trim().isEmpty()) {
+                agvTaskService.updateValveStatusByPalletCode(task.getPalletCode(), 3);
+            }
             unbindPalletSilently(task.getPalletCode());
         }
     }
