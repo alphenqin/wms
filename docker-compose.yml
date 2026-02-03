@@ -3,7 +3,7 @@ services:
   mysql:
     image: mysql:8.0
     container_name: wms-mysql
-    restart: always
+    restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: 123456
       MYSQL_DATABASE: wms
@@ -33,7 +33,7 @@ services:
       dockerfile: ruoyi-admin-wms/Dockerfile
     image: wms-backend:latest
     container_name: wms-backend
-    restart: always
+    restart: unless-stopped
     ports:
       - "8080:8080"
     environment:
@@ -68,7 +68,7 @@ services:
       dockerfile: Dockerfile
     image: wms-frontend:latest
     container_name: wms-frontend
-    restart: always
+    restart: unless-stopped
     ports:
       - "90:80"
     depends_on:
