@@ -60,7 +60,7 @@ export const constantRoutes = [
   {
     path: '',
     component: Layout,
-    redirect: '/io/receiptOrder',
+    redirect: '/dd/palletType',
     hidden: true
   },
   {
