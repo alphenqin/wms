@@ -11,8 +11,8 @@ export function useDict(...args) {
       { label: '停用', value: '0', elTagType: 'danger' }
     ],
     sys_show_hide: [
-      { label: '显示', value: '0' },
-      { label: '隐藏', value: '1' }
+      { label: '显示', value: '1' },
+      { label: '隐藏', value: '0' }
     ],
     sys_user_sex: [
       { label: '男', value: '0' },

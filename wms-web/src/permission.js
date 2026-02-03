@@ -14,13 +14,47 @@ NProgress.configure({ showSpinner: false });
 
 const whiteList = ['/login', '/register'];
 
+function resolveRoutePath(parentPath, routePath) {
+  if (!routePath) {
+    return parentPath || '/'
+  }
+  if (routePath.startsWith('/')) {
+    return routePath
+  }
+  const parent = parentPath && parentPath !== '/' ? parentPath : ''
+  return `${parent}/${routePath}`.replace(/\/+/g, '/')
+}
+
+function findFirstRoutePath(routes, parentPath = '') {
+  if (!Array.isArray(routes)) {
+    return ''
+  }
+  for (const route of routes) {
+    if (!route || !route.path || route.hidden || isHttp(route.path)) {
+      continue
+    }
+    const fullPath = resolveRoutePath(parentPath, route.path)
+    if (Array.isArray(route.children) && route.children.length > 0) {
+      const childPath = findFirstRoutePath(route.children, fullPath)
+      if (childPath) {
+        return childPath
+      }
+    }
+    if (!route.redirect && route.component && fullPath !== '/') {
+      return fullPath
+    }
+  }
+  return ''
+}
+
 router.beforeEach((to, from, next) => {
   NProgress.start()
   if (getToken()) {
     to.meta.title && useSettingsStore().setTitle(to.meta.title)
     /* has token*/
     if (to.path === '/login') {
-      next({ path: '/io/receiptOrder' })
+      const firstPath = findFirstRoutePath(usePermissionStore().addRoutes)
+      next({ path: firstPath || '/' })
       NProgress.done()
     } else {
       if (useUserStore().roles.length === 0) {
@@ -41,7 +75,12 @@ router.beforeEach((to, from, next) => {
             } else {
               console.warn('accessRoutes 不是数组:', accessRoutes)
             }
-            next({ ...to, replace: true }) // hack方法 确保addRoutes已完成
+            const firstPath = findFirstRoutePath(accessRoutes)
+            if (to.path === '/' && firstPath) {
+              next({ path: firstPath, replace: true })
+            } else {
+              next({ ...to, replace: true }) // hack方法 确保addRoutes已完成
+            }
           }).catch(err => {
             console.error('生成路由失败:', err)
             next({ ...to, replace: true })
@@ -49,11 +88,18 @@ router.beforeEach((to, from, next) => {
         }).catch(err => {
           useUserStore().logOut().then(() => {
             ElMessage.error(err)
-            next({ path: '/io/receiptOrder' })
+            next({ path: '/login' })
           })
         })
         initData()
       } else {
+        if (to.path === '/') {
+          const firstPath = findFirstRoutePath(usePermissionStore().addRoutes)
+          if (firstPath) {
+            next({ path: firstPath, replace: true })
+            return
+          }
+        }
         next()
       }
     }
