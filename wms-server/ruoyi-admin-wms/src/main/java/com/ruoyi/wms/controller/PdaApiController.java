@@ -434,7 +434,7 @@ public class PdaApiController {
             // 保存阀门
             valveService.insertByBo(MapstructUtils.convert(valve, com.ruoyi.wms.domain.bo.ValveBo.class));
 
-            // 更新托盘绑定状态
+            // 绑定样品后再更新托盘状态为非空
             palletService.bindMaterial(palletVo.getId());
 
             Map<String, Object> result = new HashMap<>();
@@ -694,7 +694,6 @@ public class PdaApiController {
             if (route == null) {
                 return R.fail(400, "入库站点与托盘类型不匹配");
             }
-
             AgvTaskBo taskBo = new AgvTaskBo();
             taskBo.setTaskType(taskType);
             taskBo.setTaskNo(StrUtil.trimToNull(request.getOutID()));
