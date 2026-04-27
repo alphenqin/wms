@@ -53,7 +53,7 @@ public class PdaValveInfo implements Serializable {
     private String valveStatus;
 
     /**
-     * 送检目标站点（如 F1-检测点/F2-检测点/F3-检测点/F4-检测点）
+     * 送检目标站点（如 Z5-装卸点/Z6-装卸点）
      */
     private String inspectionTargetBin;
 }
