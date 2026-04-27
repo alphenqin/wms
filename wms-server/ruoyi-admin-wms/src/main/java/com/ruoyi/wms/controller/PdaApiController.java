@@ -294,14 +294,23 @@ public class PdaApiController {
     }
 
     /**
-     * 托盘置空
+     * 托盘置空/取消绑定
      */
     @PostMapping("/pallet/unbind")
+    @Transactional(rollbackFor = Exception.class)
     public R<Void> unbindPallet(@Valid @RequestBody PdaPalletUnbindRequest request) {
         try {
             PalletVo palletVo = palletService.queryByPalletCode(request.getPalletNo());
             if (palletVo == null || palletVo.getId() == null) {
                 return R.fail(404, "托盘不存在");
+            }
+            List<Valve> valves = valveMapper.selectList(Wrappers.<Valve>lambdaQuery()
+                .eq(Valve::getPalletCode, request.getPalletNo()));
+            if (!valves.isEmpty()) {
+                valveMapper.deleteBatchIds(valves.stream()
+                    .map(Valve::getId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList()));
             }
             palletService.unbindMaterial(palletVo.getId());
             return R.ok();
