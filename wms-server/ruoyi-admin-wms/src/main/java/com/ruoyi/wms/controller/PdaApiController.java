@@ -277,7 +277,16 @@ public class PdaApiController {
     @PostMapping("/pallet/available")
     public R<PdaPalletAvailableResponse> getAvailablePallet(@Valid @RequestBody PdaPalletAvailableRequest request) {
         try {
-            PalletVo palletVo = palletService.queryFirstAvailableByType(request.getPalletTypeId());
+            PalletType palletType = palletTypeService.getById(request.getPalletTypeId());
+            String startCode = null;
+            if (palletType != null && StrUtil.isNotBlank(palletType.getTypeCode())) {
+                if (StrUtil.equalsIgnoreCase(palletType.getTypeCode(), PALLET_TYPE_SMALL_CODE)) {
+                    startCode = INBOUND_EMPTY_PALLET_SMALL_START_CODE;
+                } else if (StrUtil.equalsIgnoreCase(palletType.getTypeCode(), PALLET_TYPE_LARGE_CODE)) {
+                    startCode = INBOUND_EMPTY_PALLET_LARGE_START_CODE;
+                }
+            }
+            PalletVo palletVo = palletService.queryFirstAvailableByTypeFromCode(request.getPalletTypeId(), startCode);
             if (palletVo == null) {
                 return R.fail(404, "无可用托盘");
             }

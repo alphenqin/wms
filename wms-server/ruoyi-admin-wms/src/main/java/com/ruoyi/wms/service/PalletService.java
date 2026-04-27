@@ -87,24 +87,6 @@ public class PalletService extends ServiceImpl<PalletMapper, Pallet> {
     }
 
     /**
-     * 查询指定类型的首个可用空托盘（按托盘编号升序）
-     */
-    public PalletVo queryFirstAvailableByType(Long palletTypeId) {
-        LambdaQueryWrapper<Pallet> lqw = Wrappers.lambdaQuery();
-        lqw.eq(Pallet::getPalletTypeId, palletTypeId);
-        lqw.eq(Pallet::getIsEmpty, 1);
-        lqw.eq(Pallet::getStatus, "0");
-        lqw.isNotNull(Pallet::getCurrentBinCode);
-        lqw.ne(Pallet::getCurrentBinCode, "");
-        lqw.orderByAsc(Pallet::getPalletCode);
-        lqw.last("limit 1");
-        Pallet pallet = palletMapper.selectOne(lqw);
-        PalletVo vo = pallet != null ? MapstructUtils.convert(pallet, PalletVo.class) : null;
-        fillPalletTypeName(vo);
-        return vo;
-    }
-
-    /**
      * 查询指定类型、从指定编号开始的首个可用空托盘（按托盘编号升序）
      */
     public PalletVo queryFirstAvailableByTypeFromCode(Long palletTypeId, String startCode) {
@@ -126,71 +108,6 @@ public class PalletService extends ServiceImpl<PalletMapper, Pallet> {
         PalletVo vo = pallet != null ? MapstructUtils.convert(pallet, PalletVo.class) : null;
         fillPalletTypeName(vo);
         return vo;
-    }
-
-    /**
-     * 查询指定类型的可用空托盘（按托盘编号升序）
-     */
-    public List<PalletVo> queryAvailableByType(Long palletTypeId, int limit) {
-        if (palletTypeId == null || limit <= 0) {
-            return java.util.Collections.emptyList();
-        }
-        LambdaQueryWrapper<Pallet> lqw = Wrappers.lambdaQuery();
-        lqw.eq(Pallet::getPalletTypeId, palletTypeId);
-        lqw.eq(Pallet::getIsEmpty, 1);
-        lqw.eq(Pallet::getStatus, "0");
-        lqw.isNotNull(Pallet::getCurrentBinCode);
-        lqw.ne(Pallet::getCurrentBinCode, "");
-        lqw.orderByAsc(Pallet::getPalletCode);
-        lqw.last("limit " + limit);
-        List<PalletVo> list = palletMapper.selectVoList(lqw);
-        fillPalletTypeName(list);
-        return list;
-    }
-
-    /**
-     * 预占指定类型的空托盘（按托盘编号升序）
-     */
-    @Transactional(rollbackFor = Exception.class)
-    public List<PalletVo> reserveEmptyPalletsByType(Long palletTypeId, int count) {
-        List<PalletVo> pallets = queryAvailableByType(palletTypeId, count);
-        if (pallets.size() < count) {
-            return java.util.Collections.emptyList();
-        }
-        for (PalletVo palletVo : pallets) {
-            if (palletVo == null || palletVo.getId() == null) {
-                continue;
-            }
-            Pallet pallet = palletMapper.selectById(palletVo.getId());
-            if (pallet == null) {
-                continue;
-            }
-            pallet.setIsEmpty(0);
-            palletMapper.updateById(pallet);
-        }
-        return pallets;
-    }
-
-    /**
-     * 恢复空托盘状态
-     */
-    @Transactional(rollbackFor = Exception.class)
-    public void restoreEmptyPallets(Collection<Long> palletIds) {
-        if (palletIds == null || palletIds.isEmpty()) {
-            return;
-        }
-        for (Long palletId : palletIds) {
-            if (palletId == null) {
-                continue;
-            }
-            Pallet pallet = palletMapper.selectById(palletId);
-            if (pallet == null) {
-                continue;
-            }
-            pallet.setIsBound(0);
-            pallet.setIsEmpty(1);
-            palletMapper.updateById(pallet);
-        }
     }
 
     private LambdaQueryWrapper<Pallet> buildQueryWrapper(PalletBo bo) {
