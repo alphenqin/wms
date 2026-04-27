@@ -24,6 +24,7 @@ import com.ruoyi.wms.domain.bo.PdaOperationBo;
 import com.ruoyi.wms.domain.dto.pda.*;
 import com.ruoyi.wms.domain.entity.*;
 import com.ruoyi.wms.domain.vo.AgvTaskVo;
+import com.ruoyi.wms.domain.vo.BinVo;
 import com.ruoyi.wms.domain.vo.PalletTypeVo;
 import com.ruoyi.wms.domain.vo.PalletVo;
 import com.ruoyi.wms.domain.vo.ValveVo;
@@ -100,6 +101,10 @@ public class PdaApiController {
     private static final String PALLET_TYPE_LARGE_CODE = "t2";
     private static final String INBOUND_EMPTY_PALLET_SMALL_START_CODE = "x004";
     private static final String INBOUND_EMPTY_PALLET_LARGE_START_CODE = "d001";
+    private static final String OUTSIDE_PALLET_SMALL_INITIAL_LAST_CODE = "x003";
+    private static final String OUTSIDE_PALLET_LARGE_INITIAL_LAST_CODE = "d001";
+    private static final String PALLET_STATUS_INSIDE = "0";
+    private static final String PALLET_STATUS_OUTSIDE = "1";
     private static final String INBOUND_SMALL_LOAD_BIN_1 = "Z1-装卸点";
     private static final String INBOUND_SMALL_LOAD_BIN_2 = "Z2-装卸点";
     private static final String INBOUND_SMALL_LOAD_BIN_3 = "Z3-装卸点";
@@ -249,9 +254,9 @@ public class PdaApiController {
             String palletTypeCode = "SMALL"; // 默认小托盘
             if (palletType != null && palletType.getTypeCode() != null) {
                 String typeCode = palletType.getTypeCode().toUpperCase();
-                if (typeCode.contains("LARGE") || typeCode.contains("大")) {
+                if (typeCode.contains("LARGE") || typeCode.contains("大") || PALLET_TYPE_LARGE_CODE.equalsIgnoreCase(typeCode)) {
                     palletTypeCode = "LARGE";
-                } else if (typeCode.contains("SMALL") || typeCode.contains("小")) {
+                } else if (typeCode.contains("SMALL") || typeCode.contains("小") || PALLET_TYPE_SMALL_CODE.equalsIgnoreCase(typeCode)) {
                     palletTypeCode = "SMALL";
                 }
             }
@@ -1695,14 +1700,15 @@ public class PdaApiController {
                 triggerInboundQueueDispatch();
                 return;
             }
-            dispatchInboundFollowupSteps(taskNo, route, palletType, matCode);
+            dispatchInboundFollowupSteps(taskNo, palletNo, route, palletType, matCode);
         } catch (Exception e) {
             agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
             triggerInboundQueueDispatch();
         }
     }
 
-    private void dispatchInboundFollowupSteps(String taskNo, InboundRoute route, String palletTypeCode, String matCode) {
+    private void dispatchInboundFollowupSteps(String taskNo, String inboundPalletNo,
+                                              InboundRoute route, String palletTypeCode, String matCode) {
         CompletableFuture.runAsync(() -> {
             try {
                 if (!waitForOpenTaskFinished(buildInboundStepOutId(taskNo, 1))) {
@@ -1712,18 +1718,21 @@ public class PdaApiController {
                 if (!dispatchInboundStep(taskNo, 2, route.secondStep, route.targetBinCode, matCode)) {
                     return;
                 }
-                String emptyPalletFromBin = resolveInboundEmptyPalletFromBin(palletTypeCode);
-                if (emptyPalletFromBin == null) {
-                    agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "未找到可用空托盘");
+                moveInboundPalletInside(inboundPalletNo, route.targetBinCode);
+                PalletVo outboundPallet = resolveNextOutsideReplenishmentPallet(palletTypeCode);
+                if (outboundPallet == null || StrUtil.isBlank(outboundPallet.getCurrentBinCode())) {
+                    agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "未找到可补位空托盘");
                     return;
                 }
-                InboundStep thirdStep = new InboundStep(route.thirdStep.agvRange, emptyPalletFromBin, route.thirdStep.toBinCode);
+                InboundStep thirdStep = new InboundStep(route.thirdStep.agvRange,
+                    outboundPallet.getCurrentBinCode(), route.thirdStep.toBinCode);
                 if (!dispatchInboundStep(taskNo, 3, thirdStep, route.targetBinCode, null)) {
                     return;
                 }
                 if (!dispatchInboundStep(taskNo, 4, route.fourthStep, route.targetBinCode, null)) {
                     return;
                 }
+                moveOutboundPalletOutside(outboundPallet.getPalletCode(), route.firstStep.fromBinCode);
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 2, null);
             } catch (Exception e) {
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
@@ -1849,7 +1858,7 @@ public class PdaApiController {
         return null;
     }
 
-    private String resolveInboundEmptyPalletFromBin(String palletTypeCode) {
+    private PalletVo resolveNextOutsideReplenishmentPallet(String palletTypeCode) {
         if (StrUtil.isBlank(palletTypeCode)) {
             return null;
         }
@@ -1857,15 +1866,40 @@ public class PdaApiController {
         if (palletType == null || palletType.getId() == null) {
             return null;
         }
-        String startCode = StrUtil.equalsIgnoreCase(palletTypeCode, PALLET_TYPE_SMALL_CODE)
-            ? INBOUND_EMPTY_PALLET_SMALL_START_CODE
-            : (StrUtil.equalsIgnoreCase(palletTypeCode, PALLET_TYPE_LARGE_CODE)
-                ? INBOUND_EMPTY_PALLET_LARGE_START_CODE : null);
-        PalletVo pallet = palletService.queryFirstAvailableByTypeFromCode(palletType.getId(), startCode);
-        if (pallet == null || StrUtil.isBlank(pallet.getCurrentBinCode())) {
-            return null;
+        PalletVo latestOutside = palletService.queryLatestByTypeAndStatus(palletType.getId(), PALLET_STATUS_OUTSIDE);
+        String anchorCode = latestOutside != null ? latestOutside.getPalletCode()
+            : (StrUtil.equalsIgnoreCase(palletTypeCode, PALLET_TYPE_SMALL_CODE)
+                ? OUTSIDE_PALLET_SMALL_INITIAL_LAST_CODE
+                : (StrUtil.equalsIgnoreCase(palletTypeCode, PALLET_TYPE_LARGE_CODE)
+                    ? OUTSIDE_PALLET_LARGE_INITIAL_LAST_CODE : null));
+        return palletService.queryFirstAvailableByTypeAfterCode(palletType.getId(), anchorCode);
+    }
+
+    private void moveInboundPalletInside(String palletNo, String targetBinCode) {
+        if (StrUtil.isBlank(palletNo) || StrUtil.isBlank(targetBinCode)) {
+            return;
         }
-        return StrUtil.trimToNull(pallet.getCurrentBinCode());
+        PalletVo palletVo = palletService.queryByPalletCode(palletNo);
+        if (palletVo == null || palletVo.getId() == null) {
+            return;
+        }
+        Long binId = null;
+        BinVo binVo = binService.queryByBinCode(targetBinCode);
+        if (binVo != null) {
+            binId = binVo.getId();
+        }
+        palletService.updatePalletLocationStatus(palletVo.getId(), binId, targetBinCode, PALLET_STATUS_INSIDE);
+    }
+
+    private void moveOutboundPalletOutside(String palletNo, String loadBinCode) {
+        if (StrUtil.isBlank(palletNo) || StrUtil.isBlank(loadBinCode)) {
+            return;
+        }
+        PalletVo palletVo = palletService.queryByPalletCode(palletNo);
+        if (palletVo == null || palletVo.getId() == null) {
+            return;
+        }
+        palletService.updatePalletLocationStatus(palletVo.getId(), null, loadBinCode, PALLET_STATUS_OUTSIDE);
     }
 
     private String resolveInspectionTargetBin(String area, String palletTypeCode) {

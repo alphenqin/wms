@@ -96,6 +96,7 @@ public class PalletService extends ServiceImpl<PalletMapper, Pallet> {
         LambdaQueryWrapper<Pallet> lqw = Wrappers.lambdaQuery();
         lqw.eq(Pallet::getPalletTypeId, palletTypeId);
         lqw.eq(Pallet::getIsEmpty, 1);
+        lqw.eq(Pallet::getIsBound, 0);
         lqw.eq(Pallet::getStatus, "0");
         lqw.isNotNull(Pallet::getCurrentBinCode);
         lqw.ne(Pallet::getCurrentBinCode, "");
@@ -103,6 +104,49 @@ public class PalletService extends ServiceImpl<PalletMapper, Pallet> {
             lqw.ge(Pallet::getPalletCode, startCode);
         }
         lqw.orderByAsc(Pallet::getPalletCode);
+        lqw.last("limit 1");
+        Pallet pallet = palletMapper.selectOne(lqw);
+        PalletVo vo = pallet != null ? MapstructUtils.convert(pallet, PalletVo.class) : null;
+        fillPalletTypeName(vo);
+        return vo;
+    }
+
+    /**
+     * 查询指定类型、指定编号之后的首个可用空托盘（按托盘编号升序）
+     */
+    public PalletVo queryFirstAvailableByTypeAfterCode(Long palletTypeId, String startCodeExclusive) {
+        if (palletTypeId == null) {
+            return null;
+        }
+        LambdaQueryWrapper<Pallet> lqw = Wrappers.lambdaQuery();
+        lqw.eq(Pallet::getPalletTypeId, palletTypeId);
+        lqw.eq(Pallet::getIsEmpty, 1);
+        lqw.eq(Pallet::getIsBound, 0);
+        lqw.eq(Pallet::getStatus, "0");
+        lqw.isNotNull(Pallet::getCurrentBinCode);
+        lqw.ne(Pallet::getCurrentBinCode, "");
+        if (StrUtil.isNotBlank(startCodeExclusive)) {
+            lqw.gt(Pallet::getPalletCode, startCodeExclusive);
+        }
+        lqw.orderByAsc(Pallet::getPalletCode);
+        lqw.last("limit 1");
+        Pallet pallet = palletMapper.selectOne(lqw);
+        PalletVo vo = pallet != null ? MapstructUtils.convert(pallet, PalletVo.class) : null;
+        fillPalletTypeName(vo);
+        return vo;
+    }
+
+    /**
+     * 查询指定类型、指定状态下编号最大的托盘
+     */
+    public PalletVo queryLatestByTypeAndStatus(Long palletTypeId, String status) {
+        if (palletTypeId == null || StrUtil.isBlank(status)) {
+            return null;
+        }
+        LambdaQueryWrapper<Pallet> lqw = Wrappers.lambdaQuery();
+        lqw.eq(Pallet::getPalletTypeId, palletTypeId);
+        lqw.eq(Pallet::getStatus, status);
+        lqw.orderByDesc(Pallet::getPalletCode);
         lqw.last("limit 1");
         Pallet pallet = palletMapper.selectOne(lqw);
         PalletVo vo = pallet != null ? MapstructUtils.convert(pallet, PalletVo.class) : null;
@@ -185,6 +229,23 @@ public class PalletService extends ServiceImpl<PalletMapper, Pallet> {
         }
         pallet.setCurrentBinId(binId);
         pallet.setCurrentBinCode(binCode);
+        palletMapper.updateById(pallet);
+    }
+
+    /**
+     * 更新托盘位置和状态
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void updatePalletLocationStatus(Long palletId, Long binId, String binCode, String status) {
+        Pallet pallet = palletMapper.selectById(palletId);
+        if (pallet == null) {
+            throw new ServiceException("托盘不存在");
+        }
+        pallet.setCurrentBinId(binId);
+        pallet.setCurrentBinCode(binCode);
+        if (status != null) {
+            pallet.setStatus(status);
+        }
         palletMapper.updateById(pallet);
     }
 
