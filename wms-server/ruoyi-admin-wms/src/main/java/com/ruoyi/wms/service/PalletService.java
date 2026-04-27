@@ -105,6 +105,30 @@ public class PalletService extends ServiceImpl<PalletMapper, Pallet> {
     }
 
     /**
+     * 查询指定类型、从指定编号开始的首个可用空托盘（按托盘编号升序）
+     */
+    public PalletVo queryFirstAvailableByTypeFromCode(Long palletTypeId, String startCode) {
+        if (palletTypeId == null) {
+            return null;
+        }
+        LambdaQueryWrapper<Pallet> lqw = Wrappers.lambdaQuery();
+        lqw.eq(Pallet::getPalletTypeId, palletTypeId);
+        lqw.eq(Pallet::getIsEmpty, 1);
+        lqw.eq(Pallet::getStatus, "0");
+        lqw.isNotNull(Pallet::getCurrentBinCode);
+        lqw.ne(Pallet::getCurrentBinCode, "");
+        if (StrUtil.isNotBlank(startCode)) {
+            lqw.ge(Pallet::getPalletCode, startCode);
+        }
+        lqw.orderByAsc(Pallet::getPalletCode);
+        lqw.last("limit 1");
+        Pallet pallet = palletMapper.selectOne(lqw);
+        PalletVo vo = pallet != null ? MapstructUtils.convert(pallet, PalletVo.class) : null;
+        fillPalletTypeName(vo);
+        return vo;
+    }
+
+    /**
      * 查询指定类型的可用空托盘（按托盘编号升序）
      */
     public List<PalletVo> queryAvailableByType(Long palletTypeId, int limit) {
