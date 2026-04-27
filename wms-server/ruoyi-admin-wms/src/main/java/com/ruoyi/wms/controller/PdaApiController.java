@@ -92,10 +92,10 @@ public class PdaApiController {
     private static final String AGV_TASK_TYPE_PICK_AND_DROP = "01";
     private static final String AGV_TASK_LEVEL_NORMAL = "2";
     private static final String TASK_SOURCE_PDA = "PDA";
-    private static final String OUTBOUND_SMALL_PALLET_BIN = "Z3-装卸点";
-    private static final String OUTBOUND_LARGE_PALLET_BIN = "Z4-装卸点";
-    private static final String OUTBOUND_EMPTY_RETURN_SMALL_START = "Z3-装卸点";
-    private static final String OUTBOUND_EMPTY_RETURN_LARGE_START = "Z4-装卸点";
+    private static final String OUTBOUND_SMALL_PALLET_BIN = "Z5-装卸点";
+    private static final String OUTBOUND_LARGE_PALLET_BIN = "Z6-装卸点";
+    private static final String OUTBOUND_EMPTY_RETURN_SMALL_START = "Z5-装卸点";
+    private static final String OUTBOUND_EMPTY_RETURN_LARGE_START = "Z6-装卸点";
     private static final String PALLET_TYPE_SMALL_CODE = "t1";
     private static final String PALLET_TYPE_LARGE_CODE = "t2";
     private static final String INBOUND_SMALL_LOAD_BIN_1 = "Z1-装卸点";
