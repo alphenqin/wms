@@ -37,6 +37,9 @@ public class PalletVo extends BaseVo {
     @ExcelProperty(value = "当前货位编号")
     private String currentBinCode;
 
+    @ExcelProperty(value = "库外站点")
+    private String outsideSite;
+
     @ExcelProperty(value = "是否空托")
     private Integer isEmpty;
 
@@ -52,4 +55,3 @@ public class PalletVo extends BaseVo {
     @ExcelProperty(value = "备注")
     private String remark;
 }
-

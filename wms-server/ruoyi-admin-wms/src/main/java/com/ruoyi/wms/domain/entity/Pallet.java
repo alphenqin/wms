@@ -49,6 +49,11 @@ public class Pallet extends BaseEntity {
     private String currentBinCode;
 
     /**
+     * 库外站点
+     */
+    private String outsideSite;
+
+    /**
      * 是否为空托（0:否 1:是）
      */
     private Integer isEmpty;

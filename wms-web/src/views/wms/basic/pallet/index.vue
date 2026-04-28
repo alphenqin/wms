@@ -15,6 +15,16 @@
             />
           </el-select>
         </el-form-item>
+        <el-form-item label="库外站点" prop="outsideSite">
+          <el-select v-model="queryParams.outsideSite" placeholder="请选择库外站点" clearable>
+            <el-option
+              v-for="item in outsideSiteOptions"
+              :key="item"
+              :label="item"
+              :value="item"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item label="是否空托" prop="isEmpty">
           <el-select v-model="queryParams.isEmpty" placeholder="请选择" clearable>
             <el-option label="是" :value="1" />
@@ -80,6 +90,11 @@
           </template>
         </el-table-column>
         <el-table-column label="当前库位" prop="currentBinCode" />
+        <el-table-column label="库外站点" prop="outsideSite">
+          <template #default="scope">
+            {{ scope.row.outsideSite || '-' }}
+          </template>
+        </el-table-column>
         <el-table-column label="状态" prop="status">
           <template #default="scope">
             <el-tag :type="scope.row.status === '0' || scope.row.status === 0 ? 'success' : 'info'">
@@ -136,6 +151,16 @@
         <el-form-item label="当前库位" prop="currentBinCode">
           <el-input v-model="form.currentBinCode" placeholder="请输入当前库位" />
         </el-form-item>
+        <el-form-item label="库外站点" prop="outsideSite">
+          <el-select v-model="form.outsideSite" placeholder="请选择库外站点" clearable style="width: 100%">
+            <el-option
+              v-for="item in outsideSiteOptions"
+              :key="item"
+              :label="item"
+              :value="item"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-radio-group v-model="form.status">
             <el-radio :label="'0'">正常</el-radio>
@@ -174,6 +199,7 @@ const multiple = ref(true);
 const total = ref(0);
 const queryFormRef = ref();
 const palletFormRef = ref();
+const outsideSiteOptions = ['Z1-装卸点', 'Z2-装卸点', 'Z3-装卸点', 'Z4-装卸点'];
 
 const dialog = reactive({
   visible: false,
@@ -188,6 +214,7 @@ const initFormData = {
   barcodeEnabled: 1,
   currentBinId: undefined,
   currentBinCode: undefined,
+  outsideSite: undefined,
   status: '0',
   remark: undefined,
 };
@@ -199,6 +226,7 @@ const data = reactive({
     pageSize: 10,
     palletCode: undefined,
     palletTypeId: undefined,
+    outsideSite: undefined,
     isEmpty: undefined,
   },
   rules: {

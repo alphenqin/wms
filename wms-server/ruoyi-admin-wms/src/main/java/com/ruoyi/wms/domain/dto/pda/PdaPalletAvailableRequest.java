@@ -1,6 +1,6 @@
 package com.ruoyi.wms.domain.dto.pda;
 
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 import java.io.Serial;
@@ -15,9 +15,6 @@ public class PdaPalletAvailableRequest implements Serializable {
     @Serial
     private static final long serialVersionUID = 1L;
 
-    /**
-     * Pallet type ID.
-     */
-    @NotNull(message = "托盘类型不能为空")
-    private Long palletTypeId;
+    @NotBlank(message = "库外站点不能为空")
+    private String outsideSite;
 }
