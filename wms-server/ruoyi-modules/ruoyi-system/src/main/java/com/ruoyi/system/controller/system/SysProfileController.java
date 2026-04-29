@@ -1,6 +1,5 @@
 package com.ruoyi.system.controller.system;
 
-import cn.dev33.satoken.secure.BCrypt;
 import cn.hutool.core.bean.BeanUtil;
 import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.utils.StringUtils;
@@ -79,10 +78,10 @@ public class SysProfileController extends BaseController {
         if (StringUtils.equals(oldPassword,newPassword)) {
             return R.fail("新密码不能与旧密码相同");
         }
-        if (!BCrypt.checkpw(oldPassword, password)) {
+        if (!StringUtils.equals(oldPassword, password)) {
             return R.fail("修改密码失败，旧密码错误");
         }
-        if (userService.resetUserPwd(user.getUserId(), BCrypt.hashpw(newPassword)) > 0) {
+        if (userService.resetUserPwd(user.getUserId(), newPassword) > 0) {
             return R.ok();
         }
         return R.fail("修改密码异常，请联系管理员");

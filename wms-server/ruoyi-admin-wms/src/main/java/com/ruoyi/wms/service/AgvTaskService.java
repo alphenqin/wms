@@ -25,6 +25,7 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * AGV任务Service业务层处理
@@ -337,6 +338,9 @@ public class AgvTaskService extends ServiceImpl<AgvTaskMapper, AgvTask> {
         com.ruoyi.wms.domain.entity.Valve valve = valveMapper.selectOne(valveWrapper);
         if (valve != null) {
             valve.setStatus(status);
+            if (Objects.equals(status, 3) && valve.getOutboundTime() == null) {
+                valve.setOutboundTime(new Date());
+            }
             valveMapper.updateById(valve);
         }
     }

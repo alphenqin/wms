@@ -1,6 +1,5 @@
 package com.ruoyi.system.listener;
 
-import cn.dev33.satoken.secure.BCrypt;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.ObjectUtil;
 import com.alibaba.excel.context.AnalysisContext;
@@ -43,7 +42,7 @@ public class SysUserImportListener extends AnalysisEventListener<SysUserImportVo
     public SysUserImportListener(Boolean isUpdateSupport) {
         String initPassword = "123456";
         this.userService = SpringUtils.getBean(SysUserService.class);
-        this.password = BCrypt.hashpw(initPassword);
+        this.password = initPassword;
         this.isUpdateSupport = isUpdateSupport;
         this.operName = LoginHelper.getUsername();
     }

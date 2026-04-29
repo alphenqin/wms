@@ -25,6 +25,7 @@ public class ValveBo extends BaseEntity {
 
     private String manufacturer;
     private String batchNo;
+    private Date outboundTime;
     private Long palletId;
     private String palletCode;
     private Long currentBinId;

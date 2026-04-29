@@ -243,10 +243,10 @@ public class PdaApiController {
             // 转换托盘类型：SMALL或LARGE
             String palletTypeCode = "SMALL"; // 默认小托盘
             if (palletType != null && palletType.getTypeCode() != null) {
-                String typeCode = palletType.getTypeCode().toUpperCase();
-                if (typeCode.contains("LARGE") || typeCode.contains("大") || PALLET_TYPE_LARGE_CODE.equalsIgnoreCase(typeCode)) {
+                String typeCode = palletType.getTypeCode();
+                if (isLargePalletType(typeCode)) {
                     palletTypeCode = "LARGE";
-                } else if (typeCode.contains("SMALL") || typeCode.contains("小") || PALLET_TYPE_SMALL_CODE.equalsIgnoreCase(typeCode)) {
+                } else if (isSmallPalletType(typeCode)) {
                     palletTypeCode = "SMALL";
                 }
             }
@@ -709,13 +709,13 @@ public class PdaApiController {
             if (fromBinCode == null) {
                 return R.fail(400, "起始站点不能为空");
             }
-            String area = resolveInspectionArea(request.getInspectionArea(), request.getToBinCode());
-            if (area == null) {
-                return R.fail(400, "送检目标区域不能为空");
-            }
             String palletType = resolvePalletTypeCode(palletNo);
             if (palletType == null) {
                 return R.fail(400, "托盘类型错误");
+            }
+            String area = resolveInspectionArea(request.getInspectionArea(), request.getToBinCode());
+            if (area == null) {
+                area = INSPECTION_AREA_WAITING;
             }
             String targetBinCode = resolveInspectionTargetBin(area, palletType);
             if (targetBinCode == null) {
@@ -1578,14 +1578,64 @@ public class PdaApiController {
 
     private String resolvePalletTypeCode(String palletNo) {
         PalletVo palletVo = palletService.queryByPalletCode(palletNo);
-        if (palletVo == null || palletVo.getPalletTypeId() == null) {
+        if (palletVo == null) {
+            return null;
+        }
+        String inferredTypeCode = resolvePalletTypeCodeFromPalletNo(palletNo);
+        if (inferredTypeCode != null) {
+            return inferredTypeCode;
+        }
+        if (palletVo.getPalletTypeId() == null) {
             return null;
         }
         PalletType palletType = palletTypeService.getById(palletVo.getPalletTypeId());
         if (palletType == null || palletType.getTypeCode() == null) {
             return null;
         }
-        return palletType.getTypeCode();
+        String typeCode = palletType.getTypeCode();
+        if (isSmallPalletType(typeCode)) {
+            return PALLET_TYPE_SMALL_CODE;
+        }
+        if (isLargePalletType(typeCode)) {
+            return PALLET_TYPE_LARGE_CODE;
+        }
+        return typeCode;
+    }
+
+    private String resolvePalletTypeCodeFromPalletNo(String palletNo) {
+        if (StrUtil.isBlank(palletNo)) {
+            return null;
+        }
+        String normalized = palletNo.trim().toUpperCase(Locale.ROOT);
+        if (normalized.startsWith("X")) {
+            return PALLET_TYPE_SMALL_CODE;
+        }
+        if (normalized.startsWith("D")) {
+            return PALLET_TYPE_LARGE_CODE;
+        }
+        return null;
+    }
+
+    private boolean isSmallPalletType(String typeCode) {
+        if (StrUtil.isBlank(typeCode)) {
+            return false;
+        }
+        String normalized = typeCode.trim().toUpperCase(Locale.ROOT);
+        return normalized.startsWith("X")
+            || normalized.contains("SMALL")
+            || normalized.contains("小")
+            || PALLET_TYPE_SMALL_CODE.equalsIgnoreCase(normalized);
+    }
+
+    private boolean isLargePalletType(String typeCode) {
+        if (StrUtil.isBlank(typeCode)) {
+            return false;
+        }
+        String normalized = typeCode.trim().toUpperCase(Locale.ROOT);
+        return normalized.startsWith("D")
+            || normalized.contains("LARGE")
+            || normalized.contains("大")
+            || PALLET_TYPE_LARGE_CODE.equalsIgnoreCase(normalized);
     }
 
     private String buildInboundStepOutId(String baseTaskNo, int stepIndex) {
@@ -1695,10 +1745,6 @@ public class PdaApiController {
                     agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "入库流程步骤1未完成");
                     return;
                 }
-                if (!dispatchInboundStep(taskNo, 2, route.secondStep, route.targetBinCode, matCode)) {
-                    return;
-                }
-                moveInboundPalletInside(inboundPalletNo, route.targetBinCode);
                 PalletVo outboundPallet = resolveNextOutsideReplenishmentPallet(route.firstStep.fromBinCode, palletTypeCode);
                 if (outboundPallet == null || StrUtil.isBlank(outboundPallet.getCurrentBinCode())) {
                     agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "未找到可补位空托盘");
@@ -1706,9 +1752,10 @@ public class PdaApiController {
                 }
                 InboundStep thirdStep = new InboundStep(route.thirdStep.agvRange,
                     outboundPallet.getCurrentBinCode(), route.thirdStep.toBinCode);
-                if (!dispatchInboundStep(taskNo, 3, thirdStep, route.targetBinCode, null)) {
+                if (!dispatchInboundIndoorCombinedStep(taskNo, route.secondStep, thirdStep, route.targetBinCode, matCode)) {
                     return;
                 }
+                moveInboundPalletInside(inboundPalletNo, route.targetBinCode);
                 if (!dispatchInboundStep(taskNo, 4, route.fourthStep, route.targetBinCode, null)) {
                     return;
                 }
@@ -1744,6 +1791,37 @@ public class PdaApiController {
             }
         }
         return null;
+    }
+
+    private boolean dispatchInboundIndoorCombinedStep(String taskNo, InboundStep fullPalletStep,
+                                                      InboundStep emptyPalletStep, String targetBinCode,
+                                                      String matCode) {
+        try {
+            String outId = buildInboundStepOutId(taskNo, 2);
+            AgvOpenTaskBo taskBo = buildOrderedDoublePickDropTask(outId,
+                fullPalletStep.fromBinCode,
+                fullPalletStep.toBinCode,
+                emptyPalletStep.fromBinCode,
+                emptyPalletStep.toBinCode,
+                targetBinCode,
+                matCode,
+                fullPalletStep.agvRange);
+            Map<String, Object> agvResp = agvOpenTaskService.sendTask(taskBo);
+            String code = MapUtil.getStr(agvResp, "code");
+            String message = MapUtil.getStr(agvResp, "message");
+            if (!"20000".equals(code)) {
+                agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, StrUtil.emptyToDefault(message, "AGV任务下发失败"));
+                return false;
+            }
+            if (!waitForOpenTaskFinished(outId)) {
+                agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "入库流程室内连续搬运未完成");
+                return false;
+            }
+            return true;
+        } catch (Exception e) {
+            agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
+            return false;
+        }
     }
 
     private boolean dispatchInboundStep(String taskNo, int stepIndex, InboundStep step, String targetBinCode, String matCode) {
@@ -1938,6 +2016,9 @@ public class PdaApiController {
         Valve update = new Valve();
         update.setId(valve.getId());
         update.setStatus(status);
+        if (Objects.equals(status, 3) && valve.getOutboundTime() == null) {
+            update.setOutboundTime(new Date());
+        }
         valveMapper.updateById(update);
     }
 
@@ -2131,6 +2212,10 @@ public class PdaApiController {
         }
         if (valve != null) {
             target = StrUtil.trimToNull(valve.getInspectionTargetBin());
+        }
+        if (target == null && StrUtil.isNotBlank(palletNo)) {
+            String palletType = resolvePalletTypeCode(palletNo);
+            target = resolveInspectionTargetBin(INSPECTION_AREA_WAITING, palletType);
         }
         return target;
     }
@@ -2356,6 +2441,43 @@ public class PdaApiController {
 
         taskBo.setPoints(points);
         return taskBo;
+    }
+
+    private AgvOpenTaskBo buildOrderedDoublePickDropTask(String outId,
+                                                         String firstFromBinCode,
+                                                         String firstToBinCode,
+                                                         String secondFromBinCode,
+                                                         String secondToBinCode,
+                                                         String matDropBinCode,
+                                                         String matCode,
+                                                         String agvRange) {
+        AgvOpenTaskBo taskBo = new AgvOpenTaskBo();
+        taskBo.setTaskType(AGV_TASK_TYPE_PICK_AND_DROP);
+        taskBo.setOutId(outId);
+        taskBo.setLevel(AGV_TASK_LEVEL_NORMAL);
+        taskBo.setAgvRange(agvRange);
+        taskBo.setIsOrder("true");
+
+        List<AgvOpenTaskBo.AgvTaskPoint> points = new ArrayList<>();
+        points.add(buildAgvTaskPoint("01", firstFromBinCode, "02", null));
+        points.add(buildAgvTaskPoint("02", firstToBinCode, "04",
+            StrUtil.equals(firstToBinCode, matDropBinCode) ? matCode : null));
+        points.add(buildAgvTaskPoint("03", secondFromBinCode, "02", null));
+        points.add(buildAgvTaskPoint("04", secondToBinCode, "04",
+            StrUtil.equals(secondToBinCode, matDropBinCode) ? matCode : null));
+        taskBo.setPoints(points);
+        return taskBo;
+    }
+
+    private AgvOpenTaskBo.AgvTaskPoint buildAgvTaskPoint(String sn, String pointCode, String pointType, String matCode) {
+        AgvOpenTaskBo.AgvTaskPoint point = new AgvOpenTaskBo.AgvTaskPoint();
+        point.setSn(sn);
+        point.setPointCode(pointCode);
+        point.setPointType(pointType);
+        if (StrUtil.isNotBlank(matCode)) {
+            point.setMatCode(matCode);
+        }
+        return point;
     }
 
     private void unbindPalletSilently(String palletNo) {

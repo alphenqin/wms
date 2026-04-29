@@ -1509,6 +1509,7 @@ CREATE TABLE `wms_valve` (
   `valve_no` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '阀门编号（valveNo）',
   `manufacturer` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '厂家',
   `batch_no` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '批次',
+  `outbound_time` datetime(3) DEFAULT NULL COMMENT '出库时间',
   `pallet_id` bigint DEFAULT NULL COMMENT '所属托盘ID',
   `pallet_code` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '所属托盘编号',
   `current_bin_id` bigint DEFAULT NULL COMMENT '当前所在货位ID',

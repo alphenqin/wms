@@ -2,8 +2,8 @@
   <div class="app-container">
     <el-card>
       <el-form :model="queryParams" ref="queryFormRef" :inline="true" v-show="showSearch" label-width="68px">
-        <el-form-item label="样品编号" prop="valveNo">
-          <el-input v-model="queryParams.valveNo" placeholder="请输入样品编号" clearable @keyup.enter="handleQuery" />
+        <el-form-item label="出厂编号" prop="valveNo">
+          <el-input v-model="queryParams.valveNo" placeholder="请输入出厂编号" clearable @keyup.enter="handleQuery" />
         </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-select v-model="queryParams.status" placeholder="请选择状态" clearable>
@@ -67,9 +67,18 @@
       <el-table v-loading="loading" :data="valveList" @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="55" align="center" />
         <el-table-column label="ID" prop="id" width="80" />
-        <el-table-column label="样品编号" prop="valveNo" />
+        <el-table-column label="出厂编号" prop="valveNo" />
         <el-table-column label="厂家" prop="manufacturer" />
-        <el-table-column label="批次号" prop="batchNo" />
+        <el-table-column label="入库时间" prop="createTime" width="120">
+          <template #default="scope">
+            {{ formatDate(scope.row.createTime) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="出库时间" prop="outboundTime" width="120">
+          <template #default="scope">
+            {{ formatDate(scope.row.outboundTime) }}
+          </template>
+        </el-table-column>
         <el-table-column label="托盘编号" prop="palletCode" />
         <el-table-column label="当前库位" prop="currentBinCode" />
         <el-table-column label="状态" prop="status">
@@ -77,7 +86,6 @@
             <dict-tag :options="dict.type.wms_valve_status" :value="scope.row.status" />
           </template>
         </el-table-column>
-        <el-table-column label="创建时间" prop="createTime" width="180" />
         <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="200">
           <template #default="scope">
             <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['wms:valve:edit']">修改</el-button>
@@ -98,14 +106,31 @@
     <!-- 添加或修改阀门对话框 -->
     <el-dialog :title="dialog.title" v-model="dialog.visible" width="600px" append-to-body :close-on-click-modal="false">
       <el-form ref="valveFormRef" :model="form" :rules="rules" label-width="120px">
-        <el-form-item label="样品编号" prop="valveNo">
-          <el-input v-model="form.valveNo" placeholder="请输入样品编号" />
+        <el-form-item label="出厂编号" prop="valveNo">
+          <el-input v-model="form.valveNo" placeholder="请输入出厂编号" />
         </el-form-item>
         <el-form-item label="厂家" prop="manufacturer">
           <el-input v-model="form.manufacturer" placeholder="请输入厂家" />
         </el-form-item>
-        <el-form-item label="批次号" prop="batchNo">
-          <el-input v-model="form.batchNo" placeholder="请输入批次号" />
+        <el-form-item label="入库时间" prop="createTime">
+          <el-date-picker
+            v-model="form.createTime"
+            type="date"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            format="YYYY-MM-DD"
+            placeholder="请选择入库时间"
+            clearable
+          />
+        </el-form-item>
+        <el-form-item label="出库时间" prop="outboundTime">
+          <el-date-picker
+            v-model="form.outboundTime"
+            type="date"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            format="YYYY-MM-DD"
+            placeholder="请选择出库时间"
+            clearable
+          />
         </el-form-item>
         <el-form-item label="托盘编号" prop="palletCode">
           <el-input v-model="form.palletCode" placeholder="请输入托盘编号" />
@@ -164,7 +189,8 @@ const initFormData = {
   id: undefined,
   valveNo: undefined,
   manufacturer: undefined,
-  batchNo: undefined,
+  createTime: undefined,
+  outboundTime: undefined,
   palletId: undefined,
   palletCode: undefined,
   currentBinId: undefined,
@@ -184,12 +210,19 @@ const data = reactive({
   },
   rules: {
     valveNo: [
-      { required: true, message: "样品编号不能为空", trigger: "blur" }
+      { required: true, message: "出厂编号不能为空", trigger: "blur" }
     ],
   }
 });
 
 const { queryParams, form, rules } = toRefs(data);
+
+const formatDate = (value) => {
+  if (!value) {
+    return '-';
+  }
+  return String(value).slice(0, 10);
+};
 
 /** 查询阀门列表 */
 const getList = async () => {
@@ -281,7 +314,7 @@ const handleDelete = async (row) => {
     await proxy?.$modal.confirm('是否确认删除共"' + _ids.length + '"条数据项？');
     await delValves(_ids);
   } else {
-    await proxy?.$modal.confirm('是否确认删除样品编号为"' + _ids + '"的数据项？');
+    await proxy?.$modal.confirm('是否确认删除出厂编号为"' + _ids + '"的数据项？');
     await delValve(_ids);
   }
   proxy?.$modal.msgSuccess("删除成功");

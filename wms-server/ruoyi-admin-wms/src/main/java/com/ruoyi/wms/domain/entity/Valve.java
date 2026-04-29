@@ -45,6 +45,11 @@ public class Valve extends BaseEntity {
     private String batchNo;
 
     /**
+     * 出库时间
+     */
+    private Date outboundTime;
+
+    /**
      * 所属托盘ID
      */
     private Long palletId;

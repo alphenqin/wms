@@ -1,7 +1,6 @@
 package com.ruoyi.system.service;
 
 import cn.dev33.satoken.exception.NotLoginException;
-import cn.dev33.satoken.secure.BCrypt;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.ObjectUtil;
@@ -53,7 +52,7 @@ public class SysLoginService {
     public String login(String username, String password, String code, String uuid) {
         // 框架登录不限制从什么表查询 只要最终构建出 LoginUser 即可
         SysUserVo user = loadUserByUsername(username);
-        checkLogin(username, () -> !BCrypt.checkpw(password, user.getPassword()));
+        checkLogin(username, () -> !StringUtils.equals(password, user.getPassword()));
         // 此处可根据登录用户的数据不同 自行创建 loginUser 属性不够用继承扩展就行了
         LoginUser loginUser = buildLoginUser(user);
         // 生成token
@@ -73,7 +72,7 @@ public class SysLoginService {
     public String pdaLogin(String username, String password) {
         // 框架登录不限制从什么表查询 只要最终构建出 LoginUser 即可
         SysUserVo user = loadUserByUsername(username);
-        checkLogin(username, () -> !BCrypt.checkpw(password, user.getPassword()));
+        checkLogin(username, () -> !StringUtils.equals(password, user.getPassword()));
         // 此处可根据登录用户的数据不同 自行创建 loginUser 属性不够用继承扩展就行了
         LoginUser loginUser = buildLoginUser(user);
         // 生成token

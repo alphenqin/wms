@@ -18,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Date;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -86,13 +87,27 @@ public class ValveService extends ServiceImpl<ValveMapper, Valve> {
         if (add.getStatus() == null) {
             add.setStatus(0); // 默认在库
         }
+        if (Objects.equals(add.getStatus(), 3) && add.getOutboundTime() == null) {
+            add.setOutboundTime(new Date());
+        }
         valveMapper.insert(add);
     }
 
     @Transactional(rollbackFor = Exception.class)
     public void updateByBo(ValveBo bo) {
         validateValveNo(bo);
+        Valve current = valveMapper.selectById(bo.getId());
+        if (current == null) {
+            throw new ServiceException("阀门不存在");
+        }
         Valve update = MapstructUtils.convert(bo, Valve.class);
+        if (Objects.equals(update.getStatus(), 3)) {
+            update.setOutboundTime(bo.getOutboundTime() != null
+                ? bo.getOutboundTime()
+                : (current.getOutboundTime() != null ? current.getOutboundTime() : new Date()));
+        } else if (bo.getOutboundTime() == null) {
+            update.setOutboundTime(current.getOutboundTime());
+        }
         valveMapper.updateById(update);
     }
 
@@ -127,6 +142,9 @@ public class ValveService extends ServiceImpl<ValveMapper, Valve> {
             throw new ServiceException("阀门不存在");
         }
         valve.setStatus(status);
+        if (Objects.equals(status, 3) && valve.getOutboundTime() == null) {
+            valve.setOutboundTime(new Date());
+        }
         valveMapper.updateById(valve);
     }
 

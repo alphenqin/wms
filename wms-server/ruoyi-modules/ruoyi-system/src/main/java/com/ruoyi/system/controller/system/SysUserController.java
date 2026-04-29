@@ -1,7 +1,6 @@
 package com.ruoyi.system.controller.system;
 
 import cn.dev33.satoken.annotation.SaCheckPermission;
-import cn.dev33.satoken.secure.BCrypt;
 import cn.hutool.core.lang.tree.Tree;
 import cn.hutool.core.util.ArrayUtil;
 import cn.hutool.core.util.ObjectUtil;
@@ -143,7 +142,6 @@ public class SysUserController extends BaseController {
         } else if (StringUtils.isNotEmpty(user.getEmail()) && !userService.checkEmailUnique(user)) {
             return R.fail("新增用户'" + user.getUserName() + "'失败，邮箱账号已存在");
         }
-        user.setPassword(BCrypt.hashpw(user.getPassword()));
         return toAjax(userService.insertUser(user));
     }
 
@@ -184,10 +182,6 @@ public class SysUserController extends BaseController {
     @Log(title = "用户管理", businessType = BusinessType.UPDATE)
     @PutMapping("/resetPwd")
     public R<Void> resetPwd(@RequestBody SysUserBo user) {
-        String hashpw = BCrypt.hashpw(user.getPassword());
-        log.info("user.getPassword：{}",user.getPassword());
-        log.info("hashpw:{}", hashpw);
-        user.setPassword(hashpw);
         return toAjax(userService.resetUserPwd(user.getUserId(), user.getPassword()));
     }
 

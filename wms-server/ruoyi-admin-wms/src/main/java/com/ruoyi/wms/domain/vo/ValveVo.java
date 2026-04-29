@@ -32,6 +32,9 @@ public class ValveVo extends BaseVo {
     @ExcelProperty(value = "批次")
     private String batchNo;
 
+    @ExcelProperty(value = "出库时间")
+    private Date outboundTime;
+
     @ExcelProperty(value = "所属托盘ID")
     private Long palletId;
 
