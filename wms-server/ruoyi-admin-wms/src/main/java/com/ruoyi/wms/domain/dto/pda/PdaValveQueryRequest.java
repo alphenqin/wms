@@ -17,7 +17,7 @@ public class PdaValveQueryRequest {
     private String vendorName;
 
     /**
-     * 阀门编号（精确查询）
+     * 样品编号（模糊查询）
      */
     private String valveNo;
 

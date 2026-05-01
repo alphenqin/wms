@@ -199,7 +199,7 @@ const multiple = ref(true);
 const total = ref(0);
 const queryFormRef = ref();
 const palletFormRef = ref();
-const outsideSiteOptions = ['Z1-装卸点', 'Z2-装卸点', 'Z3-装卸点', 'Z4-装卸点'];
+const outsideSiteOptions = ['Z1-装卸点', 'Z2-装卸点', 'Z3-装卸点', 'Z4-装卸点', 'Z5-装卸点'];
 
 const dialog = reactive({
   visible: false,

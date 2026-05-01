@@ -87,10 +87,10 @@ public class PdaApiController {
     private static final String AGV_TASK_TYPE_PICK_AND_DROP = "01";
     private static final String AGV_TASK_LEVEL_NORMAL = "2";
     private static final String TASK_SOURCE_PDA = "PDA";
-    private static final String OUTBOUND_SMALL_PALLET_BIN = "Z5-装卸点";
-    private static final String OUTBOUND_LARGE_PALLET_BIN = "Z6-装卸点";
-    private static final String OUTBOUND_EMPTY_RETURN_SMALL_START = "Z5-装卸点";
-    private static final String OUTBOUND_EMPTY_RETURN_LARGE_START = "Z6-装卸点";
+    private static final String OUTBOUND_SMALL_PALLET_BIN = "Z1-装卸点";
+    private static final String OUTBOUND_LARGE_PALLET_BIN = "Z5-装卸点";
+    private static final String OUTBOUND_EMPTY_RETURN_SMALL_START = "Z1-装卸点";
+    private static final String OUTBOUND_EMPTY_RETURN_LARGE_START = "Z5-装卸点";
     private static final String PALLET_TYPE_SMALL_CODE = "t1";
     private static final String PALLET_TYPE_LARGE_CODE = "t2";
     private static final String INBOUND_EMPTY_PALLET_SMALL_START_CODE = "x004";
@@ -98,7 +98,8 @@ public class PdaApiController {
     private static final String INBOUND_SMALL_LOAD_BIN_1 = "Z1-装卸点";
     private static final String INBOUND_SMALL_LOAD_BIN_2 = "Z2-装卸点";
     private static final String INBOUND_SMALL_LOAD_BIN_3 = "Z3-装卸点";
-    private static final String INBOUND_LARGE_LOAD_BIN = "Z4-装卸点";
+    private static final String INBOUND_SMALL_LOAD_BIN_4 = "Z4-装卸点";
+    private static final String INBOUND_LARGE_LOAD_BIN = "Z5-装卸点";
     private static final String INBOUND_SMALL_DOCK_BIN = "D2-小托盘接驳点";
     private static final String INBOUND_LARGE_DOCK_BIN = "D2-大托盘接驳点";
     private static final String INBOUND_SMALL_BUFFER_BIN = "B3-15-01";
@@ -109,10 +110,10 @@ public class PdaApiController {
     private static final String INSPECTION_AREA_FLOW = "FLOW_DEVICE";
     private static final String INSPECTION_AREA_WAITING_LABEL = "待检区";
     private static final String INSPECTION_AREA_FLOW_LABEL = "直排流量装置区";
-    private static final String INSPECTION_TARGET_SMALL_WAITING = "Z5-装卸点";
-    private static final String INSPECTION_TARGET_LARGE_WAITING = "Z6-装卸点";
-    private static final String INSPECTION_TARGET_SMALL_FLOW = "Z5-装卸点";
-    private static final String INSPECTION_TARGET_LARGE_FLOW = "Z6-装卸点";
+    private static final String INSPECTION_TARGET_SMALL_WAITING = "Z6-装卸点";
+    private static final String INSPECTION_TARGET_LARGE_WAITING = "Z7-装卸点";
+    private static final String INSPECTION_TARGET_SMALL_FLOW = "Z6-装卸点";
+    private static final String INSPECTION_TARGET_LARGE_FLOW = "Z7-装卸点";
     private static final String INSPECTION_EMPTY_RETURN_REMARK = "INSPECTION_EMPTY_RETURN";
     private static final String INSPECTION_EMPTY_RETURN_REMARK_LEGACY = "EMPTY_RETURN_FROM_INSPECTION";
     private static final String OUTBOUND_EMPTY_RETURN_REMARK = "OUTBOUND_EMPTY_RETURN";
@@ -450,9 +451,9 @@ public class PdaApiController {
                 wrapper.like(Valve::getManufacturer, request.getVendorName());
             }
             
-            // 阀门编号（精确查询）
+            // 样品编号（模糊查询）
             if (StrUtil.isNotBlank(request.getValveNo())) {
-                wrapper.eq(Valve::getValveNo, request.getValveNo());
+                wrapper.like(Valve::getValveNo, request.getValveNo());
             }
             
             // 入库日期
@@ -1881,7 +1882,8 @@ public class PdaApiController {
         if (isSmall) {
             boolean validSmallLoadBin = INBOUND_SMALL_LOAD_BIN_1.equals(loadBin)
                 || INBOUND_SMALL_LOAD_BIN_2.equals(loadBin)
-                || INBOUND_SMALL_LOAD_BIN_3.equals(loadBin);
+                || INBOUND_SMALL_LOAD_BIN_3.equals(loadBin)
+                || INBOUND_SMALL_LOAD_BIN_4.equals(loadBin);
             if (!validSmallLoadBin) {
                 return null;
             }

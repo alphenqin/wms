@@ -13,9 +13,9 @@ import lombok.Data;
 public class PdaValveBindRequest {
 
     /**
-     * 阀门唯一编号
+     * 出厂编号
      */
-    @NotBlank(message = "阀门编号不能为空")
+    @NotBlank(message = "出厂编号不能为空")
     private String valveNo;
 
     /**
@@ -25,9 +25,8 @@ public class PdaValveBindRequest {
     private String matCode;
 
     /**
-     * 厂家名称
+     * 厂家名称（可选）
      */
-    @NotBlank(message = "厂家名称不能为空")
     private String vendorName;
 
     /**

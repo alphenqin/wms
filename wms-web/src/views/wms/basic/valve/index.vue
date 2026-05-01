@@ -69,14 +69,14 @@
         <el-table-column label="ID" prop="id" width="80" />
         <el-table-column label="出厂编号" prop="valveNo" />
         <el-table-column label="厂家" prop="manufacturer" />
-        <el-table-column label="入库时间" prop="createTime" width="120">
+        <el-table-column label="入库时间" prop="createTime" width="170">
           <template #default="scope">
-            {{ formatDate(scope.row.createTime) }}
+            {{ formatDateTime(scope.row.createTime) }}
           </template>
         </el-table-column>
-        <el-table-column label="出库时间" prop="outboundTime" width="120">
+        <el-table-column label="出库时间" prop="outboundTime" width="170">
           <template #default="scope">
-            {{ formatDate(scope.row.outboundTime) }}
+            {{ formatDateTime(scope.row.outboundTime) }}
           </template>
         </el-table-column>
         <el-table-column label="托盘编号" prop="palletCode" />
@@ -115,20 +115,22 @@
         <el-form-item label="入库时间" prop="createTime">
           <el-date-picker
             v-model="form.createTime"
-            type="date"
+            type="datetime"
             value-format="YYYY-MM-DD HH:mm:ss"
-            format="YYYY-MM-DD"
+            format="YYYY-MM-DD HH:mm:ss"
             placeholder="请选择入库时间"
+            style="width: 100%"
             clearable
           />
         </el-form-item>
         <el-form-item label="出库时间" prop="outboundTime">
           <el-date-picker
             v-model="form.outboundTime"
-            type="date"
+            type="datetime"
             value-format="YYYY-MM-DD HH:mm:ss"
-            format="YYYY-MM-DD"
+            format="YYYY-MM-DD HH:mm:ss"
             placeholder="请选择出库时间"
+            style="width: 100%"
             clearable
           />
         </el-form-item>
@@ -217,11 +219,11 @@ const data = reactive({
 
 const { queryParams, form, rules } = toRefs(data);
 
-const formatDate = (value) => {
+const formatDateTime = (value) => {
   if (!value) {
     return '-';
   }
-  return String(value).slice(0, 10);
+  return String(value).replace('T', ' ').slice(0, 19);
 };
 
 /** 查询阀门列表 */

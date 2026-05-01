@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
@@ -79,9 +80,13 @@ public class AgvTaskCompensateJob {
         if (taskNo == null || taskNo.trim().isEmpty()) {
             return;
         }
-        List<String> outIds = buildOutIds(task);
-        if (outIds.isEmpty()) {
+        List<TaskStepRef> stepRefs = buildStepRefs(task);
+        if (stepRefs.isEmpty()) {
             return;
+        }
+        List<String> outIds = new ArrayList<>();
+        for (TaskStepRef stepRef : stepRefs) {
+            outIds.add(stepRef.outId);
         }
         LambdaQueryWrapper<AgvOpenTask> openWrapper = Wrappers.lambdaQuery();
         openWrapper.in(AgvOpenTask::getOutId, outIds);
@@ -95,15 +100,14 @@ public class AgvTaskCompensateJob {
         }
         String clearedStep = null;
         boolean allFinished = true;
-        for (int i = 0; i < outIds.size(); i++) {
-            String outId = outIds.get(i);
-            AgvOpenTask step = openTaskMap.get(outId);
+        for (TaskStepRef stepRef : stepRefs) {
+            AgvOpenTask step = openTaskMap.get(stepRef.outId);
             if (step == null || step.getStatus() == null) {
                 allFinished = false;
                 break;
             }
             if (STATUS_CLEARED.equals(step.getStatus())) {
-                clearedStep = String.valueOf(i + 1);
+                clearedStep = stepRef.label;
                 allFinished = false;
                 break;
             }
@@ -124,41 +128,63 @@ public class AgvTaskCompensateJob {
         }
     }
 
-    private List<String> buildOutIds(AgvTask task) {
+    private List<TaskStepRef> buildStepRefs(AgvTask task) {
         String taskNo = task.getTaskNo();
         if (taskNo == null || taskNo.trim().isEmpty()) {
             return Collections.emptyList();
         }
         Integer taskType = task.getTaskType();
         if (TASK_INBOUND == taskType) {
-            return Arrays.asList(taskNo + "-1", taskNo + "-2", taskNo + "-3", taskNo + "-4");
+            return Arrays.asList(
+                new TaskStepRef(taskNo + "-1", "1"),
+                new TaskStepRef(taskNo + "-2", "2/3"),
+                new TaskStepRef(taskNo + "-4", "4")
+            );
         }
         if (TASK_INSPECTION == taskType) {
-            return Arrays.asList(taskNo + "-S1", taskNo + "-S2");
+            return Arrays.asList(
+                new TaskStepRef(taskNo + "-S1", "1"),
+                new TaskStepRef(taskNo + "-S2", "2")
+            );
         }
         if (TASK_OUTBOUND == taskType) {
-            return Arrays.asList(taskNo + "-O1", taskNo + "-O2");
+            return Arrays.asList(
+                new TaskStepRef(taskNo + "-O1", "1"),
+                new TaskStepRef(taskNo + "-O2", "2")
+            );
         }
         if (TASK_RETURN == taskType) {
             String remark = task.getRemark();
             if (remark != null) {
                 if (INSPECTION_EMPTY_RETURN_REMARK.equalsIgnoreCase(remark)
                     || INSPECTION_EMPTY_RETURN_REMARK_LEGACY.equalsIgnoreCase(remark)) {
-                    return Arrays.asList(taskNo + "-ER1", taskNo + "-ER2");
+                    return Arrays.asList(
+                        new TaskStepRef(taskNo + "-ER1", "1"),
+                        new TaskStepRef(taskNo + "-ER2", "2")
+                    );
                 }
                 if (OUTBOUND_EMPTY_RETURN_REMARK.equalsIgnoreCase(remark)) {
-                    return Arrays.asList(taskNo + "-OR1", taskNo + "-OR2");
+                    return Arrays.asList(
+                        new TaskStepRef(taskNo + "-OR1", "1"),
+                        new TaskStepRef(taskNo + "-OR2", "2")
+                    );
                 }
                 if (RETURN_CALL_PALLET_REMARK.equalsIgnoreCase(remark)) {
-                    return Arrays.asList(taskNo + "-RC1", taskNo + "-RC2");
+                    return Arrays.asList(
+                        new TaskStepRef(taskNo + "-RC1", "1"),
+                        new TaskStepRef(taskNo + "-RC2", "2")
+                    );
                 }
                 if (VALVE_RETURN_REMARK.equalsIgnoreCase(remark)) {
-                    return Arrays.asList(taskNo + "-VR1", taskNo + "-VR2");
+                    return Arrays.asList(
+                        new TaskStepRef(taskNo + "-VR1", "1"),
+                        new TaskStepRef(taskNo + "-VR2", "2")
+                    );
                 }
             }
-            return Arrays.asList(taskNo);
+            return Arrays.asList(new TaskStepRef(taskNo, "1"));
         }
-        return Arrays.asList(taskNo);
+        return Arrays.asList(new TaskStepRef(taskNo, "1"));
     }
 
     private String buildClearedMessage(AgvTask task, String stepIndex) {
@@ -202,6 +228,16 @@ public class AgvTaskCompensateJob {
             }
         } catch (Exception e) {
             log.warn("托盘置空失败: {}", e.getMessage());
+        }
+    }
+
+    private static class TaskStepRef {
+        private final String outId;
+        private final String label;
+
+        private TaskStepRef(String outId, String label) {
+            this.outId = outId;
+            this.label = label;
         }
     }
 }

@@ -101,14 +101,11 @@ public class ValveService extends ServiceImpl<ValveMapper, Valve> {
             throw new ServiceException("阀门不存在");
         }
         Valve update = MapstructUtils.convert(bo, Valve.class);
-        if (Objects.equals(update.getStatus(), 3)) {
-            update.setOutboundTime(bo.getOutboundTime() != null
-                ? bo.getOutboundTime()
-                : (current.getOutboundTime() != null ? current.getOutboundTime() : new Date()));
-        } else if (bo.getOutboundTime() == null) {
-            update.setOutboundTime(current.getOutboundTime());
-        }
         valveMapper.updateById(update);
+        valveMapper.update(null, Wrappers.lambdaUpdate(Valve.class)
+            .eq(Valve::getId, bo.getId())
+            .set(Valve::getCreateTime, bo.getCreateTime())
+            .set(Valve::getOutboundTime, bo.getOutboundTime()));
     }
 
     private void validateValveNo(ValveBo valve) {
