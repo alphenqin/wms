@@ -137,7 +137,8 @@ public class AgvTaskCompensateJob {
         if (TASK_INBOUND == taskType) {
             return Arrays.asList(
                 new TaskStepRef(taskNo + "-1", "1"),
-                new TaskStepRef(taskNo + "-2", "2/3"),
+                new TaskStepRef(taskNo + "-2", "2"),
+                new TaskStepRef(taskNo + "-3", "3"),
                 new TaskStepRef(taskNo + "-4", "4")
             );
         }

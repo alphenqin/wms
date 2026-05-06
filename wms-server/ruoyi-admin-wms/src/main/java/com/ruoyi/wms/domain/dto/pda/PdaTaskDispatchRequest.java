@@ -70,4 +70,9 @@ public class PdaTaskDispatchRequest {
      * 备注
      */
     private String remark;
+
+    /**
+     * 入库存放是否选择一层（可选）
+     */
+    private Boolean firstFloor;
 }

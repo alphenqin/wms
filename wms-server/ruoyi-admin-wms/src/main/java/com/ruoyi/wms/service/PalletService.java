@@ -106,6 +106,14 @@ public class PalletService extends ServiceImpl<PalletMapper, Pallet> {
      * 查询指定类型、从指定编号开始的首个可用空托盘（按托盘编号升序）
      */
     public PalletVo queryFirstAvailableByTypeFromCode(Long palletTypeId, String startCode) {
+        return queryFirstAvailableByTypeFromCodeAndPreferredLevel(palletTypeId, startCode, null, null);
+    }
+
+    /**
+     * 查询指定类型的首个可用空托盘，优先选择指定层数。
+     */
+    public PalletVo queryFirstAvailableByTypeFromCodeAndPreferredLevel(Long palletTypeId, String startCode,
+                                                                       Integer preferredLevel, String excludeBinCode) {
         if (palletTypeId == null) {
             return null;
         }
@@ -121,11 +129,43 @@ public class PalletService extends ServiceImpl<PalletMapper, Pallet> {
             lqw.ge(Pallet::getPalletCode, startCode);
         }
         lqw.orderByAsc(Pallet::getPalletCode);
-        lqw.last("limit 1");
-        Pallet pallet = palletMapper.selectOne(lqw);
+        List<Pallet> pallets = palletMapper.selectList(lqw);
+        String normalizedExcludeBinCode = StrUtil.trimToNull(excludeBinCode);
+        if (normalizedExcludeBinCode != null) {
+            pallets = pallets.stream()
+                .filter(pallet -> !normalizedExcludeBinCode.equals(pallet.getCurrentBinCode()))
+                .collect(Collectors.toList());
+        }
+        Pallet pallet = null;
+        if (preferredLevel != null) {
+            for (Pallet item : pallets) {
+                if (Objects.equals(preferredLevel, extractBinLevel(item.getCurrentBinCode()))) {
+                    pallet = item;
+                    break;
+                }
+            }
+        }
+        if (pallet == null && !pallets.isEmpty()) {
+            pallet = pallets.get(0);
+        }
         PalletVo vo = pallet != null ? MapstructUtils.convert(pallet, PalletVo.class) : null;
         fillPalletTypeName(vo);
         return vo;
+    }
+
+    private Integer extractBinLevel(String binCode) {
+        if (StrUtil.isBlank(binCode)) {
+            return null;
+        }
+        String[] parts = binCode.trim().split("-");
+        if (parts.length < 3) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(parts[parts.length - 1]);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private LambdaQueryWrapper<Pallet> buildQueryWrapper(PalletBo bo) {

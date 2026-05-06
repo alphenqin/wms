@@ -322,6 +322,7 @@ public class PdaApiController {
     @PostMapping("/bin/available")
     public R<PdaBinAvailableResponse> getAvailableBin(@RequestBody(required = false) PdaBinAvailableRequest request) {
         try {
+            PdaBinAvailableRequest safeRequest = request == null ? new PdaBinAvailableRequest() : request;
             Map<String, Object> agvResp = agvOpenTaskService.binInfo(null);
             String code = MapUtil.getStr(agvResp, "code");
             if (!"20000".equals(code)) {
@@ -329,9 +330,9 @@ public class PdaApiController {
                 return R.fail(500, StrUtil.emptyToDefault(message, "查询库位信息失败"));
             }
             Object dataObj = agvResp.get("data");
-            String selectedBin = selectFirstAvailableBinCode(dataObj);
+            String selectedBin = selectFirstAvailableBinCode(dataObj, safeRequest);
             if (StrUtil.isBlank(selectedBin)) {
-                return R.fail(404, "无可用库位");
+                return R.fail(404, buildNoAvailableBinMessage(safeRequest));
             }
             PdaBinAvailableResponse response = new PdaBinAvailableResponse();
             response.setBinCode(selectedBin);
@@ -671,6 +672,9 @@ public class PdaApiController {
             String targetBinCode = toBinCode;
             if (targetBinCode == null) {
                 return R.fail(400, "目标站点不能为空");
+            }
+            if (request.getFirstFloor() != null && !isBinOnRequestedFloor(targetBinCode, request.getFirstFloor())) {
+                return R.fail(400, request.getFirstFloor() ? "目标库位不是一层库位" : "目标库位不是二/三层库位");
             }
             String palletType = resolvePalletTypeCode(palletNo);
             if (palletType == null) {
@@ -1746,17 +1750,21 @@ public class PdaApiController {
                     agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "入库流程步骤1未完成");
                     return;
                 }
-                PalletVo outboundPallet = resolveNextOutsideReplenishmentPallet(route.firstStep.fromBinCode, palletTypeCode);
+                PalletVo outboundPallet = resolveNextOutsideReplenishmentPallet(route.firstStep.fromBinCode,
+                    palletTypeCode, route.targetBinCode);
                 if (outboundPallet == null || StrUtil.isBlank(outboundPallet.getCurrentBinCode())) {
                     agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "未找到可补位空托盘");
                     return;
                 }
                 InboundStep thirdStep = new InboundStep(route.thirdStep.agvRange,
                     outboundPallet.getCurrentBinCode(), route.thirdStep.toBinCode);
-                if (!dispatchInboundIndoorCombinedStep(taskNo, route.secondStep, thirdStep, route.targetBinCode, matCode)) {
+                if (!dispatchInboundStep(taskNo, 2, route.secondStep, route.targetBinCode, matCode)) {
                     return;
                 }
                 moveInboundPalletInside(inboundPalletNo, route.targetBinCode);
+                if (!dispatchInboundStep(taskNo, 3, thirdStep, route.targetBinCode, null)) {
+                    return;
+                }
                 if (!dispatchInboundStep(taskNo, 4, route.fourthStep, route.targetBinCode, null)) {
                     return;
                 }
@@ -1792,37 +1800,6 @@ public class PdaApiController {
             }
         }
         return null;
-    }
-
-    private boolean dispatchInboundIndoorCombinedStep(String taskNo, InboundStep fullPalletStep,
-                                                      InboundStep emptyPalletStep, String targetBinCode,
-                                                      String matCode) {
-        try {
-            String outId = buildInboundStepOutId(taskNo, 2);
-            AgvOpenTaskBo taskBo = buildOrderedDoublePickDropTask(outId,
-                fullPalletStep.fromBinCode,
-                fullPalletStep.toBinCode,
-                emptyPalletStep.fromBinCode,
-                emptyPalletStep.toBinCode,
-                targetBinCode,
-                matCode,
-                fullPalletStep.agvRange);
-            Map<String, Object> agvResp = agvOpenTaskService.sendTask(taskBo);
-            String code = MapUtil.getStr(agvResp, "code");
-            String message = MapUtil.getStr(agvResp, "message");
-            if (!"20000".equals(code)) {
-                agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, StrUtil.emptyToDefault(message, "AGV任务下发失败"));
-                return false;
-            }
-            if (!waitForOpenTaskFinished(outId)) {
-                agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "入库流程室内连续搬运未完成");
-                return false;
-            }
-            return true;
-        } catch (Exception e) {
-            agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
-            return false;
-        }
     }
 
     private boolean dispatchInboundStep(String taskNo, int stepIndex, InboundStep step, String targetBinCode, String matCode) {
@@ -1918,7 +1895,8 @@ public class PdaApiController {
         return null;
     }
 
-    private PalletVo resolveNextOutsideReplenishmentPallet(String outsideSite, String palletTypeCode) {
+    private PalletVo resolveNextOutsideReplenishmentPallet(String outsideSite, String palletTypeCode,
+                                                           String targetBinCode) {
         if (StrUtil.isBlank(outsideSite) || StrUtil.isBlank(palletTypeCode)) {
             return null;
         }
@@ -1930,7 +1908,8 @@ public class PdaApiController {
             ? INBOUND_EMPTY_PALLET_SMALL_START_CODE
             : (StrUtil.equalsIgnoreCase(palletTypeCode, PALLET_TYPE_LARGE_CODE)
                 ? INBOUND_EMPTY_PALLET_LARGE_START_CODE : null);
-        return palletService.queryFirstAvailableByTypeFromCode(palletType.getId(), startCode);
+        return palletService.queryFirstAvailableByTypeFromCodeAndPreferredLevel(palletType.getId(), startCode,
+            extractBinLevel(targetBinCode), targetBinCode);
     }
 
     private void moveInboundPalletInside(String palletNo, String targetBinCode) {
@@ -2445,43 +2424,6 @@ public class PdaApiController {
         return taskBo;
     }
 
-    private AgvOpenTaskBo buildOrderedDoublePickDropTask(String outId,
-                                                         String firstFromBinCode,
-                                                         String firstToBinCode,
-                                                         String secondFromBinCode,
-                                                         String secondToBinCode,
-                                                         String matDropBinCode,
-                                                         String matCode,
-                                                         String agvRange) {
-        AgvOpenTaskBo taskBo = new AgvOpenTaskBo();
-        taskBo.setTaskType(AGV_TASK_TYPE_PICK_AND_DROP);
-        taskBo.setOutId(outId);
-        taskBo.setLevel(AGV_TASK_LEVEL_NORMAL);
-        taskBo.setAgvRange(agvRange);
-        taskBo.setIsOrder("true");
-
-        List<AgvOpenTaskBo.AgvTaskPoint> points = new ArrayList<>();
-        points.add(buildAgvTaskPoint("01", firstFromBinCode, "02", null));
-        points.add(buildAgvTaskPoint("02", firstToBinCode, "04",
-            StrUtil.equals(firstToBinCode, matDropBinCode) ? matCode : null));
-        points.add(buildAgvTaskPoint("03", secondFromBinCode, "02", null));
-        points.add(buildAgvTaskPoint("04", secondToBinCode, "04",
-            StrUtil.equals(secondToBinCode, matDropBinCode) ? matCode : null));
-        taskBo.setPoints(points);
-        return taskBo;
-    }
-
-    private AgvOpenTaskBo.AgvTaskPoint buildAgvTaskPoint(String sn, String pointCode, String pointType, String matCode) {
-        AgvOpenTaskBo.AgvTaskPoint point = new AgvOpenTaskBo.AgvTaskPoint();
-        point.setSn(sn);
-        point.setPointCode(pointCode);
-        point.setPointType(pointType);
-        if (StrUtil.isNotBlank(matCode)) {
-            point.setMatCode(matCode);
-        }
-        return point;
-    }
-
     private void unbindPalletSilently(String palletNo) {
         if (StrUtil.isBlank(palletNo)) {
             return;
@@ -2496,7 +2438,8 @@ public class PdaApiController {
         }
     }
 
-    private String selectFirstAvailableBinCode(Object dataObj) {
+    private String selectFirstAvailableBinCode(Object dataObj, PdaBinAvailableRequest request) {
+        String palletTypeCode = resolveAvailableBinPalletType(request);
         if (dataObj instanceof List<?> list) {
             return list.stream()
                 .filter(item -> item instanceof Map)
@@ -2504,17 +2447,106 @@ public class PdaApiController {
                 .filter(item -> "01".equals(MapUtil.getStr(item, "binState")))
                 .map(item -> MapUtil.getStr(item, "binCode"))
                 .filter(StrUtil::isNotBlank)
+                .filter(binCode -> isBinAllowedForPalletType(binCode, palletTypeCode))
+                .filter(binCode -> isBinOnRequestedFloor(binCode, request.getFirstFloor()))
                 .sorted()
                 .findFirst()
                 .orElse(null);
         }
         if (dataObj instanceof Map<?, ?> map) {
             String binState = MapUtil.getStr(map, "binState");
-            if ("01".equals(binState)) {
-                return MapUtil.getStr(map, "binCode");
+            String binCode = MapUtil.getStr(map, "binCode");
+            if ("01".equals(binState)
+                && StrUtil.isNotBlank(binCode)
+                && isBinAllowedForPalletType(binCode, palletTypeCode)
+                && isBinOnRequestedFloor(binCode, request.getFirstFloor())) {
+                return binCode;
             }
         }
         return null;
+    }
+
+    private String buildNoAvailableBinMessage(PdaBinAvailableRequest request) {
+        String floor = "";
+        if (request.getFirstFloor() != null) {
+            floor = request.getFirstFloor() ? "一层" : "二/三层";
+        }
+        return "没有" + floor + "可用库位";
+    }
+
+    private String resolveAvailableBinPalletType(PdaBinAvailableRequest request) {
+        String type = StrUtil.trimToNull(request.getPalletType());
+        if (type != null) {
+            if (isSmallPalletType(type)) {
+                return PALLET_TYPE_SMALL_CODE;
+            }
+            if (isLargePalletType(type)) {
+                return PALLET_TYPE_LARGE_CODE;
+            }
+        }
+        String outsideSite = StrUtil.trimToNull(request.getOutsideSite());
+        if (outsideSite == null) {
+            return null;
+        }
+        return INBOUND_LARGE_LOAD_BIN.equals(outsideSite) ? PALLET_TYPE_LARGE_CODE : PALLET_TYPE_SMALL_CODE;
+    }
+
+    private boolean isBinAllowedForPalletType(String binCode, String palletTypeCode) {
+        if (StrUtil.isBlank(palletTypeCode)) {
+            return true;
+        }
+        Integer bay = extractBinBay(binCode);
+        if (bay == null) {
+            return false;
+        }
+        if (StrUtil.equalsIgnoreCase(palletTypeCode, PALLET_TYPE_LARGE_CODE)) {
+            return bay >= 13;
+        }
+        if (StrUtil.equalsIgnoreCase(palletTypeCode, PALLET_TYPE_SMALL_CODE)) {
+            return bay < 13;
+        }
+        return true;
+    }
+
+    private boolean isBinOnRequestedFloor(String binCode, Boolean firstFloor) {
+        if (firstFloor == null) {
+            return true;
+        }
+        Integer level = extractBinLevel(binCode);
+        if (level == null) {
+            return false;
+        }
+        return firstFloor ? level == 1 : level > 1;
+    }
+
+    private Integer extractBinBay(String binCode) {
+        if (StrUtil.isBlank(binCode)) {
+            return null;
+        }
+        String[] parts = binCode.trim().split("-");
+        if (parts.length < 3) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(parts[1]);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private Integer extractBinLevel(String binCode) {
+        if (StrUtil.isBlank(binCode)) {
+            return null;
+        }
+        String[] parts = binCode.trim().split("-");
+        if (parts.length < 3) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(parts[parts.length - 1]);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private static class InboundStep {
