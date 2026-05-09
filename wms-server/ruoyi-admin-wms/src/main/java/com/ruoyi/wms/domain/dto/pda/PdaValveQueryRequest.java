@@ -27,7 +27,7 @@ public class PdaValveQueryRequest {
     private String inboundDate;
 
     /**
-     * 阀门状态（IN_STOCK、IN_INSPECTION、INSPECTED、OUTBOUND）
+     * 阀门状态（IN_STOCK、IN_INSPECTION、INSPECTED、OUTBOUND），多个用英文逗号分隔
      */
     private String valveStatus;
 

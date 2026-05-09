@@ -2,36 +2,11 @@
   <div class="app-container">
     <el-card>
       <el-form :model="queryParams" ref="queryFormRef" :inline="true" v-show="showSearch" label-width="68px">
-        <el-form-item label="货位编号" prop="binCode">
-          <el-input v-model="queryParams.binCode" placeholder="请输入货位编号" clearable @keyup.enter="handleQuery" />
+        <el-form-item label="库位编号" prop="binCode">
+          <el-input v-model="queryParams.binCode" placeholder="请输入库位编号" clearable @keyup.enter="handleQuery" />
         </el-form-item>
-        <el-form-item label="货位名称" prop="binName">
-          <el-input v-model="queryParams.binName" placeholder="请输入货位名称" clearable @keyup.enter="handleQuery" />
-        </el-form-item>
-        <el-form-item label="仓库" prop="warehouseId">
-          <el-select
-            v-model="queryParams.warehouseId"
-            placeholder="请选择仓库"
-            clearable
-            @change="handleQueryWarehouseChange"
-          >
-            <el-option
-              v-for="item in warehouseList"
-              :key="item.id"
-              :label="item.warehouseName"
-              :value="item.id"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="货区" prop="areaId">
-          <el-select v-model="queryParams.areaId" placeholder="请选择货区" clearable>
-            <el-option
-              v-for="item in areaList"
-              :key="item.id"
-              :label="item.areaName"
-              :value="item.id"
-            />
-          </el-select>
+        <el-form-item label="出厂编号" prop="boundFactoryNo">
+          <el-input v-model="queryParams.boundFactoryNo" placeholder="请输入绑定出厂编号" clearable @keyup.enter="handleQuery" />
         </el-form-item>
         <el-form-item label="作业状态" prop="status">
           <el-select v-model="queryParams.status" placeholder="请选择作业状态" clearable>
@@ -42,9 +17,6 @@
           <el-select v-model="queryParams.storageStatus" placeholder="请选择库位状态" clearable>
             <el-option v-for="item in storageStatusOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
-        </el-form-item>
-        <el-form-item label="出厂编号" prop="boundFactoryNo">
-          <el-input v-model="queryParams.boundFactoryNo" placeholder="请输入绑定出厂编号" clearable @keyup.enter="handleQuery" />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
@@ -102,35 +74,15 @@
             <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['wms:bin:edit']">删除</el-button>
           </template>
         </el-table-column>
-        <el-table-column label="货位编号" prop="binCode" />
-        <el-table-column label="货位名称" prop="binName" />
-        <el-table-column label="所属仓库" prop="warehouseName" />
-        <el-table-column label="所属货区" prop="areaName" />
-        <el-table-column label="货位类型" prop="binType" width="120">
-          <template #default="scope">
-            <el-tag v-if="scope.row.binType === 1">普通货位</el-tag>
-            <el-tag v-else-if="scope.row.binType === 2" type="warning">暂存位</el-tag>
-            <el-tag v-else-if="scope.row.binType === 3" type="info">其他</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="温区" prop="temperatureZone" width="120">
-          <template #default="scope">
-            <el-tag v-if="scope.row.temperatureZone === 1">常温</el-tag>
-            <el-tag v-else-if="scope.row.temperatureZone === 2" type="warning">冷藏</el-tag>
-            <el-tag v-else-if="scope.row.temperatureZone === 3" type="info">冷冻</el-tag>
-            <el-tag v-else-if="scope.row.temperatureZone === 4" type="info">其他</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="容量" prop="capacity" />
-        <el-table-column label="已用容量" prop="usedCapacity" />
-        <el-table-column label="作业状态" prop="status" width="120">
-          <template #default="scope">
-            <el-tag :type="getStatusTag(scope.row.status)">{{ getStatusLabel(scope.row.status) }}</el-tag>
-          </template>
-        </el-table-column>
+        <el-table-column label="库位编号" prop="binCode" />
         <el-table-column label="库位状态" prop="storageStatus" width="120">
           <template #default="scope">
             <el-tag :type="getStorageStatusTag(scope.row.storageStatus)">{{ getStorageStatusLabel(scope.row.storageStatus) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="作业状态" prop="status" width="120">
+          <template #default="scope">
+            <el-tag :type="getStatusTag(scope.row.status)">{{ getStatusLabel(scope.row.status) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="绑定出厂编号" prop="boundFactoryNo" min-width="140" />
@@ -147,69 +99,80 @@
       />
     </el-card>
 
-    <el-dialog :title="dialog.title" v-model="dialog.visible" width="600px" append-to-body :close-on-click-modal="false">
+    <el-dialog :title="dialog.title" v-model="dialog.visible" width="900px" append-to-body :close-on-click-modal="false">
       <el-form ref="binFormRef" :model="form" :rules="rules" label-width="100px">
-        <el-form-item label="货位编号" prop="binCode">
-          <el-input v-model="form.binCode" placeholder="请输入货位编号" />
-        </el-form-item>
-        <el-form-item label="货位名称" prop="binName">
-          <el-input v-model="form.binName" placeholder="请输入货位名称" />
-        </el-form-item>
-        <el-form-item label="所属仓库" prop="warehouseId">
-          <el-select v-model="form.warehouseId" placeholder="请选择仓库" style="width: 100%" @change="handleFormWarehouseChange">
-            <el-option
-              v-for="item in warehouseList"
-              :key="item.id"
-              :label="item.warehouseName"
-              :value="item.id"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="所属货区" prop="areaId">
-          <el-select v-model="form.areaId" placeholder="请选择货区" style="width: 100%">
-            <el-option
-              v-for="item in formAreaList"
-              :key="item.id"
-              :label="item.areaName"
-              :value="item.id"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="货位类型" prop="binType">
-          <el-select v-model="form.binType" placeholder="请选择货位类型" style="width: 100%">
-            <el-option v-for="item in binTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="温区" prop="temperatureZone">
-          <el-select v-model="form.temperatureZone" placeholder="请选择温区" style="width: 100%">
-            <el-option v-for="item in temperatureOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="容量" prop="capacity">
-          <el-input-number v-model="form.capacity" :min="0" :precision="2" :controls="false" style="width: 100%" />
-        </el-form-item>
-        <el-form-item label="已用容量" prop="usedCapacity">
-          <el-input-number v-model="form.usedCapacity" :min="0" :precision="2" :controls="false" style="width: 100%" />
-        </el-form-item>
-        <el-form-item label="作业状态" prop="status">
-          <el-radio-group v-model="form.status">
-            <el-radio v-for="item in statusOptions" :key="item.value" :label="item.value">{{ item.label }}</el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item label="库位状态" prop="storageStatus">
-          <el-radio-group v-model="form.storageStatus" @change="handleStorageStatusChange">
-            <el-radio v-for="item in storageStatusOptions" :key="item.value" :label="item.value">{{ item.label }}</el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item label="绑定出厂编号" prop="boundFactoryNo">
-          <el-input v-model="form.boundFactoryNo" placeholder="满托盘库位绑定出厂编号" clearable />
-        </el-form-item>
-        <el-form-item label="排序" prop="orderNum">
-          <el-input-number v-model="form.orderNum" :min="0" :controls="false" style="width: 100%" />
-        </el-form-item>
-        <el-form-item label="备注" prop="remark">
-          <el-input v-model="form.remark" type="textarea" placeholder="请输入备注" />
-        </el-form-item>
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="库位编号" prop="binCode">
+              <el-input v-model="form.binCode" placeholder="请输入库位编号" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="库位名称" prop="binName">
+              <el-input v-model="form.binName" placeholder="请输入库位名称" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="所属仓库" prop="warehouseId">
+              <el-select v-model="form.warehouseId" placeholder="请选择仓库" style="width: 100%" @change="handleFormWarehouseChange">
+                <el-option
+                  v-for="item in warehouseList"
+                  :key="item.id"
+                  :label="item.warehouseName"
+                  :value="item.id"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="所属货区" prop="areaId">
+              <el-select v-model="form.areaId" placeholder="请选择货区" style="width: 100%">
+                <el-option
+                  v-for="item in formAreaList"
+                  :key="item.id"
+                  :label="item.areaName"
+                  :value="item.id"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="库位类型" prop="binType">
+              <el-select v-model="form.binType" placeholder="请选择库位类型" style="width: 100%">
+                <el-option v-for="item in binTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="作业状态" prop="status">
+              <el-radio-group v-model="form.status">
+                <el-radio v-for="item in statusOptions" :key="item.value" :label="item.value">{{ item.label }}</el-radio>
+              </el-radio-group>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="库位状态" prop="storageStatus">
+              <el-radio-group v-model="form.storageStatus" @change="handleStorageStatusChange">
+                <el-radio v-for="item in storageStatusOptions" :key="item.value" :label="item.value">{{ item.label }}</el-radio>
+              </el-radio-group>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="绑定出厂编号" prop="boundFactoryNo">
+              <el-input v-model="form.boundFactoryNo" placeholder="满托盘库位绑定出厂编号" clearable />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="排序" prop="orderNum">
+              <el-input-number v-model="form.orderNum" :min="0" :controls="false" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="24">
+            <el-form-item label="备注" prop="remark">
+              <el-input v-model="form.remark" type="textarea" placeholder="请输入备注" />
+            </el-form-item>
+          </el-col>
+        </el-row>
       </el-form>
       <template #footer>
         <div class="dialog-footer">
@@ -231,7 +194,6 @@ const { proxy } = getCurrentInstance();
 
 const binList = ref([]);
 const warehouseList = ref([]);
-const areaList = ref([]);
 const formAreaList = ref([]);
 const buttonLoading = ref(false);
 const loading = ref(false);
@@ -249,16 +211,9 @@ const dialog = reactive({
 });
 
 const binTypeOptions = [
-  { label: '普通货位', value: 1 },
+  { label: '普通库位', value: 1 },
   { label: '暂存位', value: 2 },
   { label: '其他', value: 3 }
-];
-
-const temperatureOptions = [
-  { label: '常温', value: 1 },
-  { label: '冷藏', value: 2 },
-  { label: '冷冻', value: 3 },
-  { label: '其他', value: 4 }
 ];
 
 const statusOptions = [
@@ -290,7 +245,7 @@ const initFormData = {
   areaId: undefined,
   binType: 1,
   temperatureZone: 1,
-  capacity: undefined,
+  capacity: 1,
   usedCapacity: 0,
   status: 0,
   storageStatus: 0,
@@ -305,16 +260,13 @@ const data = reactive({
     pageNum: 1,
     pageSize: 50,
     binCode: undefined,
-    binName: undefined,
-    warehouseId: undefined,
-    areaId: undefined,
     status: undefined,
     storageStatus: undefined,
     boundFactoryNo: undefined,
   },
   rules: {
     binCode: [
-      { required: true, message: "货位编号不能为空", trigger: "blur" }
+      { required: true, message: "库位编号不能为空", trigger: "blur" }
     ],
     warehouseId: [
       { required: true, message: "所属仓库不能为空", trigger: "change" }
@@ -351,7 +303,7 @@ const handleStorageStatusChange = () => {
   binFormRef.value?.validateField('boundFactoryNo');
 };
 
-/** 查询货位列表 */
+/** 查询库位列表 */
 const getList = async () => {
   loading.value = true;
   const res = await listBin(queryParams.value).finally(() => {
@@ -371,14 +323,7 @@ const getAreaList = async (warehouseId, target) => {
   const res = await listAreaNoPage(params);
   if (target === 'form') {
     formAreaList.value = res.data || [];
-    return;
   }
-  areaList.value = res.data || [];
-};
-
-const handleQueryWarehouseChange = async (value) => {
-  queryParams.value.areaId = undefined;
-  await getAreaList(value, 'query');
 };
 
 const handleFormWarehouseChange = async (value) => {
@@ -408,7 +353,6 @@ const handleQuery = () => {
 /** 重置按钮操作 */
 const resetQuery = async () => {
   queryFormRef.value?.resetFields();
-  await getAreaList(undefined, 'query');
   handleQuery();
 };
 
@@ -422,14 +366,14 @@ const handleSelectionChange = (selection) => {
 /** 新增按钮操作 */
 const handleAdd = async () => {
   dialog.visible = true;
-  dialog.title = "添加货位";
+  dialog.title = "添加库位";
   await reset();
 };
 
 /** 修改按钮操作 */
 const handleUpdate = async (row) => {
   dialog.visible = true;
-  dialog.title = "修改货位";
+  dialog.title = "修改库位";
   const _id = row.id || ids.value[0];
   const res = await getBin(_id);
   Object.assign(form.value, res.data);
@@ -465,7 +409,7 @@ const handleDelete = async (row) => {
     await proxy?.$modal.confirm('是否确认删除共"' + _ids.length + '"条数据项？');
     await delBins(_ids);
   } else {
-    await proxy?.$modal.confirm('是否确认删除货位编号为"' + _ids + '"的数据项？');
+    await proxy?.$modal.confirm('是否确认删除库位编号为"' + _ids + '"的数据项？');
     await delBin(_ids);
   }
   proxy?.$modal.msgSuccess("删除成功");
@@ -481,7 +425,6 @@ const handleExport = () => {
 
 onMounted(async () => {
   await getWarehouseList();
-  await getAreaList(undefined, 'query');
   await getList();
 });
 </script>

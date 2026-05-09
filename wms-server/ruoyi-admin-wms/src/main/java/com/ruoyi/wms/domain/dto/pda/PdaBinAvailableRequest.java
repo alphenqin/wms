@@ -35,4 +35,9 @@ public class PdaBinAvailableRequest {
      * 是否只选择一层库位；false 表示选择二/三层库位
      */
     private Boolean firstFloor;
+
+    /**
+     * 指定存放层数：1/2/3
+     */
+    private Integer storageLevel;
 }

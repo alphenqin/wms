@@ -75,4 +75,9 @@ public class PdaTaskDispatchRequest {
      * 入库存放是否选择一层（可选）
      */
     private Boolean firstFloor;
+
+    /**
+     * 入库存放层数：1/2/3（可选）
+     */
+    private Integer storageLevel;
 }

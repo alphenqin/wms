@@ -104,6 +104,8 @@ public class PdaApiController {
     private static final String INBOUND_LARGE_DOCK_BIN = "D2-大托盘接驳点";
     private static final String INBOUND_SMALL_BUFFER_BIN = "B3-15-01";
     private static final String INBOUND_LARGE_BUFFER_BIN = "B3-14-01";
+    private static final Set<String> INBOUND_SMALL_STORAGE_BINS = Set.of("B1-1-01", "B1-2-01", "B1-1-02", "B1-1-03");
+    private static final Set<String> INBOUND_LARGE_STORAGE_BINS = Set.of("B1-13-01", "B1-13-02");
     private static final String AGV_RANGE_WIDE = "2";
     private static final String AGV_RANGE_NARROW = "1";
     private static final String INSPECTION_AREA_WAITING = "WAITING";
@@ -476,9 +478,15 @@ public class PdaApiController {
             
             // 阀门状态
             if (StrUtil.isNotBlank(request.getValveStatus())) {
-                Integer status = convertValveStatus(request.getValveStatus());
-                if (status != null) {
-                    wrapper.eq(Valve::getStatus, status);
+                List<Integer> statuses = Arrays.stream(request.getValveStatus().split(","))
+                    .map(StrUtil::trimToNull)
+                    .filter(Objects::nonNull)
+                    .map(this::convertValveStatus)
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .collect(Collectors.toList());
+                if (!statuses.isEmpty()) {
+                    wrapper.in(Valve::getStatus, statuses);
                 }
             }
             wrapper.orderByAsc(Valve::getValveNo);
@@ -680,10 +688,16 @@ public class PdaApiController {
             if (targetBinCode == null) {
                 return R.fail(400, "目标站点不能为空");
             }
+            if (request.getStorageLevel() != null && !isBinOnRequestedLevel(targetBinCode, request.getStorageLevel())) {
+                return R.fail(400, "目标库位不是" + formatStorageLevel(request.getStorageLevel()) + "库位");
+            }
             if (request.getFirstFloor() != null && !isBinOnRequestedFloor(targetBinCode, request.getFirstFloor())) {
                 return R.fail(400, request.getFirstFloor() ? "目标库位不是一层库位" : "目标库位不是二/三层库位");
             }
             String palletType = resolvePalletTypeCode(palletNo);
+            if (palletType == null) {
+                palletType = resolvePalletTypeCodeFromBinCode(targetBinCode);
+            }
             if (palletType == null) {
                 return R.fail(400, "托盘类型错误");
             }
@@ -1628,6 +1642,14 @@ public class PdaApiController {
         return null;
     }
 
+    private String resolvePalletTypeCodeFromBinCode(String binCode) {
+        Integer bay = extractBinBay(binCode);
+        if (bay == null) {
+            return null;
+        }
+        return bay >= 13 ? PALLET_TYPE_LARGE_CODE : PALLET_TYPE_SMALL_CODE;
+    }
+
     private boolean isSmallPalletType(String typeCode) {
         if (StrUtil.isBlank(typeCode)) {
             return false;
@@ -2546,7 +2568,9 @@ public class PdaApiController {
                 .filter(item -> "01".equals(MapUtil.getStr(item, "binState")))
                 .map(item -> MapUtil.getStr(item, "binCode"))
                 .filter(StrUtil::isNotBlank)
+                .filter(binCode -> isFixedInboundStorageBin(binCode, palletTypeCode))
                 .filter(binCode -> isBinAllowedForPalletType(binCode, palletTypeCode))
+                .filter(binCode -> isBinOnRequestedLevel(binCode, request.getStorageLevel()))
                 .filter(binCode -> isBinOnRequestedFloor(binCode, request.getFirstFloor()))
                 .filter(this::isWmsEmptyBin)
                 .sorted()
@@ -2558,7 +2582,9 @@ public class PdaApiController {
             String binCode = MapUtil.getStr(map, "binCode");
             if ("01".equals(binState)
                 && StrUtil.isNotBlank(binCode)
+                && isFixedInboundStorageBin(binCode, palletTypeCode)
                 && isBinAllowedForPalletType(binCode, palletTypeCode)
+                && isBinOnRequestedLevel(binCode, request.getStorageLevel())
                 && isBinOnRequestedFloor(binCode, request.getFirstFloor())
                 && isWmsEmptyBin(binCode)) {
                 return binCode;
@@ -2569,7 +2595,9 @@ public class PdaApiController {
 
     private String buildNoAvailableBinMessage(PdaBinAvailableRequest request) {
         String floor = "";
-        if (request.getFirstFloor() != null) {
+        if (request.getStorageLevel() != null) {
+            floor = formatStorageLevel(request.getStorageLevel());
+        } else if (request.getFirstFloor() != null) {
             floor = request.getFirstFloor() ? "一层" : "二/三层";
         }
         return "没有" + floor + "可用库位";
@@ -2609,6 +2637,19 @@ public class PdaApiController {
         return true;
     }
 
+    private boolean isFixedInboundStorageBin(String binCode, String palletTypeCode) {
+        if (StrUtil.isBlank(binCode)) {
+            return false;
+        }
+        if (StrUtil.equalsIgnoreCase(palletTypeCode, PALLET_TYPE_LARGE_CODE)) {
+            return INBOUND_LARGE_STORAGE_BINS.contains(binCode);
+        }
+        if (StrUtil.equalsIgnoreCase(palletTypeCode, PALLET_TYPE_SMALL_CODE)) {
+            return INBOUND_SMALL_STORAGE_BINS.contains(binCode);
+        }
+        return INBOUND_SMALL_STORAGE_BINS.contains(binCode) || INBOUND_LARGE_STORAGE_BINS.contains(binCode);
+    }
+
     private boolean isBinOnRequestedFloor(String binCode, Boolean firstFloor) {
         if (firstFloor == null) {
             return true;
@@ -2618,6 +2659,30 @@ public class PdaApiController {
             return false;
         }
         return firstFloor ? level == 1 : level > 1;
+    }
+
+    private boolean isBinOnRequestedLevel(String binCode, Integer storageLevel) {
+        if (storageLevel == null) {
+            return true;
+        }
+        Integer level = extractBinLevel(binCode);
+        return level != null && Objects.equals(level, storageLevel);
+    }
+
+    private String formatStorageLevel(Integer storageLevel) {
+        if (storageLevel == null) {
+            return "";
+        }
+        if (storageLevel == 1) {
+            return "一层";
+        }
+        if (storageLevel == 2) {
+            return "二层";
+        }
+        if (storageLevel == 3) {
+            return "三层";
+        }
+        return storageLevel + "层";
     }
 
     private boolean isWmsEmptyBin(String binCode) {
