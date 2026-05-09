@@ -299,7 +299,7 @@ PDA请求 → 参数校验 → 业务逻辑处理 → 数据转换 → 数据库
 
 ```json
 {
-  "valveNo": "V20250101-001",        // 阀门编号
+  "valveNo": "V20250101-001",        // 出厂编号
   "matCode": "MAT-V20250101-001",         // 物料编码
   "vendorName": "XX阀门厂",          // 厂家名称
   "inboundDate": "2025-01-15",       // 入库日期
@@ -314,13 +314,13 @@ PDA请求 → 参数校验 → 业务逻辑处理 → 数据转换 → 数据库
 - **位置**：`@Valid @RequestBody PdaValveBindRequest request`
 - **校验规则**：所有字段必填
 
-#### 步骤2：校验阀门编号是否已存在
+#### 步骤2：校验出厂编号是否已存在
 - **调用服务**：`ValveService.queryByValveNo()`
 - **处理逻辑**：
   ```java
   ValveVo existingValve = valveService.queryByValveNo(request.getValveNo());
   if (existingValve != null) {
-      return R.fail(400, "阀门编号已存在");
+      return R.fail(400, "出厂编号已存在");
   }
   ```
 - **数据库查询**：
@@ -369,7 +369,7 @@ PDA请求 → 参数校验 → 业务逻辑处理 → 数据转换 → 数据库
 - **处理逻辑**：
   ```java
   Valve valve = new Valve();
-  valve.setValveNo(request.getValveNo());                    // 阀门编号
+  valve.setValveNo(request.getValveNo());                    // 出厂编号
   valve.setManufacturer(request.getVendorName());            // 厂家名称
   valve.setPalletId(palletVo.getId());                       // 托盘ID
   valve.setPalletCode(request.getPalletNo());                // 托盘编号
@@ -406,7 +406,7 @@ PDA请求 → 参数校验 → 业务逻辑处理 → 数据转换 → 数据库
   )
   ```
 - **内部处理**：
-  1. 校验阀门编号唯一性
+  1. 校验出厂编号唯一性
   2. 设置默认状态为0（在库）
   3. 设置创建时间和创建人
 
@@ -456,7 +456,7 @@ PDA请求 → 参数校验 → 业务逻辑处理 → 数据转换 → 数据库
 
 | PDA请求字段 | 数据库字段 | 说明 |
 |------------|-----------|------|
-| valveNo | valve_no | 阀门编号 |
+| valveNo | valve_no | 出厂编号 |
 | vendorName | manufacturer | 厂家名称 |
 | inboundDate | production_date | 入库日期（生产日期） |
 | palletNo | pallet_code | 托盘编号 |
@@ -480,11 +480,11 @@ PDA请求 → 参数校验 → 业务逻辑处理 → 数据转换 → 数据库
 ```json
 {
   "vendorName": "XX阀门厂",      // 厂家名称（模糊查询，可选）
-  "valveNo": "V20250101-001",    // 阀门编号（精确查询，可选）
+  "valveNo": "V20250101-001",    // 出厂编号（精确查询，可选）
   "inboundDate": "2025-01-15",   // 入库日期（可选）
   "valveStatus": "IN_STOCK",     // 阀门状态（可选）
   "pageNum": 1,                  // 页码（默认1）
-  "pageSize": 20                 // 每页大小（默认20）
+  "pageSize": 50                 // 每页大小（默认50）
 }
 ```
 
@@ -505,7 +505,7 @@ PDA请求 → 参数校验 → 业务逻辑处理 → 数据转换 → 数据库
       wrapper.like(Valve::getManufacturer, request.getVendorName());
   }
   
-  // 阀门编号（精确查询）
+  // 出厂编号（精确查询）
   if (StrUtil.isNotBlank(request.getValveNo())) {
       wrapper.eq(Valve::getValveNo, request.getValveNo());
   }
@@ -561,7 +561,7 @@ PDA请求 → 参数校验 → 业务逻辑处理 → 数据转换 → 数据库
   ```java
   List<PdaValveInfo> list = result.getRecords().stream().map(valve -> {
       PdaValveInfo info = new PdaValveInfo();
-      info.setValveNo(valve.getValveNo());                    // 阀门编号
+      info.setValveNo(valve.getValveNo());                    // 出厂编号
       info.setVendorName(valve.getManufacturer());             // 厂家名称
       info.setPalletNo(valve.getPalletCode());                 // 托盘编号
       info.setBinCode(valve.getCurrentBinCode());              // 库位编号
@@ -624,7 +624,7 @@ PDA请求 → 参数校验 → 业务逻辑处理 → 数据转换 → 数据库
       ],
       "total": 1,
       "pageNum": 1,
-      "pageSize": 20
+      "pageSize": 50
     }
   }
   ```
@@ -654,7 +654,7 @@ PDA请求 → 参数校验 → 业务逻辑处理 → 数据转换 → 数据库
   "taskType": "INBOUND",               // 任务类型（可选）
   "status": "PENDING",                // 任务状态（可选）
   "pageNum": 1,                       // 页码（默认1）
-  "pageSize": 20                      // 每页大小（默认20）
+  "pageSize": 50                      // 每页大小（默认50）
 }
 ```
 
@@ -779,7 +779,7 @@ PDA请求 → 参数校验 → 业务逻辑处理 → 数据转换 → 数据库
           info.setCreateTime(sdf.format(task.getCreateTime()));
       }
       
-      // 阀门编号和物料编码（可以从关联的阀门表查询，当前留空）
+      // 出厂编号和物料编码（可以从关联的阀门表查询，当前留空）
       // info.setValveNo(...);
       // info.setMatCode(...);
       
@@ -843,7 +843,7 @@ PDA请求 → 参数校验 → 业务逻辑处理 → 数据转换 → 数据库
       ],
       "total": 1,
       "pageNum": 1,
-      "pageSize": 20
+      "pageSize": 50
     }
   }
   ```
@@ -939,13 +939,13 @@ String dateStr = sdf.format(date);
 
 ### 8.2 业务校验异常
 
-- **触发条件**：业务逻辑校验失败（如：阀门编号已存在、托盘不存在等）
+- **触发条件**：业务逻辑校验失败（如：出厂编号已存在、托盘不存在等）
 - **处理方式**：返回400错误，包含具体的业务错误信息
 - **示例**：
   ```json
   {
     "code": 400,
-    "msg": "阀门编号已存在",
+    "msg": "出厂编号已存在",
     "data": null
   }
   ```
@@ -1058,7 +1058,7 @@ PDA请求 (阀门信息)
   ↓
 参数校验 (@Valid)
   ↓
-校验阀门编号是否存在 (wms_valve)
+校验出厂编号是否存在 (wms_valve)
   ↓
 校验托盘是否存在 (wms_pallet)
   ↓
@@ -1167,7 +1167,7 @@ wms_pallet_type (托盘类型表)
 
 ```
 wms_valve (阀门表)
-  ├─ valve_no: 阀门编号 (唯一)
+  ├─ valve_no: 出厂编号 (唯一)
   ├─ manufacturer: 厂家名称
   ├─ production_date: 生产日期
   ├─ pallet_id: 托盘ID → wms_pallet.id
@@ -1190,7 +1190,7 @@ wms_bin (库位表)
 
 ```
 wms_valve (阀门表)
-  ├─ valve_no: 阀门编号
+  ├─ valve_no: 出厂编号
   ├─ manufacturer: 厂家名称
   ├─ production_date: 生产日期
   ├─ pallet_code: 托盘编号

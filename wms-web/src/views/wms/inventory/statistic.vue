@@ -119,7 +119,7 @@ const filterable = ref(false)
 const queryType = ref("warehouse")
 const queryParams = ref({
   pageNum: 1,
-  pageSize: 10,
+  pageSize: 50,
   skuId: undefined,
   warehouseId: undefined,
   itemName: undefined,

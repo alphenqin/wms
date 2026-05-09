@@ -206,7 +206,7 @@ const inventoryTotal = ref(0);
 
 const inboundParams = reactive({
   pageNum: 1,
-  pageSize: 10,
+  pageSize: 50,
   startDate: undefined,
   endDate: undefined,
   warehouseId: undefined,
@@ -214,7 +214,7 @@ const inboundParams = reactive({
 
 const outboundParams = reactive({
   pageNum: 1,
-  pageSize: 10,
+  pageSize: 50,
   startDate: undefined,
   endDate: undefined,
   warehouseId: undefined,
@@ -222,7 +222,7 @@ const outboundParams = reactive({
 
 const checkParams = reactive({
   pageNum: 1,
-  pageSize: 10,
+  pageSize: 50,
   startDate: undefined,
   endDate: undefined,
   warehouseId: undefined,
@@ -230,7 +230,7 @@ const checkParams = reactive({
 
 const inventoryParams = reactive({
   pageNum: 1,
-  pageSize: 10,
+  pageSize: 50,
   warehouseId: undefined,
 });
 
@@ -291,7 +291,7 @@ const queryInventoryStatistics = async () => {
 const resetInboundQuery = () => {
   Object.assign(inboundParams, {
     pageNum: 1,
-    pageSize: 10,
+    pageSize: 50,
     startDate: undefined,
     endDate: undefined,
     warehouseId: undefined,
@@ -302,7 +302,7 @@ const resetInboundQuery = () => {
 const resetOutboundQuery = () => {
   Object.assign(outboundParams, {
     pageNum: 1,
-    pageSize: 10,
+    pageSize: 50,
     startDate: undefined,
     endDate: undefined,
     warehouseId: undefined,
@@ -313,7 +313,7 @@ const resetOutboundQuery = () => {
 const resetCheckQuery = () => {
   Object.assign(checkParams, {
     pageNum: 1,
-    pageSize: 10,
+    pageSize: 50,
     startDate: undefined,
     endDate: undefined,
     warehouseId: undefined,
@@ -324,7 +324,7 @@ const resetCheckQuery = () => {
 const resetInventoryQuery = () => {
   Object.assign(inventoryParams, {
     pageNum: 1,
-    pageSize: 10,
+    pageSize: 50,
     warehouseId: undefined,
   });
   queryInventoryStatistics();

@@ -18,6 +18,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.Date;
 import java.util.Collection;
 import java.util.List;
@@ -70,14 +74,60 @@ public class ValveService extends ServiceImpl<ValveMapper, Valve> {
     private LambdaQueryWrapper<Valve> buildQueryWrapper(ValveBo bo) {
         Map<String, Object> params = bo.getParams();
         LambdaQueryWrapper<Valve> lqw = Wrappers.lambdaQuery();
-        lqw.eq(StrUtil.isNotBlank(bo.getValveNo()), Valve::getValveNo, bo.getValveNo());
+        lqw.like(StrUtil.isNotBlank(bo.getValveNo()), Valve::getValveNo, bo.getValveNo());
         lqw.like(StrUtil.isNotBlank(bo.getManufacturer()), Valve::getManufacturer, bo.getManufacturer());
         lqw.like(StrUtil.isNotBlank(bo.getBatchNo()), Valve::getBatchNo, bo.getBatchNo());
         lqw.eq(bo.getPalletId() != null, Valve::getPalletId, bo.getPalletId());
+        lqw.like(StrUtil.isNotBlank(bo.getPalletCode()), Valve::getPalletCode, bo.getPalletCode());
         lqw.eq(bo.getCurrentBinId() != null, Valve::getCurrentBinId, bo.getCurrentBinId());
+        lqw.like(StrUtil.isNotBlank(bo.getCurrentBinCode()), Valve::getCurrentBinCode, bo.getCurrentBinCode());
         lqw.eq(bo.getStatus() != null, Valve::getStatus, bo.getStatus());
+        LocalDateTime beginCreateTime = parseBeginOfDay(params.get("beginCreateTime"));
+        LocalDateTime endCreateTime = parseEndOfDay(params.get("endCreateTime"));
+        Date beginOutboundTime = parseBeginDate(params.get("beginOutboundTime"));
+        Date endOutboundTime = parseEndDate(params.get("endOutboundTime"));
+        lqw.ge(beginCreateTime != null, Valve::getCreateTime, beginCreateTime);
+        lqw.le(endCreateTime != null, Valve::getCreateTime, endCreateTime);
+        lqw.ge(beginOutboundTime != null, Valve::getOutboundTime, beginOutboundTime);
+        lqw.le(endOutboundTime != null, Valve::getOutboundTime, endOutboundTime);
         lqw.orderByAsc(Valve::getValveNo);
         return lqw;
+    }
+
+    private LocalDate parseLocalDate(Object value) {
+        if (value instanceof LocalDate localDate) {
+            return localDate;
+        }
+        if (value instanceof LocalDateTime localDateTime) {
+            return localDateTime.toLocalDate();
+        }
+        String text = value == null ? null : StrUtil.trimToNull(String.valueOf(value));
+        if (text == null) {
+            return null;
+        }
+        return LocalDate.parse(text.length() > 10 ? text.substring(0, 10) : text);
+    }
+
+    private LocalDateTime parseBeginOfDay(Object value) {
+        LocalDate localDate = parseLocalDate(value);
+        return localDate == null ? null : localDate.atStartOfDay();
+    }
+
+    private LocalDateTime parseEndOfDay(Object value) {
+        LocalDate localDate = parseLocalDate(value);
+        return localDate == null ? null : localDate.atTime(LocalTime.MAX);
+    }
+
+    private Date toDate(LocalDateTime localDateTime) {
+        return localDateTime == null ? null : Date.from(localDateTime.atZone(ZoneId.systemDefault()).toInstant());
+    }
+
+    private Date parseBeginDate(Object value) {
+        return toDate(parseBeginOfDay(value));
+    }
+
+    private Date parseEndDate(Object value) {
+        return toDate(parseEndOfDay(value));
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -115,7 +165,7 @@ public class ValveService extends ServiceImpl<ValveMapper, Valve> {
         boolean validateNoResult = valveList.stream().anyMatch(
             it -> Objects.equals(it.getValveNo(), valve.getValveNo()) && !Objects.equals(it.getId(), valve.getId()));
         if (validateNoResult) {
-            throw new ServiceException("阀门编号重复", HttpStatus.CONFLICT);
+            throw new ServiceException("出厂编号重复", HttpStatus.CONFLICT);
         }
     }
 

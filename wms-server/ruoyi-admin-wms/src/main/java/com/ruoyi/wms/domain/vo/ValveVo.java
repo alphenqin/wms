@@ -23,7 +23,7 @@ public class ValveVo extends BaseVo {
     @ExcelProperty(value = "ID")
     private Long id;
 
-    @ExcelProperty(value = "阀门编号")
+    @ExcelProperty(value = "出厂编号")
     private String valveNo;
 
     @ExcelProperty(value = "厂家")

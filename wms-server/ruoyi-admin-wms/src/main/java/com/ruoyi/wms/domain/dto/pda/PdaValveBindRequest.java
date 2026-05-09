@@ -36,9 +36,8 @@ public class PdaValveBindRequest {
     private String inboundDate;
 
     /**
-     * 托盘号
+     * 托盘号（内部调度使用，可选）
      */
-    @NotBlank(message = "托盘号不能为空")
     private String palletNo;
 
     /**

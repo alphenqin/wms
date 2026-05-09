@@ -33,10 +33,18 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="状态" prop="status">
-          <el-select v-model="queryParams.status" placeholder="请选择状态" clearable>
+        <el-form-item label="作业状态" prop="status">
+          <el-select v-model="queryParams.status" placeholder="请选择作业状态" clearable>
             <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
+        </el-form-item>
+        <el-form-item label="库位状态" prop="storageStatus">
+          <el-select v-model="queryParams.storageStatus" placeholder="请选择库位状态" clearable>
+            <el-option v-for="item in storageStatusOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="出厂编号" prop="boundFactoryNo">
+          <el-input v-model="queryParams.boundFactoryNo" placeholder="请输入绑定出厂编号" clearable @keyup.enter="handleQuery" />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
@@ -115,11 +123,17 @@
         </el-table-column>
         <el-table-column label="容量" prop="capacity" />
         <el-table-column label="已用容量" prop="usedCapacity" />
-        <el-table-column label="状态" prop="status" width="120">
+        <el-table-column label="作业状态" prop="status" width="120">
           <template #default="scope">
             <el-tag :type="getStatusTag(scope.row.status)">{{ getStatusLabel(scope.row.status) }}</el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="库位状态" prop="storageStatus" width="120">
+          <template #default="scope">
+            <el-tag :type="getStorageStatusTag(scope.row.storageStatus)">{{ getStorageStatusLabel(scope.row.storageStatus) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="绑定出厂编号" prop="boundFactoryNo" min-width="140" />
         <el-table-column label="排序" prop="orderNum" width="100" />
         <el-table-column label="创建时间" prop="createTime" width="180" />
       </el-table>
@@ -177,10 +191,18 @@
         <el-form-item label="已用容量" prop="usedCapacity">
           <el-input-number v-model="form.usedCapacity" :min="0" :precision="2" :controls="false" style="width: 100%" />
         </el-form-item>
-        <el-form-item label="状态" prop="status">
+        <el-form-item label="作业状态" prop="status">
           <el-radio-group v-model="form.status">
             <el-radio v-for="item in statusOptions" :key="item.value" :label="item.value">{{ item.label }}</el-radio>
           </el-radio-group>
+        </el-form-item>
+        <el-form-item label="库位状态" prop="storageStatus">
+          <el-radio-group v-model="form.storageStatus" @change="handleStorageStatusChange">
+            <el-radio v-for="item in storageStatusOptions" :key="item.value" :label="item.value">{{ item.label }}</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="绑定出厂编号" prop="boundFactoryNo">
+          <el-input v-model="form.boundFactoryNo" placeholder="满托盘库位绑定出厂编号" clearable />
         </el-form-item>
         <el-form-item label="排序" prop="orderNum">
           <el-input-number v-model="form.orderNum" :min="0" :controls="false" style="width: 100%" />
@@ -246,6 +268,20 @@ const statusOptions = [
   { label: '锁定', value: 3, tag: 'danger' }
 ];
 
+const storageStatusOptions = [
+  { label: '空库位', value: 0, tag: 'success' },
+  { label: '空托盘', value: 1, tag: 'warning' },
+  { label: '满托盘', value: 2, tag: 'danger' }
+];
+
+const validateBoundFactoryNo = (_rule, value, callback) => {
+  if (form.value.storageStatus === 2 && !value) {
+    callback(new Error('满托盘库位必须绑定出厂编号'));
+    return;
+  }
+  callback();
+};
+
 const initFormData = {
   id: undefined,
   binCode: undefined,
@@ -257,6 +293,8 @@ const initFormData = {
   capacity: undefined,
   usedCapacity: 0,
   status: 0,
+  storageStatus: 0,
+  boundFactoryNo: undefined,
   orderNum: 0,
   remark: undefined,
 };
@@ -265,12 +303,14 @@ const data = reactive({
   form: { ...initFormData },
   queryParams: {
     pageNum: 1,
-    pageSize: 10,
+    pageSize: 50,
     binCode: undefined,
     binName: undefined,
     warehouseId: undefined,
     areaId: undefined,
     status: undefined,
+    storageStatus: undefined,
+    boundFactoryNo: undefined,
   },
   rules: {
     binCode: [
@@ -278,6 +318,9 @@ const data = reactive({
     ],
     warehouseId: [
       { required: true, message: "所属仓库不能为空", trigger: "change" }
+    ],
+    boundFactoryNo: [
+      { validator: validateBoundFactoryNo, trigger: "blur" }
     ]
   }
 });
@@ -292,6 +335,20 @@ const getStatusLabel = (status) => {
 const getStatusTag = (status) => {
   const found = statusOptions.find((item) => item.value === status);
   return found ? found.tag : 'info';
+};
+
+const getStorageStatusLabel = (status) => {
+  const found = storageStatusOptions.find((item) => item.value === status);
+  return found ? found.label : status;
+};
+
+const getStorageStatusTag = (status) => {
+  const found = storageStatusOptions.find((item) => item.value === status);
+  return found ? found.tag : 'info';
+};
+
+const handleStorageStatusChange = () => {
+  binFormRef.value?.validateField('boundFactoryNo');
 };
 
 /** 查询货位列表 */

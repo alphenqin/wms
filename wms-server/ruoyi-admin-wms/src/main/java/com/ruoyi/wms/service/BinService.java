@@ -24,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +41,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Service
 public class BinService extends ServiceImpl<BinMapper, Bin> {
+
+    public static final int STORAGE_STATUS_EMPTY_BIN = 0;
+    public static final int STORAGE_STATUS_EMPTY_PALLET = 1;
+    public static final int STORAGE_STATUS_FULL_PALLET = 2;
 
     private final BinMapper binMapper;
     private final WarehouseMapper warehouseMapper;
@@ -94,6 +99,7 @@ public class BinService extends ServiceImpl<BinMapper, Bin> {
         lqw.eq(warehouseId != null, Bin::getWarehouseId, warehouseId);
         lqw.eq(areaId != null, Bin::getAreaId, areaId);
         lqw.eq(Bin::getStatus, 0); // 0:空闲
+        lqw.eq(Bin::getStorageStatus, STORAGE_STATUS_EMPTY_BIN);
         lqw.orderByAsc(Bin::getOrderNum);
         List<BinVo> list = binMapper.selectVoList(lqw);
         fillNames(list);
@@ -108,6 +114,7 @@ public class BinService extends ServiceImpl<BinMapper, Bin> {
         lqw.eq(warehouseId != null, Bin::getWarehouseId, warehouseId);
         lqw.eq(areaId != null, Bin::getAreaId, areaId);
         lqw.eq(Bin::getStatus, 0); // 0:空闲
+        lqw.eq(Bin::getStorageStatus, STORAGE_STATUS_EMPTY_BIN);
         lqw.orderByAsc(Bin::getBinCode);
         lqw.last("limit 1");
         Bin bin = binMapper.selectOne(lqw);
@@ -169,13 +176,15 @@ public class BinService extends ServiceImpl<BinMapper, Bin> {
     private LambdaQueryWrapper<Bin> buildQueryWrapper(BinBo bo) {
         Map<String, Object> params = bo.getParams();
         LambdaQueryWrapper<Bin> lqw = Wrappers.lambdaQuery();
-        lqw.eq(StrUtil.isNotBlank(bo.getBinCode()), Bin::getBinCode, bo.getBinCode());
+        lqw.like(StrUtil.isNotBlank(bo.getBinCode()), Bin::getBinCode, bo.getBinCode());
         lqw.like(StrUtil.isNotBlank(bo.getBinName()), Bin::getBinName, bo.getBinName());
         lqw.eq(bo.getWarehouseId() != null, Bin::getWarehouseId, bo.getWarehouseId());
         lqw.eq(bo.getAreaId() != null, Bin::getAreaId, bo.getAreaId());
         lqw.eq(bo.getBinType() != null, Bin::getBinType, bo.getBinType());
         lqw.eq(bo.getTemperatureZone() != null, Bin::getTemperatureZone, bo.getTemperatureZone());
         lqw.eq(bo.getStatus() != null, Bin::getStatus, bo.getStatus());
+        lqw.eq(bo.getStorageStatus() != null, Bin::getStorageStatus, bo.getStorageStatus());
+        lqw.like(StrUtil.isNotBlank(bo.getBoundFactoryNo()), Bin::getBoundFactoryNo, bo.getBoundFactoryNo());
         lqw.orderByAsc(Bin::getOrderNum);
         return lqw;
     }
@@ -194,6 +203,10 @@ public class BinService extends ServiceImpl<BinMapper, Bin> {
         if (add.getUsedCapacity() == null) {
             add.setUsedCapacity(java.math.BigDecimal.ZERO);
         }
+        if (add.getStorageStatus() == null) {
+            add.setStorageStatus(STORAGE_STATUS_EMPTY_BIN);
+        }
+        normalizeStorageFields(add);
         binMapper.insert(add);
     }
 
@@ -213,6 +226,7 @@ public class BinService extends ServiceImpl<BinMapper, Bin> {
     public void updateByBo(BinBo bo) {
         validateBinCode(bo);
         Bin update = MapstructUtils.convert(bo, Bin.class);
+        normalizeStorageFields(update);
         binMapper.updateById(update);
     }
 
@@ -236,7 +250,8 @@ public class BinService extends ServiceImpl<BinMapper, Bin> {
 
     private void validIdBeforeDelete(Long id) {
         Bin bin = binMapper.selectById(id);
-        if (bin != null && bin.getStatus() != null && bin.getStatus() == 1) {
+        if (bin != null && bin.getStorageStatus() != null
+            && !Objects.equals(bin.getStorageStatus(), STORAGE_STATUS_EMPTY_BIN)) {
             throw new ServiceException("删除失败", HttpStatus.CONFLICT, "该货位已被占用，无法删除！");
         }
     }
@@ -282,6 +297,79 @@ public class BinService extends ServiceImpl<BinMapper, Bin> {
             bin.setStatus(0); // 空闲
         }
         binMapper.updateById(bin);
+    }
+
+    /**
+     * 标记为空库位。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void markEmptyBin(String binCode) {
+        updateStorageStatus(binCode, STORAGE_STATUS_EMPTY_BIN, null);
+    }
+
+    /**
+     * 标记为空托盘库位。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void markEmptyPallet(String binCode) {
+        updateStorageStatus(binCode, STORAGE_STATUS_EMPTY_PALLET, null);
+    }
+
+    /**
+     * 标记为满托盘库位，并绑定出厂编号。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void markFullPallet(String binCode, String valveNo) {
+        updateStorageStatus(binCode, STORAGE_STATUS_FULL_PALLET, valveNo);
+    }
+
+    private void updateStorageStatus(String binCode, Integer storageStatus, String boundFactoryNo) {
+        String normalizedBinCode = StrUtil.trimToNull(binCode);
+        if (normalizedBinCode == null || storageStatus == null) {
+            return;
+        }
+        String normalizedBoundFactoryNo = normalizeBoundFactoryNo(storageStatus, boundFactoryNo);
+        BigDecimal usedCapacity = Objects.equals(storageStatus, STORAGE_STATUS_EMPTY_BIN)
+            ? BigDecimal.ZERO : BigDecimal.ONE;
+        Integer status = Objects.equals(storageStatus, STORAGE_STATUS_EMPTY_BIN) ? 0 : 1;
+        binMapper.update(null, Wrappers.<Bin>lambdaUpdate()
+            .eq(Bin::getBinCode, normalizedBinCode)
+            .set(Bin::getStatus, status)
+            .set(Bin::getStorageStatus, storageStatus)
+            .set(Bin::getBoundFactoryNo, normalizedBoundFactoryNo)
+            .set(Bin::getUsedCapacity, usedCapacity));
+    }
+
+    private void normalizeStorageFields(Bin bin) {
+        if (bin == null || bin.getStorageStatus() == null) {
+            return;
+        }
+        bin.setBoundFactoryNo(normalizeBoundFactoryNo(bin.getStorageStatus(), bin.getBoundFactoryNo()));
+        if (Objects.equals(bin.getStorageStatus(), STORAGE_STATUS_EMPTY_BIN)) {
+            syncAvailableStatus(bin, 0);
+            bin.setUsedCapacity(BigDecimal.ZERO);
+        } else {
+            syncAvailableStatus(bin, 1);
+            bin.setUsedCapacity(BigDecimal.ONE);
+        }
+    }
+
+    private void syncAvailableStatus(Bin bin, Integer derivedStatus) {
+        if (Objects.equals(bin.getStatus(), 2) || Objects.equals(bin.getStatus(), 3)) {
+            return;
+        }
+        bin.setStatus(derivedStatus);
+    }
+
+    private String normalizeBoundFactoryNo(Integer storageStatus, String boundFactoryNo) {
+        if (!Objects.equals(storageStatus, STORAGE_STATUS_FULL_PALLET)) {
+            return null;
+        }
+        String normalizedBoundFactoryNo = StrUtil.trimToNull(boundFactoryNo);
+        if (normalizedBoundFactoryNo == null) {
+            throw new ServiceException("满托盘库位必须绑定出厂编号");
+        }
+        return normalizedBoundFactoryNo;
     }
 }
 

@@ -43,7 +43,7 @@ public class PdaTaskInfo implements Serializable {
     private String palletNo;
 
     /**
-     * 阀门编号
+     * 出厂编号
      */
     private String valveNo;
 

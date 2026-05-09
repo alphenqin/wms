@@ -20,7 +20,7 @@ public class ValveBo extends BaseEntity {
     @NotNull(message = "主键不能为空", groups = { EditGroup.class })
     private Long id;
 
-    @NotBlank(message = "阀门编号不能为空", groups = { AddGroup.class, EditGroup.class })
+    @NotBlank(message = "出厂编号不能为空", groups = { AddGroup.class, EditGroup.class })
     private String valveNo;
 
     private String manufacturer;

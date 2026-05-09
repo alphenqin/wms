@@ -81,7 +81,7 @@
               </el-table-column>
             </el-table>
     <el-row>
-      <pagination v-show="total > 0" :total="total" :page-sizes="[5, 10, 20, 50]" v-model:limit="pageReq.size" v-model:page="pageReq.page"
+      <pagination v-show="total > 0" :total="total" :page-sizes="[10, 20, 50, 100]" v-model:limit="pageReq.size" v-model:page="pageReq.page"
                   @pagination="getList" class="mr10"/>
     </el-row>
     <template v-slot:footer>
@@ -121,7 +121,7 @@ const skuSelectFormRef = ref(null)
 const total = ref(0);
 const pageReq = reactive({
   page: 1,
-  size: 10,
+  size: 50,
 });
 const list = ref([]);
 const rightList = ref([]);

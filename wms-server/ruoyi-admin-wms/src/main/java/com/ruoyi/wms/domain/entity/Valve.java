@@ -30,7 +30,7 @@ public class Valve extends BaseEntity {
     private Long id;
 
     /**
-     * 阀门编号（valveNo）
+     * 出厂编号（历史字段 valveNo）
      */
     private String valveNo;
 

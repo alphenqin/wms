@@ -68,7 +68,7 @@ const props = defineProps({
 })
 const queryParams = ref({
   pageNum: 1,
-  pageSize: 10,
+  pageSize: 50,
   orderId: null,
   haveProfitAndLoss: false,
 });

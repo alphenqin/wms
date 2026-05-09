@@ -147,7 +147,7 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
 | status | String | 是 | 任务状态（见枚举说明） | "PENDING" |
 | createTime | String | 是 | 创建时间（yyyy-MM-dd HH:mm:ss格式） | "2025-01-15 14:58:30" |
 | palletNo | String | 否 | 托盘号 | "11-01" |
-| valveNo | String | 否 | 阀门编号 | "V20250101-001" |
+| valveNo | String | 否 | 出厂编号 | "V20250101-001" |
 | matCode | String | 否 | 物料编码 | "MAT-V20250101-001" |
 | binCode | String | 否 | 库位号 | "2-01" |
 
@@ -190,7 +190,7 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
 | list | Array | 是 | 数据列表 | [] |
 | total | Integer | 是 | 总记录数 | 100 |
 | pageNum | Integer | 是 | 当前页码 | 1 |
-| pageSize | Integer | 是 | 每页大小 | 20 |
+| pageSize | Integer | 是 | 每页大小 | 50 |
 
 **JSON示例：**
 
@@ -199,7 +199,7 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
   "list": [],
   "total": 100,
   "pageNum": 1,
-  "pageSize": 20
+  "pageSize": 50
 }
 ```
 
@@ -392,14 +392,14 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
 ```json
 {
   "code": 400,
-  "msg": "阀门编号已存在",
+  "msg": "出厂编号已存在",
   "data": null
 }
 ```
 
 **业务说明：**
 
-- 需要校验阀门编号是否已存在
+- 需要校验出厂编号是否已存在
 - 需要校验托盘号和库位号是否匹配
 - 绑定成功后，阀门状态应设置为`IN_STOCK`（在库）
 - 一个托盘可以绑定多个阀门（根据托盘型号：小托盘132个，大托盘33个）
@@ -419,11 +419,11 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
 | 参数名 | 类型 | 必填 | 说明 | 示例 |
 |--------|------|------|------|------|
 | vendorName | String | 否 | 厂家名称（模糊查询） | "XX阀门厂" |
-| valveNo | String | 否 | 阀门编号（精确查询） | "V20250101-001" |
+| valveNo | String | 否 | 出厂编号（精确查询） | "V20250101-001" |
 | inboundDate | String | 否 | 入库日期（yyyy-MM-dd格式） | "2025-01-15" |
 | valveStatus | String | 否 | 阀门状态（见枚举） | "IN_STOCK" |
 | pageNum | Integer | 否 | 页码，默认1 | 1 |
-| pageSize | Integer | 否 | 每页大小，默认20 | 20 |
+| pageSize | Integer | 否 | 每页大小，默认50 | 50 |
 
 **请求示例：**
 
@@ -434,7 +434,7 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
   "inboundDate": "2025-01-15",
   "valveStatus": "IN_STOCK",
   "pageNum": 1,
-  "pageSize": 20
+  "pageSize": 50
 }
 ```
 
@@ -458,7 +458,7 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
     ],
     "total": 1,
     "pageNum": 1,
-    "pageSize": 20
+    "pageSize": 50
   }
 }
 ```
@@ -493,7 +493,7 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
 | status | String | 否 | 任务状态（见枚举） | "PENDING" |
 | deviceCode | String | 是 | PDA设备编号 | "PDA-01" |
 | pageNum | Integer | 否 | 页码，默认1 | 1 |
-| pageSize | Integer | 否 | 每页大小，默认20 | 20 |
+| pageSize | Integer | 否 | 每页大小，默认50 | 50 |
 
 **请求示例：**
 
@@ -505,7 +505,7 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
   "status": "PENDING",
   "deviceCode": "PDA-01",
   "pageNum": 1,
-  "pageSize": 20
+  "pageSize": 50
 }
 ```
 
@@ -530,7 +530,7 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
     ],
     "total": 1,
     "pageNum": 1,
-    "pageSize": 20
+    "pageSize": 50
   }
 }
 ```
@@ -844,7 +844,7 @@ Authorization: Bearer {token}   // 除登录接口外，其他接口都需要Tok
 
 2. **业务校验**
    - 托盘扫码：校验托盘是否存在
-   - 阀门绑定：校验阀门编号是否重复、托盘库位是否匹配
+   - 阀门绑定：校验出厂编号是否重复、托盘库位是否匹配
    - 阀门查询：校验查询条件合理性
 
 3. **错误提示**

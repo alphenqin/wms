@@ -44,8 +44,8 @@ public class PdaTaskQueryRequest {
     private Integer pageNum = 1;
 
     /**
-     * 每页大小，默认20
+     * 每页大小，默认50
      */
-    private Integer pageSize = 20;
+    private Integer pageSize = 50;
 }
 

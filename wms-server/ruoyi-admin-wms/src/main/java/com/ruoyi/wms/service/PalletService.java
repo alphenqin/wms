@@ -175,7 +175,8 @@ public class PalletService extends ServiceImpl<PalletMapper, Pallet> {
         lqw.like(palletCode != null, Pallet::getPalletCode, palletCode);
         lqw.eq(bo.getPalletTypeId() != null, Pallet::getPalletTypeId, bo.getPalletTypeId());
         lqw.eq(bo.getCurrentBinId() != null, Pallet::getCurrentBinId, bo.getCurrentBinId());
-        lqw.eq(StrUtil.isNotBlank(bo.getOutsideSite()), Pallet::getOutsideSite, StrUtil.trim(bo.getOutsideSite()));
+        lqw.like(StrUtil.isNotBlank(bo.getCurrentBinCode()), Pallet::getCurrentBinCode, bo.getCurrentBinCode());
+        lqw.like(StrUtil.isNotBlank(bo.getOutsideSite()), Pallet::getOutsideSite, StrUtil.trim(bo.getOutsideSite()));
         lqw.eq(bo.getIsEmpty() != null, Pallet::getIsEmpty, bo.getIsEmpty());
         lqw.eq(bo.getIsBound() != null, Pallet::getIsBound, bo.getIsBound());
         lqw.eq(StrUtil.isNotBlank(bo.getStatus()), Pallet::getStatus, bo.getStatus());

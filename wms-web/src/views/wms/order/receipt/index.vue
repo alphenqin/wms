@@ -238,7 +238,7 @@ const detailLoading = ref([])
 const data = reactive({
   queryParams: {
     pageNum: 1,
-    pageSize: 10,
+    pageSize: 50,
     orderNo: undefined,
     optType: -1,
     merchantId: undefined,

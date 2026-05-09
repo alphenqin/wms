@@ -93,7 +93,7 @@ const inventorySelectFormRef = ref(null)
 const total = ref(0);
 const pageReq = reactive({
   page: 1,
-  size: 10,
+  size: 50,
 });
 const list = ref([]);
 const rightList = ref([]);

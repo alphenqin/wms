@@ -93,6 +93,18 @@ public class BinVo extends BaseVo {
     private Integer status;
 
     /**
+     * 库位状态（0:空库位 1:空托盘 2:满托盘）
+     */
+    @ExcelProperty(value = "库位状态")
+    private Integer storageStatus;
+
+    /**
+     * 满托盘绑定的出厂编号
+     */
+    @ExcelProperty(value = "绑定出厂编号")
+    private String boundFactoryNo;
+
+    /**
      * 排序
      */
     @ExcelProperty(value = "排序")
@@ -104,4 +116,3 @@ public class BinVo extends BaseVo {
     @ExcelProperty(value = "备注")
     private String remark;
 }
-

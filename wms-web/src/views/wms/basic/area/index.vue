@@ -174,7 +174,7 @@ const data = reactive({
   form: {...initFormData},
   queryParams: {
     pageNum: 1,
-    pageSize: 10,
+    pageSize: 50,
     areaCode: undefined,
     areaName: undefined,
     warehouseId: undefined,

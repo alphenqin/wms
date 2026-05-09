@@ -302,12 +302,19 @@ public class PdaApiController {
             }
             List<Valve> valves = valveMapper.selectList(Wrappers.<Valve>lambdaQuery()
                 .eq(Valve::getPalletCode, request.getPalletNo()));
+            List<String> releasedBinCodes = valves.stream()
+                .map(Valve::getCurrentBinCode)
+                .map(StrUtil::trimToNull)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
             if (!valves.isEmpty()) {
                 valveMapper.deleteBatchIds(valves.stream()
                     .map(Valve::getId)
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList()));
             }
+            releasedBinCodes.forEach(binService::markEmptyBin);
             palletService.unbindMaterial(palletVo.getId());
             return R.ok();
         } catch (Exception e) {
@@ -350,11 +357,11 @@ public class PdaApiController {
     @Transactional(rollbackFor = Exception.class)
     public R<Map<String, Object>> bindValve(@Valid @RequestBody PdaValveBindRequest request) {
         try {
-            // 校验阀门编号是否已存在
+            // 校验出厂编号是否已存在
             ValveVo existingValve = valveService.queryByValveNo(request.getValveNo());
             if (existingValve != null) {
-                recordOperation(2, request.getDeviceCode(), request.getValveNo(), null, null, 0, null, "阀门编号已存在");
-                return R.fail(400, "阀门编号已存在");
+                recordOperation(2, request.getDeviceCode(), request.getValveNo(), null, null, 0, null, "出厂编号已存在");
+                return R.fail(400, "出厂编号已存在");
             }
 
             // 查询库位信息
@@ -364,34 +371,30 @@ public class PdaApiController {
                 return R.fail(400, "库位不存在");
             }
 
+            String requestPalletNo = StrUtil.trimToNull(request.getPalletNo());
             boolean palletScanEnabled = isPalletScanEnabled();
 
-            // 校验托盘是否存在
-            PalletVo palletVo = palletService.queryByPalletCode(request.getPalletNo());
+            // 托盘编号只作为内部调度字段；库位存放记录以库位+出厂编号为准。
+            PalletVo palletVo = requestPalletNo != null ? palletService.queryByPalletCode(requestPalletNo) : null;
             if (palletScanEnabled) {
-                if (palletVo == null) {
+                if (requestPalletNo != null && palletVo == null) {
                     recordOperation(2, request.getDeviceCode(), request.getValveNo(), null, null, 0, null, "托盘不存在");
                     return R.fail(400, "托盘不存在");
                 }
-                // 校验库位号是否匹配
-                if (!request.getBinCode().equals(palletVo.getCurrentBinCode())) {
-                    recordOperation(2, request.getDeviceCode(), request.getValveNo(), null, null, 0, null, "托盘号和库位号不匹配");
-                    return R.fail(400, "托盘号和库位号不匹配");
-                }
-            } else {
+            } else if (requestPalletNo != null) {
                 if (palletVo == null) {
                     var palletBo = new com.ruoyi.wms.domain.bo.PalletBo();
-                    palletBo.setPalletCode(request.getPalletNo());
+                    palletBo.setPalletCode(requestPalletNo);
                     palletBo.setCurrentBinId(binVo.getId());
                     palletBo.setCurrentBinCode(binVo.getBinCode());
                     palletBo.setIsEmpty(1);
                     palletBo.setIsBound(0);
                     palletBo.setStatus("0");
                     palletService.insertByBo(palletBo);
-                    palletVo = palletService.queryByPalletCode(request.getPalletNo());
+                    palletVo = palletService.queryByPalletCode(requestPalletNo);
                 } else if (!Objects.equals(palletVo.getCurrentBinCode(), request.getBinCode())) {
                     palletService.updatePalletBin(palletVo.getId(), binVo.getId(), binVo.getBinCode());
-                    palletVo = palletService.queryByPalletCode(request.getPalletNo());
+                    palletVo = palletService.queryByPalletCode(requestPalletNo);
                 }
                 if (palletVo == null) {
                     recordOperation(2, request.getDeviceCode(), request.getValveNo(), null, null, 0, null, "托盘创建失败");
@@ -412,8 +415,8 @@ public class PdaApiController {
                 log.warn("入库日期解析失败: {}", request.getInboundDate());
             }
 
-            valve.setPalletId(palletVo.getId());
-            valve.setPalletCode(request.getPalletNo());
+            valve.setPalletId(palletVo != null ? palletVo.getId() : null);
+            valve.setPalletCode(requestPalletNo);
             valve.setCurrentBinId(binVo.getId());
             valve.setCurrentBinCode(request.getBinCode());
             valve.setStatus(0); // 0:在库（IN_STOCK）
@@ -421,8 +424,11 @@ public class PdaApiController {
             // 保存阀门
             valveService.insertByBo(MapstructUtils.convert(valve, com.ruoyi.wms.domain.bo.ValveBo.class));
 
-            // 绑定样品后再更新托盘状态为非空
-            palletService.bindMaterial(palletVo.getId());
+            // 库位存放记录以库位+出厂编号为准；托盘状态仅作为内部调度兼容字段维护。
+            if (palletVo != null && palletVo.getId() != null) {
+                palletService.bindMaterial(palletVo.getId());
+            }
+            binService.markFullPallet(request.getBinCode(), request.getValveNo());
 
             Map<String, Object> result = new HashMap<>();
             result.put("success", true);
@@ -452,7 +458,7 @@ public class PdaApiController {
                 wrapper.like(Valve::getManufacturer, request.getVendorName());
             }
             
-            // 样品编号（模糊查询）
+            // 出厂编号（模糊查询）
             if (StrUtil.isNotBlank(request.getValveNo())) {
                 wrapper.like(Valve::getValveNo, request.getValveNo());
             }
@@ -475,6 +481,7 @@ public class PdaApiController {
                     wrapper.eq(Valve::getStatus, status);
                 }
             }
+            wrapper.orderByAsc(Valve::getValveNo);
 
             // 分页查询
             Page<Valve> page = new Page<>(request.getPageNum(), request.getPageSize());
@@ -497,7 +504,7 @@ public class PdaApiController {
                     info.setInboundDate(sdf.format(valve.getProductionDate()));
                 }
                 
-                // 物料编码（可以从物料类型表获取，这里先使用阀门编号）
+                // 物料编码（可以从物料类型表获取，这里先使用出厂编号）
                 info.setMatCode("MAT-" + valve.getValveNo());
                 
                 return info;
@@ -594,7 +601,7 @@ public class PdaApiController {
                     info.setCreateTime(task.getCreateTime().format(formatter));
                 }
                 
-                // 阀门编号和物料编码（可以从关联的阀门表查询，这里先留空）
+                // 出厂编号和物料编码（可以从关联的样品表查询，这里先留空）
                 // info.setValveNo(...);
                 // info.setMatCode(...);
                 
@@ -891,7 +898,7 @@ public class PdaApiController {
                     return R.fail(500, StrUtil.emptyToDefault(message, "AGV任务下发失败"));
                 }
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 1, null);
-                dispatchValveReturnFollowupSteps(taskNo, route, matCode);
+                dispatchValveReturnFollowupSteps(taskNo, route, matCode, request.getValveNo(), palletNo);
             } catch (Exception e) {
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
                 return R.fail(500, "任务下发失败: " + e.getMessage());
@@ -1762,9 +1769,12 @@ public class PdaApiController {
                     return;
                 }
                 moveInboundPalletInside(inboundPalletNo, route.targetBinCode);
+                binService.markFullPallet(route.targetBinCode,
+                    resolveValveNoForStorage(null, inboundPalletNo, route.targetBinCode));
                 if (!dispatchInboundStep(taskNo, 3, thirdStep, route.targetBinCode, null)) {
                     return;
                 }
+                binService.markEmptyBin(thirdStep.fromBinCode);
                 if (!dispatchInboundStep(taskNo, 4, route.fourthStep, route.targetBinCode, null)) {
                     return;
                 }
@@ -1954,6 +1964,32 @@ public class PdaApiController {
         return null;
     }
 
+    private String resolveValveNoForStorage(String valveNo, String palletNo, String binCode) {
+        String normalizedValveNo = StrUtil.trimToNull(valveNo);
+        if (normalizedValveNo != null) {
+            return normalizedValveNo;
+        }
+        LambdaQueryWrapper<Valve> wrapper = Wrappers.lambdaQuery();
+        boolean hasCondition = false;
+        String normalizedBinCode = StrUtil.trimToNull(binCode);
+        if (normalizedBinCode != null) {
+            wrapper.eq(Valve::getCurrentBinCode, normalizedBinCode);
+            hasCondition = true;
+        }
+        String normalizedPalletNo = StrUtil.trimToNull(palletNo);
+        if (normalizedPalletNo != null) {
+            wrapper.eq(Valve::getPalletCode, normalizedPalletNo);
+            hasCondition = true;
+        }
+        if (!hasCondition) {
+            return null;
+        }
+        wrapper.orderByDesc(Valve::getUpdateTime);
+        wrapper.last("limit 1");
+        Valve valve = valveMapper.selectOne(wrapper);
+        return valve != null ? StrUtil.trimToNull(valve.getValveNo()) : null;
+    }
+
     private void updateValveInspectionTarget(String valveNo, String palletNo, String targetBinCode, String area) {
         Valve valve = null;
         if (StrUtil.isNotBlank(valveNo)) {
@@ -2022,6 +2058,7 @@ public class PdaApiController {
                     }
                     return;
                 }
+                binService.markEmptyBin(route.firstStep.fromBinCode);
                 if (!dispatchInspectionStep(taskNo, 2, route.secondStep, route.targetBinCode, matCode)) {
                     return;
                 }
@@ -2068,6 +2105,7 @@ public class PdaApiController {
                     agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "出库流程步骤1未完成");
                     return;
                 }
+                binService.markEmptyBin(route.firstStep.fromBinCode);
                 if (!dispatchOutboundStep(taskNo, 2, route.secondStep, route.targetBinCode, matCode)) {
                     return;
                 }
@@ -2246,6 +2284,7 @@ public class PdaApiController {
                 if (!dispatchInspectionEmptyReturnStep(taskNo, 2, route.secondStep, route.targetBinCode)) {
                     return;
                 }
+                binService.markEmptyPallet(route.targetBinCode);
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 2, null);
             } catch (Exception e) {
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
@@ -2260,6 +2299,7 @@ public class PdaApiController {
                     agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "呼叫托盘步骤1未完成");
                     return;
                 }
+                binService.markEmptyBin(route.firstStep.fromBinCode);
                 if (!dispatchReturnCallPalletStep(taskNo, 2, route.secondStep, route.targetBinCode)) {
                     return;
                 }
@@ -2270,7 +2310,8 @@ public class PdaApiController {
         }, inboundExecutor);
     }
 
-    private void dispatchValveReturnFollowupSteps(String taskNo, InspectionRoute route, String matCode) {
+    private void dispatchValveReturnFollowupSteps(String taskNo, InspectionRoute route, String matCode,
+                                                  String valveNo, String palletNo) {
         CompletableFuture.runAsync(() -> {
             try {
                 if (!waitForOpenTaskFinished(buildValveReturnStepOutId(taskNo, 1))) {
@@ -2280,6 +2321,9 @@ public class PdaApiController {
                 if (!dispatchValveReturnStep(taskNo, 2, route.secondStep, route.targetBinCode, matCode)) {
                     return;
                 }
+                binService.markFullPallet(route.targetBinCode,
+                    resolveValveNoForStorage(valveNo, palletNo, route.targetBinCode));
+                updateValveStorage(valveNo, palletNo, route.targetBinCode, 0);
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 2, null);
             } catch (Exception e) {
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
@@ -2297,6 +2341,7 @@ public class PdaApiController {
                 if (!dispatchOutboundEmptyReturnStep(taskNo, 2, route.secondStep, route.targetBinCode)) {
                     return;
                 }
+                binService.markEmptyPallet(route.targetBinCode);
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 2, null);
             } catch (Exception e) {
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
@@ -2429,6 +2474,7 @@ public class PdaApiController {
             return;
         }
         try {
+            markValvesOutboundByPallet(palletNo);
             PalletVo palletVo = palletService.queryByPalletCode(palletNo);
             if (palletVo != null && palletVo.getId() != null) {
                 palletService.unbindMaterial(palletVo.getId());
@@ -2436,6 +2482,59 @@ public class PdaApiController {
         } catch (Exception e) {
             log.warn("托盘置空失败: {}", e.getMessage());
         }
+    }
+
+    private void updateValveStorage(String valveNo, String palletNo, String targetBinCode, Integer status) {
+        Valve valve = findValve(valveNo, palletNo);
+        if (valve == null) {
+            return;
+        }
+        Valve update = new Valve();
+        update.setId(valve.getId());
+        BinVo binVo = binService.queryByBinCode(targetBinCode);
+        if (binVo != null) {
+            update.setCurrentBinId(binVo.getId());
+        }
+        update.setCurrentBinCode(StrUtil.trimToNull(targetBinCode));
+        update.setStatus(status);
+        valveMapper.updateById(update);
+    }
+
+    private void markValvesOutboundByPallet(String palletNo) {
+        List<Valve> valves = valveMapper.selectList(Wrappers.<Valve>lambdaQuery()
+            .eq(Valve::getPalletCode, palletNo));
+        for (Valve valve : valves) {
+            var update = Wrappers.<Valve>lambdaUpdate()
+                .eq(Valve::getId, valve.getId())
+                .set(Valve::getPalletId, null)
+                .set(Valve::getPalletCode, null)
+                .set(Valve::getCurrentBinId, null)
+                .set(Valve::getCurrentBinCode, null)
+                .set(Valve::getStatus, 3);
+            if (valve.getOutboundTime() == null) {
+                update.set(Valve::getOutboundTime, new Date());
+            }
+            valveMapper.update(null, update);
+        }
+    }
+
+    private Valve findValve(String valveNo, String palletNo) {
+        if (StrUtil.isNotBlank(valveNo)) {
+            LambdaQueryWrapper<Valve> wrapper = Wrappers.lambdaQuery();
+            wrapper.eq(Valve::getValveNo, valveNo);
+            Valve valve = valveMapper.selectOne(wrapper);
+            if (valve != null) {
+                return valve;
+            }
+        }
+        if (StrUtil.isNotBlank(palletNo)) {
+            LambdaQueryWrapper<Valve> wrapper = Wrappers.lambdaQuery();
+            wrapper.eq(Valve::getPalletCode, palletNo);
+            wrapper.orderByDesc(Valve::getUpdateTime);
+            wrapper.last("limit 1");
+            return valveMapper.selectOne(wrapper);
+        }
+        return null;
     }
 
     private String selectFirstAvailableBinCode(Object dataObj, PdaBinAvailableRequest request) {
@@ -2449,6 +2548,7 @@ public class PdaApiController {
                 .filter(StrUtil::isNotBlank)
                 .filter(binCode -> isBinAllowedForPalletType(binCode, palletTypeCode))
                 .filter(binCode -> isBinOnRequestedFloor(binCode, request.getFirstFloor()))
+                .filter(this::isWmsEmptyBin)
                 .sorted()
                 .findFirst()
                 .orElse(null);
@@ -2459,7 +2559,8 @@ public class PdaApiController {
             if ("01".equals(binState)
                 && StrUtil.isNotBlank(binCode)
                 && isBinAllowedForPalletType(binCode, palletTypeCode)
-                && isBinOnRequestedFloor(binCode, request.getFirstFloor())) {
+                && isBinOnRequestedFloor(binCode, request.getFirstFloor())
+                && isWmsEmptyBin(binCode)) {
                 return binCode;
             }
         }
@@ -2517,6 +2618,12 @@ public class PdaApiController {
             return false;
         }
         return firstFloor ? level == 1 : level > 1;
+    }
+
+    private boolean isWmsEmptyBin(String binCode) {
+        BinVo bin = binService.queryByBinCode(binCode);
+        return bin != null && (bin.getStorageStatus() == null
+            || Objects.equals(bin.getStorageStatus(), BinService.STORAGE_STATUS_EMPTY_BIN));
     }
 
     private Integer extractBinBay(String binCode) {

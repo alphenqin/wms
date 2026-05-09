@@ -57,7 +57,7 @@ public class PdaTaskDispatchRequest {
     private String agvRange;
 
     /**
-     * 阀门编号（可选）
+     * 出厂编号（可选）
      */
     private String valveNo;
 

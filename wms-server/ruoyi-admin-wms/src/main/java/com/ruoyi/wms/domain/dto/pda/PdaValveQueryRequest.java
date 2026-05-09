@@ -17,7 +17,7 @@ public class PdaValveQueryRequest {
     private String vendorName;
 
     /**
-     * 样品编号（模糊查询）
+     * 出厂编号（模糊查询）
      */
     private String valveNo;
 
@@ -37,8 +37,8 @@ public class PdaValveQueryRequest {
     private Integer pageNum = 1;
 
     /**
-     * 每页大小，默认20
+     * 每页大小，默认50
      */
-    private Integer pageSize = 20;
+    private Integer pageSize = 50;
 }
 

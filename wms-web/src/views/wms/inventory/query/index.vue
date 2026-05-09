@@ -64,7 +64,7 @@
             </el-form-item>
           </el-form>
           <el-table v-loading="batchLoading" :data="batchResultList" border>
-            <el-table-column label="样品编号" prop="valveNo" />
+            <el-table-column label="出厂编号" prop="valveNo" />
             <el-table-column label="批次号" prop="batchNo" />
             <el-table-column label="状态" prop="status">
               <template #default="scope">
@@ -88,7 +88,7 @@
             </el-form-item>
           </el-form>
           <el-table v-loading="binLoading" :data="binResultList" border>
-            <el-table-column label="样品编号" prop="valveNo" />
+            <el-table-column label="出厂编号" prop="valveNo" />
             <el-table-column label="托盘编号" prop="palletCode" />
             <el-table-column label="库位编号" prop="currentBinCode" />
           </el-table>
@@ -105,7 +105,7 @@
             </el-form-item>
           </el-form>
           <el-table v-loading="palletLoading" :data="palletResultList" border>
-            <el-table-column label="样品编号" prop="valveNo" />
+            <el-table-column label="出厂编号" prop="valveNo" />
             <el-table-column label="托盘编号" prop="palletCode" />
             <el-table-column label="状态" prop="status">
               <template #default="scope">

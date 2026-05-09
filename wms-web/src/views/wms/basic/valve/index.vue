@@ -3,18 +3,44 @@
     <el-card>
       <el-form :model="queryParams" ref="queryFormRef" :inline="true" v-show="showSearch" label-width="68px">
         <el-form-item label="出厂编号" prop="valveNo">
-          <el-input v-model="queryParams.valveNo" placeholder="请输入出厂编号" clearable @keyup.enter="handleQuery" />
+          <el-input v-model="queryParams.valveNo" placeholder="请输入出厂编号" clearable class="query-input" @keyup.enter="handleQuery" />
+        </el-form-item>
+        <el-form-item label="当前库位" prop="currentBinCode">
+          <el-input v-model="queryParams.currentBinCode" placeholder="请输入当前库位" clearable class="query-input" @keyup.enter="handleQuery" />
         </el-form-item>
         <el-form-item label="状态" prop="status">
-          <el-select v-model="queryParams.status" placeholder="请选择状态" clearable>
+          <el-select v-model="queryParams.status" placeholder="请选择状态" clearable class="query-select">
             <el-option label="在库" value="0" />
             <el-option label="检测中" value="1" />
             <el-option label="已检测" value="2" />
             <el-option label="已出库" value="3" />
           </el-select>
         </el-form-item>
-        <el-form-item label="托盘编号" prop="palletCode">
-          <el-input v-model="queryParams.palletCode" placeholder="请输入托盘编号" clearable @keyup.enter="handleQuery" />
+        <el-form-item label="入库时间" prop="createTimeRange">
+          <el-date-picker
+            v-model="queryParams.createTimeRange"
+            type="daterange"
+            range-separator="至"
+            value-format="YYYY-MM-DD"
+            format="YYYY-MM-DD"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            class="query-date-range"
+            clearable
+          />
+        </el-form-item>
+        <el-form-item label="出库时间" prop="outboundTimeRange">
+          <el-date-picker
+            v-model="queryParams.outboundTimeRange"
+            type="daterange"
+            range-separator="至"
+            value-format="YYYY-MM-DD"
+            format="YYYY-MM-DD"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            class="query-date-range"
+            clearable
+          />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
@@ -66,26 +92,24 @@
 
       <el-table v-loading="loading" :data="valveList" @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="55" align="center" />
-        <el-table-column label="ID" prop="id" width="80" />
-        <el-table-column label="出厂编号" prop="valveNo" />
-        <el-table-column label="厂家" prop="manufacturer" />
-        <el-table-column label="入库时间" prop="createTime" width="170">
-          <template #default="scope">
-            {{ formatDateTime(scope.row.createTime) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="出库时间" prop="outboundTime" width="170">
-          <template #default="scope">
-            {{ formatDateTime(scope.row.outboundTime) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="托盘编号" prop="palletCode" />
+        <el-table-column label="出厂编号" prop="valveNo" min-width="220" class-name="factory-no-column" />
         <el-table-column label="当前库位" prop="currentBinCode" />
         <el-table-column label="状态" prop="status">
           <template #default="scope">
             <dict-tag :options="dict.type.wms_valve_status" :value="scope.row.status" />
           </template>
         </el-table-column>
+        <el-table-column label="入库时间" prop="createTime" width="170">
+          <template #default="scope">
+            {{ formatDate(scope.row.createTime) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="出库时间" prop="outboundTime" width="170">
+          <template #default="scope">
+            {{ formatDate(scope.row.outboundTime) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="厂家" prop="manufacturer" />
         <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="200">
           <template #default="scope">
             <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['wms:valve:edit']">修改</el-button>
@@ -115,9 +139,9 @@
         <el-form-item label="入库时间" prop="createTime">
           <el-date-picker
             v-model="form.createTime"
-            type="datetime"
-            value-format="YYYY-MM-DD HH:mm:ss"
-            format="YYYY-MM-DD HH:mm:ss"
+            type="date"
+            value-format="YYYY-MM-DD 00:00:00"
+            format="YYYY-MM-DD"
             placeholder="请选择入库时间"
             style="width: 100%"
             clearable
@@ -126,9 +150,9 @@
         <el-form-item label="出库时间" prop="outboundTime">
           <el-date-picker
             v-model="form.outboundTime"
-            type="datetime"
-            value-format="YYYY-MM-DD HH:mm:ss"
-            format="YYYY-MM-DD HH:mm:ss"
+            type="date"
+            value-format="YYYY-MM-DD 00:00:00"
+            format="YYYY-MM-DD"
             placeholder="请选择出库时间"
             style="width: 100%"
             clearable
@@ -205,10 +229,12 @@ const data = reactive({
   form: {...initFormData},
   queryParams: {
     pageNum: 1,
-    pageSize: 10,
+    pageSize: 50,
     valveNo: undefined,
     status: undefined,
-    palletCode: undefined,
+    currentBinCode: undefined,
+    createTimeRange: undefined,
+    outboundTimeRange: undefined,
   },
   rules: {
     valveNo: [
@@ -219,17 +245,33 @@ const data = reactive({
 
 const { queryParams, form, rules } = toRefs(data);
 
-const formatDateTime = (value) => {
+const formatDate = (value) => {
   if (!value) {
     return '-';
   }
-  return String(value).replace('T', ' ').slice(0, 19);
+  return String(value).replace('T', ' ').slice(0, 10);
+};
+
+const buildQueryParams = () => {
+  const query = { ...queryParams.value };
+  query.params = {};
+  if (query.createTimeRange?.length === 2) {
+    query.params.beginCreateTime = query.createTimeRange[0];
+    query.params.endCreateTime = query.createTimeRange[1];
+  }
+  if (query.outboundTimeRange?.length === 2) {
+    query.params.beginOutboundTime = query.outboundTimeRange[0];
+    query.params.endOutboundTime = query.outboundTimeRange[1];
+  }
+  delete query.createTimeRange;
+  delete query.outboundTimeRange;
+  return query;
 };
 
 /** 查询阀门列表 */
 const getList = async () => {
   loading.value = true;
-  const res = await listValve(queryParams.value).finally(() => {
+  const res = await listValve(buildQueryParams()).finally(() => {
     loading.value = false;
   });
   valveList.value = res.rows;
@@ -325,9 +367,7 @@ const handleDelete = async (row) => {
 
 /** 导出按钮操作 */
 const handleExport = () => {
-  proxy?.download('wms/valve/export', {
-    ...queryParams.value
-  }, `valve_${new Date().getTime()}.xlsx`);
+  proxy?.download('wms/valve/export', buildQueryParams(), `valve_${new Date().getTime()}.xlsx`);
 };
 
 onMounted(async () => {
@@ -335,3 +375,20 @@ onMounted(async () => {
 });
 </script>
 
+<style scoped>
+.query-input {
+  width: 180px;
+}
+
+.query-select {
+  width: 140px;
+}
+
+.query-date-range {
+  width: 340px;
+}
+
+:deep(.factory-no-column .cell) {
+  white-space: nowrap;
+}
+</style>
