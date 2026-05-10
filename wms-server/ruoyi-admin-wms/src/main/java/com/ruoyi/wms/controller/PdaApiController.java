@@ -2152,12 +2152,12 @@ public class PdaApiController {
                     agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "出库流程步骤1未完成");
                     return;
                 }
-                binService.markEmptyBin(route.firstStep.fromBinCode);
                 if (!dispatchOutboundStep(taskNo, 2, route.secondStep, route.targetBinCode, matCode)) {
                     return;
                 }
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 2, null);
                 updateValveStatus(valveNo, palletNo, 3);
+                binService.markEmptyBin(route.firstStep.fromBinCode);
                 unbindPalletSilently(palletNo);
             } catch (Exception e) {
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
@@ -2601,7 +2601,7 @@ public class PdaApiController {
                 .filter(binCode -> isBinAllowedForPalletType(binCode, palletTypeCode))
                 .filter(binCode -> isBinOnRequestedLevel(binCode, request.getStorageLevel()))
                 .filter(binCode -> isBinOnRequestedFloor(binCode, request.getFirstFloor()))
-                .filter(this::isWmsEmptyBin)
+                .filter(this::isWmsAvailableInboundBin)
                 .sorted()
                 .findFirst()
                 .orElse(null);
@@ -2615,7 +2615,7 @@ public class PdaApiController {
                 && isBinAllowedForPalletType(binCode, palletTypeCode)
                 && isBinOnRequestedLevel(binCode, request.getStorageLevel())
                 && isBinOnRequestedFloor(binCode, request.getFirstFloor())
-                && isWmsEmptyBin(binCode)) {
+                && isWmsAvailableInboundBin(binCode)) {
                 return binCode;
             }
         }
@@ -2714,10 +2714,12 @@ public class PdaApiController {
         return storageLevel + "层";
     }
 
-    private boolean isWmsEmptyBin(String binCode) {
+    private boolean isWmsAvailableInboundBin(String binCode) {
         BinVo bin = binService.queryByBinCode(binCode);
-        return bin != null && (bin.getStorageStatus() == null
-            || Objects.equals(bin.getStorageStatus(), BinService.STORAGE_STATUS_EMPTY_BIN));
+        return bin != null
+            && Objects.equals(bin.getStorageStatus(), BinService.STORAGE_STATUS_EMPTY_BIN)
+            && Objects.equals(bin.getStatus(), 0)
+            && StrUtil.isBlank(bin.getBoundFactoryNo());
     }
 
     private Integer extractBinBay(String binCode) {
