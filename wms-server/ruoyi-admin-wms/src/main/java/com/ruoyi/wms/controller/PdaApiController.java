@@ -374,29 +374,32 @@ public class PdaApiController {
             }
 
             String requestPalletNo = StrUtil.trimToNull(request.getPalletNo());
+            String requestBinCode = StrUtil.trimToNull(request.getBinCode());
+            boolean binCodeCompatPalletNo = Objects.equals(requestPalletNo, requestBinCode);
+            String effectivePalletNo = binCodeCompatPalletNo ? null : requestPalletNo;
             boolean palletScanEnabled = isPalletScanEnabled();
 
             // 托盘编号只作为内部调度字段；库位存放记录以库位+出厂编号为准。
-            PalletVo palletVo = requestPalletNo != null ? palletService.queryByPalletCode(requestPalletNo) : null;
+            PalletVo palletVo = effectivePalletNo != null ? palletService.queryByPalletCode(effectivePalletNo) : null;
             if (palletScanEnabled) {
-                if (requestPalletNo != null && palletVo == null) {
+                if (effectivePalletNo != null && palletVo == null) {
                     recordOperation(2, request.getDeviceCode(), request.getValveNo(), null, null, 0, null, "托盘不存在");
                     return R.fail(400, "托盘不存在");
                 }
-            } else if (requestPalletNo != null) {
+            } else if (effectivePalletNo != null) {
                 if (palletVo == null) {
                     var palletBo = new com.ruoyi.wms.domain.bo.PalletBo();
-                    palletBo.setPalletCode(requestPalletNo);
+                    palletBo.setPalletCode(effectivePalletNo);
                     palletBo.setCurrentBinId(binVo.getId());
                     palletBo.setCurrentBinCode(binVo.getBinCode());
                     palletBo.setIsEmpty(1);
                     palletBo.setIsBound(0);
                     palletBo.setStatus("0");
                     palletService.insertByBo(palletBo);
-                    palletVo = palletService.queryByPalletCode(requestPalletNo);
+                    palletVo = palletService.queryByPalletCode(effectivePalletNo);
                 } else if (!Objects.equals(palletVo.getCurrentBinCode(), request.getBinCode())) {
                     palletService.updatePalletBin(palletVo.getId(), binVo.getId(), binVo.getBinCode());
-                    palletVo = palletService.queryByPalletCode(requestPalletNo);
+                    palletVo = palletService.queryByPalletCode(effectivePalletNo);
                 }
                 if (palletVo == null) {
                     recordOperation(2, request.getDeviceCode(), request.getValveNo(), null, null, 0, null, "托盘创建失败");
@@ -418,7 +421,7 @@ public class PdaApiController {
             }
 
             valve.setPalletId(palletVo != null ? palletVo.getId() : null);
-            valve.setPalletCode(requestPalletNo);
+            valve.setPalletCode(effectivePalletNo);
             valve.setCurrentBinId(binVo.getId());
             valve.setCurrentBinCode(request.getBinCode());
             valve.setStatus(0); // 0:待检测（IN_STOCK）
@@ -729,13 +732,14 @@ public class PdaApiController {
         }
 
         if (taskType == 2) {
-            if (palletNo == null) {
-                return R.fail(400, "托盘号不能为空");
-            }
             if (fromBinCode == null) {
                 return R.fail(400, "起始站点不能为空");
             }
-            String palletType = resolvePalletTypeCode(palletNo);
+            String effectivePalletNo = palletNo != null ? palletNo : fromBinCode;
+            String palletType = resolvePalletTypeCode(effectivePalletNo);
+            if (palletType == null) {
+                palletType = resolvePalletTypeCodeFromBinCode(fromBinCode);
+            }
             if (palletType == null) {
                 return R.fail(400, "托盘类型错误");
             }
@@ -755,7 +759,7 @@ public class PdaApiController {
             AgvTaskBo taskBo = new AgvTaskBo();
             taskBo.setTaskType(taskType);
             taskBo.setTaskNo(StrUtil.trimToNull(request.getOutID()));
-            taskBo.setPalletCode(palletNo);
+            taskBo.setPalletCode(effectivePalletNo);
             taskBo.setFromBinCode(fromBinCode);
             taskBo.setToBinCode(targetBinCode);
             taskBo.setRemark(StrUtil.trimToNull(request.getRemark()));
@@ -779,8 +783,8 @@ public class PdaApiController {
                     return R.fail(500, StrUtil.emptyToDefault(message, "AGV任务下发失败"));
                 }
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 1, null);
-                updateValveInspectionTarget(request.getValveNo(), palletNo, targetBinCode, area);
-                updateValveStatus(request.getValveNo(), palletNo, 1); // 更新阀门状态为IN_INSPECTION（检测中）
+                updateValveInspectionTarget(request.getValveNo(), effectivePalletNo, targetBinCode, area);
+                updateValveStatus(request.getValveNo(), effectivePalletNo, 1); // 更新阀门状态为IN_INSPECTION（检测中）
                 dispatchInspectionFollowupSteps(taskNo, route, matCode);
             } catch (Exception e) {
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
@@ -792,25 +796,23 @@ public class PdaApiController {
             response.setTaskType(taskTypeName);
             response.setStatus("PENDING");
             response.setToBinCode(targetBinCode);
-            recordTaskOperation(taskType, deviceCode, palletNo, taskNo, "送检任务下发成功", 1, null);
+            recordTaskOperation(taskType, deviceCode, effectivePalletNo, taskNo, "送检任务下发成功", 1, null);
             return R.ok(response);
         }
 
         if (taskType == 3 && isReturnCallPalletRequest(request)) {
-            if (palletNo == null) {
-                return R.fail(400, "托盘号不能为空");
-            }
             if (fromBinCode == null) {
                 return R.fail(400, "起始站点不能为空");
             }
+            String effectivePalletNo = palletNo != null ? palletNo : fromBinCode;
             String targetBinCode = toBinCode;
             if (targetBinCode == null) {
-                targetBinCode = resolveInspectionTargetBinForReturn(request.getValveNo(), palletNo);
+                targetBinCode = resolveInspectionTargetBinForReturn(request.getValveNo(), effectivePalletNo);
             }
             if (targetBinCode == null) {
                 return R.fail(400, "送检目标站点未设置");
             }
-            String palletType = resolvePalletTypeCode(palletNo);
+            String palletType = resolvePalletTypeCodeWithBinFallback(effectivePalletNo, fromBinCode);
             if (palletType == null) {
                 return R.fail(400, "托盘类型错误");
             }
@@ -822,7 +824,7 @@ public class PdaApiController {
             AgvTaskBo taskBo = new AgvTaskBo();
             taskBo.setTaskType(taskType);
             taskBo.setTaskNo(StrUtil.trimToNull(request.getOutID()));
-            taskBo.setPalletCode(palletNo);
+            taskBo.setPalletCode(effectivePalletNo);
             taskBo.setFromBinCode(fromBinCode);
             taskBo.setToBinCode(targetBinCode);
             taskBo.setRemark(RETURN_CALL_PALLET_REMARK);
@@ -857,26 +859,24 @@ public class PdaApiController {
             response.setTaskType(taskTypeName);
             response.setStatus("PENDING");
             response.setToBinCode(targetBinCode);
-            recordTaskOperation(taskType, deviceCode, palletNo, taskNo, "呼叫托盘任务下发成功", 1, null);
+            recordTaskOperation(taskType, deviceCode, effectivePalletNo, taskNo, "呼叫托盘任务下发成功", 1, null);
             return R.ok(response);
         }
 
         if (taskType == 3 && isValveReturnRequest(request)) {
-            if (palletNo == null) {
-                return R.fail(400, "托盘号不能为空");
-            }
             String targetBinCode = toBinCode;
             if (targetBinCode == null) {
                 return R.fail(400, "目标站点不能为空");
             }
+            String effectivePalletNo = palletNo != null ? palletNo : targetBinCode;
             String inspectionTargetBin = fromBinCode;
             if (inspectionTargetBin == null) {
-                inspectionTargetBin = resolveInspectionTargetBinForReturn(request.getValveNo(), palletNo);
+                inspectionTargetBin = resolveInspectionTargetBinForReturn(request.getValveNo(), effectivePalletNo);
             }
             if (inspectionTargetBin == null) {
                 return R.fail(400, "送检目标站点未设置");
             }
-            String palletType = resolvePalletTypeCode(palletNo);
+            String palletType = resolvePalletTypeCodeWithBinFallback(effectivePalletNo, targetBinCode);
             if (palletType == null) {
                 return R.fail(400, "托盘类型错误");
             }
@@ -888,7 +888,7 @@ public class PdaApiController {
             AgvTaskBo taskBo = new AgvTaskBo();
             taskBo.setTaskType(taskType);
             taskBo.setTaskNo(StrUtil.trimToNull(request.getOutID()));
-            taskBo.setPalletCode(palletNo);
+            taskBo.setPalletCode(effectivePalletNo);
             taskBo.setFromBinCode(inspectionTargetBin);
             taskBo.setToBinCode(targetBinCode);
             taskBo.setRemark(VALVE_RETURN_REMARK);
@@ -912,7 +912,7 @@ public class PdaApiController {
                     return R.fail(500, StrUtil.emptyToDefault(message, "AGV任务下发失败"));
                 }
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 1, null);
-                dispatchValveReturnFollowupSteps(taskNo, route, matCode, request.getValveNo(), palletNo);
+                dispatchValveReturnFollowupSteps(taskNo, route, matCode, request.getValveNo(), effectivePalletNo);
             } catch (Exception e) {
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
                 return R.fail(500, "任务下发失败: " + e.getMessage());
@@ -923,7 +923,7 @@ public class PdaApiController {
             response.setTaskType(taskTypeName);
             response.setStatus("PENDING");
             response.setToBinCode(targetBinCode);
-            recordTaskOperation(taskType, deviceCode, palletNo, taskNo, "样品回库任务下发成功", 1, null);
+            recordTaskOperation(taskType, deviceCode, effectivePalletNo, taskNo, "样品回库任务下发成功", 1, null);
             return R.ok(response);
         }
 
@@ -990,18 +990,19 @@ public class PdaApiController {
             return R.ok(response);
         }
         if (taskType == 3 && isOutboundEmptyReturnRequest(request)) {
-            if (palletNo == null) {
-                return R.fail(400, "托盘号不能为空");
-            }
             String targetBinCode = toBinCode;
             if (targetBinCode == null) {
                 return R.fail(400, "目标站点不能为空");
             }
-            String palletType = resolvePalletTypeCode(palletNo);
+            String effectivePalletNo = palletNo != null ? palletNo : targetBinCode;
+            String palletType = resolvePalletTypeCodeWithBinFallback(effectivePalletNo, targetBinCode);
             if (palletType == null) {
                 return R.fail(400, "托盘类型错误");
             }
-            String startBinCode = resolveOutboundEmptyReturnStartBin(palletNo);
+            String startBinCode = resolveOutboundEmptyReturnStartBin(effectivePalletNo);
+            if (startBinCode == null) {
+                startBinCode = resolveOutboundEmptyReturnStartBinByPalletType(palletType);
+            }
             if (startBinCode == null) {
                 return R.fail(400, "托盘类型错误");
             }
@@ -1013,7 +1014,7 @@ public class PdaApiController {
             AgvTaskBo taskBo = new AgvTaskBo();
             taskBo.setTaskType(taskType);
             taskBo.setTaskNo(StrUtil.trimToNull(request.getOutID()));
-            taskBo.setPalletCode(palletNo);
+            taskBo.setPalletCode(effectivePalletNo);
             taskBo.setFromBinCode(startBinCode);
             taskBo.setToBinCode(targetBinCode);
             taskBo.setRemark(OUTBOUND_EMPTY_RETURN_REMARK);
@@ -1048,24 +1049,25 @@ public class PdaApiController {
             response.setTaskType(taskTypeName);
             response.setStatus("PENDING");
             response.setToBinCode(targetBinCode);
-            recordTaskOperation(taskType, deviceCode, palletNo, taskNo, "出库空托回库任务下发成功", 1, null);
+            recordTaskOperation(taskType, deviceCode, effectivePalletNo, taskNo, "出库空托回库任务下发成功", 1, null);
             return R.ok(response);
         }
 
         if (taskType == 4) {
-            if (palletNo == null) {
-                return R.fail(400, "托盘号不能为空");
+            if (fromBinCode == null) {
+                return R.fail(400, "起始站点不能为空");
             }
-            String palletType = resolvePalletTypeCode(palletNo);
+            String effectivePalletNo = palletNo != null ? palletNo : fromBinCode;
+            String palletType = resolvePalletTypeCodeWithBinFallback(effectivePalletNo, fromBinCode);
             if (palletType == null) {
                 return R.fail(400, "托盘类型不支持");
             }
-            String targetBinCode = resolveOutboundToBinCode(palletNo);
+            String targetBinCode = resolveOutboundToBinCode(effectivePalletNo);
+            if (targetBinCode == null) {
+                targetBinCode = resolveOutboundToBinCodeByPalletType(palletType);
+            }
             if (targetBinCode == null) {
                 return R.fail(400, "托盘类型不支持");
-            }
-            if (fromBinCode == null) {
-                return R.fail(400, "起始站点不能为空");
             }
             OutboundRoute route = buildOutboundRoute(palletType, fromBinCode, targetBinCode);
             if (route == null) {
@@ -1075,7 +1077,7 @@ public class PdaApiController {
             AgvTaskBo taskBo = new AgvTaskBo();
             taskBo.setTaskType(taskType);
             taskBo.setTaskNo(StrUtil.trimToNull(request.getOutID()));
-            taskBo.setPalletCode(palletNo);
+            taskBo.setPalletCode(effectivePalletNo);
             taskBo.setFromBinCode(fromBinCode);
             taskBo.setToBinCode(targetBinCode);
             taskBo.setRemark(StrUtil.trimToNull(request.getRemark()));
@@ -1099,7 +1101,7 @@ public class PdaApiController {
                     return R.fail(500, StrUtil.emptyToDefault(message, "AGV任务下发失败"));
                 }
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 1, null);
-                dispatchOutboundFollowupSteps(taskNo, route, matCode, palletNo);
+                dispatchOutboundFollowupSteps(taskNo, route, matCode, request.getValveNo(), effectivePalletNo);
             } catch (Exception e) {
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
                 return R.fail(500, "任务下发失败: " + e.getMessage());
@@ -1110,7 +1112,7 @@ public class PdaApiController {
             response.setTaskType(taskTypeName);
             response.setStatus("PENDING");
             response.setToBinCode(targetBinCode);
-            recordTaskOperation(taskType, deviceCode, palletNo, taskNo, "出库任务下发成功", 1, null);
+            recordTaskOperation(taskType, deviceCode, effectivePalletNo, taskNo, "出库任务下发成功", 1, null);
             return R.ok(response);
         }
         if (fromBinCode == null || toBinCode == null) {
@@ -1582,6 +1584,10 @@ public class PdaApiController {
 
     private String resolveOutboundToBinCode(String palletNo) {
         String typeCode = resolvePalletTypeCode(palletNo);
+        return resolveOutboundToBinCodeByPalletType(typeCode);
+    }
+
+    private String resolveOutboundToBinCodeByPalletType(String typeCode) {
         if (StrUtil.equalsIgnoreCase(typeCode, PALLET_TYPE_SMALL_CODE)) {
             return OUTBOUND_SMALL_PALLET_BIN;
         }
@@ -1593,6 +1599,10 @@ public class PdaApiController {
 
     private String resolveOutboundEmptyReturnStartBin(String palletNo) {
         String typeCode = resolvePalletTypeCode(palletNo);
+        return resolveOutboundEmptyReturnStartBinByPalletType(typeCode);
+    }
+
+    private String resolveOutboundEmptyReturnStartBinByPalletType(String typeCode) {
         if (StrUtil.equalsIgnoreCase(typeCode, PALLET_TYPE_SMALL_CODE)) {
             return OUTBOUND_EMPTY_RETURN_SMALL_START;
         }
@@ -1602,7 +1612,21 @@ public class PdaApiController {
         return null;
     }
 
+    private String resolvePalletTypeCodeWithBinFallback(String palletNo, String binCode) {
+        String palletType = resolvePalletTypeCode(palletNo);
+        if (palletType == null) {
+            palletType = resolvePalletTypeCodeFromBinCode(palletNo);
+        }
+        if (palletType == null) {
+            palletType = resolvePalletTypeCodeFromBinCode(binCode);
+        }
+        return palletType;
+    }
+
     private String resolvePalletTypeCode(String palletNo) {
+        if (StrUtil.isBlank(palletNo)) {
+            return null;
+        }
         PalletVo palletVo = palletService.queryByPalletCode(palletNo);
         if (palletVo == null) {
             return null;
@@ -2120,7 +2144,8 @@ public class PdaApiController {
         }
     }
 
-    private void dispatchOutboundFollowupSteps(String taskNo, OutboundRoute route, String matCode, String palletNo) {
+    private void dispatchOutboundFollowupSteps(String taskNo, OutboundRoute route, String matCode,
+                                               String valveNo, String palletNo) {
         CompletableFuture.runAsync(() -> {
             try {
                 if (!waitForOpenTaskFinished(buildOutboundStepOutId(taskNo, 1))) {
@@ -2132,6 +2157,7 @@ public class PdaApiController {
                     return;
                 }
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 2, null);
+                updateValveStatus(valveNo, palletNo, 3);
                 unbindPalletSilently(palletNo);
             } catch (Exception e) {
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
@@ -2256,6 +2282,9 @@ public class PdaApiController {
         }
         if (target == null && StrUtil.isNotBlank(palletNo)) {
             String palletType = resolvePalletTypeCode(palletNo);
+            if (palletType == null) {
+                palletType = resolvePalletTypeCodeFromBinCode(palletNo);
+            }
             target = resolveInspectionTargetBin(INSPECTION_AREA_WAITING, palletType);
         }
         return target;
