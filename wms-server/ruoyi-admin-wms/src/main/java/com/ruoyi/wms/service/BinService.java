@@ -15,10 +15,12 @@ import com.ruoyi.common.mybatis.core.page.TableDataInfo;
 import com.ruoyi.wms.domain.bo.BinBo;
 import com.ruoyi.wms.domain.entity.Area;
 import com.ruoyi.wms.domain.entity.Bin;
+import com.ruoyi.wms.domain.entity.Valve;
 import com.ruoyi.wms.domain.entity.Warehouse;
 import com.ruoyi.wms.domain.vo.BinVo;
 import com.ruoyi.wms.mapper.AreaMapper;
 import com.ruoyi.wms.mapper.BinMapper;
+import com.ruoyi.wms.mapper.ValveMapper;
 import com.ruoyi.wms.mapper.WarehouseMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -49,6 +51,7 @@ public class BinService extends ServiceImpl<BinMapper, Bin> {
     private final BinMapper binMapper;
     private final WarehouseMapper warehouseMapper;
     private final AreaMapper areaMapper;
+    private final ValveMapper valveMapper;
 
     /**
      * 查询货位
@@ -208,6 +211,7 @@ public class BinService extends ServiceImpl<BinMapper, Bin> {
         }
         normalizeStorageFields(add);
         binMapper.insert(add);
+        syncValveStorageForBin(null, add);
     }
 
     private Long getNextOrderNum(Long warehouseId) {
@@ -225,9 +229,17 @@ public class BinService extends ServiceImpl<BinMapper, Bin> {
     @Transactional(rollbackFor = Exception.class)
     public void updateByBo(BinBo bo) {
         validateBinCode(bo);
+        Bin current = bo.getId() == null ? null : binMapper.selectById(bo.getId());
         Bin update = MapstructUtils.convert(bo, Bin.class);
         normalizeStorageFields(update);
         binMapper.updateById(update);
+        binMapper.update(null, Wrappers.<Bin>lambdaUpdate()
+            .eq(Bin::getId, update.getId())
+            .set(Bin::getStatus, update.getStatus())
+            .set(Bin::getStorageStatus, update.getStorageStatus())
+            .set(Bin::getBoundFactoryNo, update.getBoundFactoryNo())
+            .set(Bin::getUsedCapacity, update.getUsedCapacity()));
+        syncValveStorageForBin(current, update);
     }
 
     private void validateBinCode(BinBo bin) {
@@ -308,6 +320,23 @@ public class BinService extends ServiceImpl<BinMapper, Bin> {
     }
 
     /**
+     * 如果库位当前绑定的是指定出厂编号，则标记为空库位。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void markEmptyBinIfBoundTo(String binCode, String valveNo) {
+        String normalizedBinCode = StrUtil.trimToNull(binCode);
+        String normalizedValveNo = StrUtil.trimToNull(valveNo);
+        if (normalizedBinCode == null || normalizedValveNo == null) {
+            return;
+        }
+        Bin bin = binMapper.selectOne(Wrappers.<Bin>lambdaQuery()
+            .eq(Bin::getBinCode, normalizedBinCode));
+        if (bin != null && Objects.equals(StrUtil.trimToNull(bin.getBoundFactoryNo()), normalizedValveNo)) {
+            updateStorageStatus(normalizedBinCode, STORAGE_STATUS_EMPTY_BIN, null);
+        }
+    }
+
+    /**
      * 标记为空托盘库位。
      */
     @Transactional(rollbackFor = Exception.class)
@@ -340,25 +369,61 @@ public class BinService extends ServiceImpl<BinMapper, Bin> {
             .set(Bin::getUsedCapacity, usedCapacity));
     }
 
+    private void syncValveStorageForBin(Bin oldBin, Bin current) {
+        if (current == null) {
+            return;
+        }
+        String oldBinCode = oldBin == null ? null : StrUtil.trimToNull(oldBin.getBinCode());
+        String oldBoundFactoryNo = oldBin == null ? null : StrUtil.trimToNull(oldBin.getBoundFactoryNo());
+        String currentBinCode = StrUtil.trimToNull(current.getBinCode());
+        String currentBoundFactoryNo = StrUtil.trimToNull(current.getBoundFactoryNo());
+
+        if (oldBoundFactoryNo != null
+            && (!Objects.equals(oldBinCode, currentBinCode) || !Objects.equals(oldBoundFactoryNo, currentBoundFactoryNo)
+            || !Objects.equals(current.getStorageStatus(), STORAGE_STATUS_FULL_PALLET))) {
+            clearValveBinIfMatches(oldBoundFactoryNo, oldBinCode);
+        }
+
+        if (Objects.equals(current.getStorageStatus(), STORAGE_STATUS_FULL_PALLET)
+            && currentBoundFactoryNo != null && currentBinCode != null) {
+            bindValveToBin(currentBoundFactoryNo, current);
+        }
+    }
+
+    private void bindValveToBin(String valveNo, Bin bin) {
+        Valve valve = valveMapper.selectOne(Wrappers.<Valve>lambdaQuery()
+            .eq(Valve::getValveNo, valveNo));
+        if (valve == null) {
+            throw new ServiceException("绑定出厂编号不存在");
+        }
+        String oldBinCode = StrUtil.trimToNull(valve.getCurrentBinCode());
+        if (oldBinCode != null && !Objects.equals(oldBinCode, bin.getBinCode())) {
+            markEmptyBinIfBoundTo(oldBinCode, valveNo);
+        }
+        valveMapper.update(null, Wrappers.<Valve>lambdaUpdate()
+            .eq(Valve::getValveNo, valveNo)
+            .set(Valve::getCurrentBinId, bin.getId())
+            .set(Valve::getCurrentBinCode, bin.getBinCode()));
+    }
+
+    private void clearValveBinIfMatches(String valveNo, String binCode) {
+        valveMapper.update(null, Wrappers.<Valve>lambdaUpdate()
+            .eq(Valve::getValveNo, valveNo)
+            .eq(Valve::getCurrentBinCode, binCode)
+            .set(Valve::getCurrentBinId, null)
+            .set(Valve::getCurrentBinCode, null));
+    }
+
     private void normalizeStorageFields(Bin bin) {
         if (bin == null || bin.getStorageStatus() == null) {
             return;
         }
         bin.setBoundFactoryNo(normalizeBoundFactoryNo(bin.getStorageStatus(), bin.getBoundFactoryNo()));
         if (Objects.equals(bin.getStorageStatus(), STORAGE_STATUS_EMPTY_BIN)) {
-            syncAvailableStatus(bin, 0);
             bin.setUsedCapacity(BigDecimal.ZERO);
         } else {
-            syncAvailableStatus(bin, 1);
             bin.setUsedCapacity(BigDecimal.ONE);
         }
-    }
-
-    private void syncAvailableStatus(Bin bin, Integer derivedStatus) {
-        if (Objects.equals(bin.getStatus(), 2) || Objects.equals(bin.getStatus(), 3)) {
-            return;
-        }
-        bin.setStatus(derivedStatus);
     }
 
     private String normalizeBoundFactoryNo(Integer storageStatus, String boundFactoryNo) {

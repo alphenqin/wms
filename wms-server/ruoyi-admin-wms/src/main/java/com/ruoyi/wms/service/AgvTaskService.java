@@ -227,7 +227,7 @@ public class AgvTaskService extends ServiceImpl<AgvTaskMapper, AgvTask> {
         if (status == 2 && task.getTaskType() != null && task.getPalletCode() != null) {
             Integer valveStatus = null;
             if (task.getTaskType() == 3) {
-                // 回库任务完成，阀门状态更新为IN_STOCK（在库）
+                // 回库任务完成，阀门状态更新为IN_STOCK（待检测）
                 String remark = task.getRemark();
                 boolean isInspectionEmptyReturn = StrUtil.equalsIgnoreCase(remark, INSPECTION_EMPTY_RETURN_REMARK)
                     || StrUtil.equalsIgnoreCase(remark, INSPECTION_EMPTY_RETURN_REMARK_LEGACY);

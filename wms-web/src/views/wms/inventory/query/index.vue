@@ -68,7 +68,7 @@
             <el-table-column label="批次号" prop="batchNo" />
             <el-table-column label="状态" prop="status">
               <template #default="scope">
-                <el-tag v-if="scope.row.status === 0">在库</el-tag>
+                <el-tag v-if="scope.row.status === 0">待检测</el-tag>
                 <el-tag v-else-if="scope.row.status === 1" type="warning">检测中</el-tag>
                 <el-tag v-else-if="scope.row.status === 2" type="success">已检测</el-tag>
                 <el-tag v-else-if="scope.row.status === 3">已出库</el-tag>
@@ -109,7 +109,7 @@
             <el-table-column label="托盘编号" prop="palletCode" />
             <el-table-column label="状态" prop="status">
               <template #default="scope">
-                <el-tag v-if="scope.row.status === 0">在库</el-tag>
+                <el-tag v-if="scope.row.status === 0">待检测</el-tag>
                 <el-tag v-else-if="scope.row.status === 1" type="warning">检测中</el-tag>
                 <el-tag v-else-if="scope.row.status === 2" type="success">已检测</el-tag>
                 <el-tag v-else-if="scope.row.status === 3">已出库</el-tag>
@@ -121,7 +121,7 @@
         <el-tab-pane label="状态统计" name="status">
           <el-card>
             <el-descriptions :column="3" border v-if="statusSummary">
-              <el-descriptions-item label="在库样品">{{ statusSummary.valveInStock }}</el-descriptions-item>
+              <el-descriptions-item label="待检测样品">{{ statusSummary.valveInStock }}</el-descriptions-item>
               <el-descriptions-item label="检测中">{{ statusSummary.valveInspecting }}</el-descriptions-item>
               <el-descriptions-item label="已检测">{{ statusSummary.valveInspected }}</el-descriptions-item>
               <el-descriptions-item label="已出库">{{ statusSummary.valveShipped }}</el-descriptions-item>

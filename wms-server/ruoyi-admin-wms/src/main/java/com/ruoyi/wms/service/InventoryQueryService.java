@@ -122,7 +122,7 @@ public class InventoryQueryService {
      */
     public Map<String, Object> queryInventoryStatusSummary(Long warehouseId) {
         // 统计阀门状态
-        long valveInStock = valveService.queryByStatus(0).size(); // 在库
+        long valveInStock = valveService.queryByStatus(0).size(); // 待检测
         long valveInspecting = valveService.queryByStatus(1).size(); // 检测中
         long valveInspected = valveService.queryByStatus(2).size(); // 已检测
         long valveShipped = valveService.queryByStatus(3).size(); // 已出库

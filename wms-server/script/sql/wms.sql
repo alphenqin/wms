@@ -1518,7 +1518,7 @@ CREATE TABLE `wms_valve` (
   `pallet_code` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '所属托盘编号',
   `current_bin_id` bigint DEFAULT NULL COMMENT '当前所在货位ID',
   `current_bin_code` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '当前所在货位编号',
-  `status` int DEFAULT '0' COMMENT '状态（0:在库 1:检测中 2:已检测 3:已出库）',
+  `status` int DEFAULT '0' COMMENT '状态（0:待检测 1:检测中 2:已检测 3:已出库）',
   `production_date` date DEFAULT NULL COMMENT '生产日期',
   `expiry_date` date DEFAULT NULL COMMENT '过期日期',
   `remark` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '备注',

@@ -25,7 +25,7 @@ export function useDict(...args) {
       { label: '客户/供应商', value: '3' }
     ],
     wms_valve_status: [
-      { label: '在库', value: '0' },
+      { label: '待检测', value: '0' },
       { label: '检测中', value: '1' },
       { label: '已检测', value: '2' },
       { label: '已出库', value: '3' }

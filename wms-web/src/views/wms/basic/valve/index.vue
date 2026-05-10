@@ -10,7 +10,7 @@
         </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-select v-model="queryParams.status" placeholder="请选择状态" clearable class="query-select">
-            <el-option label="在库" value="0" />
+            <el-option label="待检测" value="0" />
             <el-option label="检测中" value="1" />
             <el-option label="已检测" value="2" />
             <el-option label="已出库" value="3" />
@@ -166,7 +166,7 @@
         </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-radio-group v-model="form.status">
-            <el-radio :label="0">在库</el-radio>
+            <el-radio :label="0">待检测</el-radio>
             <el-radio :label="1">检测中</el-radio>
             <el-radio :label="2">已检测</el-radio>
             <el-radio :label="3">已出库</el-radio>

@@ -39,6 +39,7 @@ import java.util.Objects;
 public class ValveService extends ServiceImpl<ValveMapper, Valve> {
 
     private final ValveMapper valveMapper;
+    private final BinService binService;
 
     public ValveVo queryById(Long id) {
         return valveMapper.selectVoById(id);
@@ -135,12 +136,13 @@ public class ValveService extends ServiceImpl<ValveMapper, Valve> {
         validateValveNo(bo);
         Valve add = MapstructUtils.convert(bo, Valve.class);
         if (add.getStatus() == null) {
-            add.setStatus(0); // 默认在库
+            add.setStatus(0); // 默认待检测
         }
         if (Objects.equals(add.getStatus(), 3) && add.getOutboundTime() == null) {
             add.setOutboundTime(new Date());
         }
         valveMapper.insert(add);
+        syncBinStorageForValve(null, add);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -156,6 +158,8 @@ public class ValveService extends ServiceImpl<ValveMapper, Valve> {
             .eq(Valve::getId, bo.getId())
             .set(Valve::getCreateTime, bo.getCreateTime())
             .set(Valve::getOutboundTime, bo.getOutboundTime()));
+        Valve updated = valveMapper.selectById(bo.getId());
+        syncBinStorageForValve(current, updated);
     }
 
     private void validateValveNo(ValveBo valve) {
@@ -171,12 +175,16 @@ public class ValveService extends ServiceImpl<ValveMapper, Valve> {
 
     @Transactional(rollbackFor = Exception.class)
     public void deleteById(Long id) {
+        Valve current = valveMapper.selectById(id);
         valveMapper.deleteById(id);
+        clearBoundBinIfMatches(current);
     }
 
     @Transactional(rollbackFor = Exception.class)
     public void deleteByIds(Collection<Long> ids) {
+        List<Valve> valves = valveMapper.selectBatchIds(ids);
         valveMapper.deleteBatchIds(ids);
+        valves.forEach(this::clearBoundBinIfMatches);
     }
 
     /**
@@ -188,11 +196,13 @@ public class ValveService extends ServiceImpl<ValveMapper, Valve> {
         if (valve == null) {
             throw new ServiceException("阀门不存在");
         }
+        Valve oldValve = copyValveStorage(valve);
         valve.setStatus(status);
         if (Objects.equals(status, 3) && valve.getOutboundTime() == null) {
             valve.setOutboundTime(new Date());
         }
         valveMapper.updateById(valve);
+        syncBinStorageForValve(oldValve, valve);
     }
 
     /**
@@ -218,9 +228,46 @@ public class ValveService extends ServiceImpl<ValveMapper, Valve> {
         if (valve == null) {
             throw new ServiceException("阀门不存在");
         }
+        Valve oldValve = copyValveStorage(valve);
         valve.setCurrentBinId(binId);
         valve.setCurrentBinCode(binCode);
         valveMapper.updateById(valve);
+        syncBinStorageForValve(oldValve, valve);
+    }
+
+    private Valve copyValveStorage(Valve source) {
+        Valve copy = new Valve();
+        copy.setValveNo(source.getValveNo());
+        copy.setCurrentBinCode(source.getCurrentBinCode());
+        copy.setStatus(source.getStatus());
+        return copy;
+    }
+
+    private void syncBinStorageForValve(Valve oldValve, Valve current) {
+        if (current == null) {
+            return;
+        }
+        String oldBinCode = oldValve == null ? null : StrUtil.trimToNull(oldValve.getCurrentBinCode());
+        String oldValveNo = oldValve == null ? null : StrUtil.trimToNull(oldValve.getValveNo());
+        String currentBinCode = StrUtil.trimToNull(current.getCurrentBinCode());
+        String currentValveNo = StrUtil.trimToNull(current.getValveNo());
+
+        if (oldBinCode != null
+            && (!Objects.equals(oldBinCode, currentBinCode) || !Objects.equals(oldValveNo, currentValveNo)
+            || Objects.equals(current.getStatus(), 3))) {
+            binService.markEmptyBinIfBoundTo(oldBinCode, oldValveNo);
+        }
+
+        if (currentBinCode != null && currentValveNo != null && !Objects.equals(current.getStatus(), 3)) {
+            binService.markFullPallet(currentBinCode, currentValveNo);
+        }
+    }
+
+    private void clearBoundBinIfMatches(Valve valve) {
+        if (valve == null) {
+            return;
+        }
+        binService.markEmptyBinIfBoundTo(valve.getCurrentBinCode(), valve.getValveNo());
     }
 
 }

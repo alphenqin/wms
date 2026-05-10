@@ -70,7 +70,7 @@ public class Valve extends BaseEntity {
     private String currentBinCode;
 
     /**
-     * 状态（0:在库 1:检测中 2:已检测 3:已出库）
+     * 状态（0:待检测 1:检测中 2:已检测 3:已出库）
      */
     private Integer status;
 

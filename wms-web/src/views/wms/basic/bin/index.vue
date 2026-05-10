@@ -159,7 +159,7 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="绑定出厂编号" prop="boundFactoryNo">
-              <el-input v-model="form.boundFactoryNo" placeholder="满托盘库位绑定出厂编号" clearable />
+              <el-input v-model="form.boundFactoryNo" placeholder="满托盘库位绑定出厂编号" clearable @clear="handleBoundFactoryNoClear" @input="handleBoundFactoryNoInput" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -301,6 +301,19 @@ const getStorageStatusTag = (status) => {
 
 const handleStorageStatusChange = () => {
   binFormRef.value?.validateField('boundFactoryNo');
+};
+
+const handleBoundFactoryNoClear = () => {
+  if (form.value.storageStatus === 2) {
+    form.value.storageStatus = 0;
+  }
+  binFormRef.value?.validateField('boundFactoryNo');
+};
+
+const handleBoundFactoryNoInput = (value) => {
+  if (!value && form.value.storageStatus === 2) {
+    form.value.storageStatus = 0;
+  }
 };
 
 /** 查询库位列表 */

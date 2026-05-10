@@ -421,7 +421,7 @@ public class PdaApiController {
             valve.setPalletCode(requestPalletNo);
             valve.setCurrentBinId(binVo.getId());
             valve.setCurrentBinCode(request.getBinCode());
-            valve.setStatus(0); // 0:在库（IN_STOCK）
+            valve.setStatus(0); // 0:待检测（IN_STOCK）
 
             // 保存阀门
             valveService.insertByBo(MapstructUtils.convert(valve, com.ruoyi.wms.domain.bo.ValveBo.class));
@@ -1312,7 +1312,7 @@ public class PdaApiController {
         }
         switch (valveStatus.toUpperCase()) {
             case "IN_STOCK":
-                return 0; // 在库
+                return 0; // 待检测
             case "IN_INSPECTION":
                 return 1; // 检测中
             case "INSPECTED":
