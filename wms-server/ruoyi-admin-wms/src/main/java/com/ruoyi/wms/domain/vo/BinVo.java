@@ -63,9 +63,9 @@ public class BinVo extends BaseVo {
     private String areaName;
 
     /**
-     * 货位类型（1:普通货位 2:暂存位 3:其他）
+     * 库位类型（1:小托盘 2:大托盘）
      */
-    @ExcelProperty(value = "货位类型")
+    @ExcelProperty(value = "库位类型")
     private Integer binType;
 
     /**

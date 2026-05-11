@@ -50,7 +50,7 @@ public class Bin extends BaseEntity {
     private Long areaId;
 
     /**
-     * 货位类型（1:普通货位 2:暂存位 3:其他）
+     * 库位类型（1:小托盘 2:大托盘）
      */
     private Integer binType;
 

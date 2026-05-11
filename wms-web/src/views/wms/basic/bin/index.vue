@@ -75,6 +75,11 @@
           </template>
         </el-table-column>
         <el-table-column label="库位编号" prop="binCode" />
+        <el-table-column label="库位类型" prop="binType" width="120">
+          <template #default="scope">
+            {{ getBinTypeLabel(scope.row.binType) }}
+          </template>
+        </el-table-column>
         <el-table-column label="库位状态" prop="storageStatus" width="120">
           <template #default="scope">
             <el-tag :type="getStorageStatusTag(scope.row.storageStatus)">{{ getStorageStatusLabel(scope.row.storageStatus) }}</el-tag>
@@ -211,9 +216,8 @@ const dialog = reactive({
 });
 
 const binTypeOptions = [
-  { label: '普通库位', value: 1 },
-  { label: '暂存位', value: 2 },
-  { label: '其他', value: 3 }
+  { label: '小托盘', value: 1 },
+  { label: '大托盘', value: 2 }
 ];
 
 const statusOptions = [
@@ -282,6 +286,11 @@ const { queryParams, form, rules } = toRefs(data);
 const getStatusLabel = (status) => {
   const found = statusOptions.find((item) => item.value === status);
   return found ? found.label : status;
+};
+
+const getBinTypeLabel = (type) => {
+  const found = binTypeOptions.find((item) => item.value === type);
+  return found ? found.label : type;
 };
 
 const getStatusTag = (status) => {

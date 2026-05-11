@@ -104,8 +104,10 @@ public class PdaApiController {
     private static final String INBOUND_LARGE_DOCK_BIN = "D2-大托盘接驳点";
     private static final String INBOUND_SMALL_BUFFER_BIN = "B3-15-01";
     private static final String INBOUND_LARGE_BUFFER_BIN = "B3-14-01";
-    private static final Set<String> INBOUND_SMALL_STORAGE_BINS = Set.of("B1-1-01", "B1-2-01", "B1-1-02", "B1-1-03");
-    private static final Set<String> INBOUND_LARGE_STORAGE_BINS = Set.of("B1-13-01", "B1-13-02");
+    private static final int BIN_TYPE_SMALL_PALLET = 1;
+    private static final int BIN_TYPE_LARGE_PALLET = 2;
+    private static final List<String> INBOUND_SMALL_PREFERRED_STORAGE_BINS = List.of("B1-1-01", "B1-2-01", "B1-1-02", "B1-1-03");
+    private static final List<String> INBOUND_LARGE_PREFERRED_STORAGE_BINS = List.of("B1-13-01", "B1-13-02");
     private static final String AGV_RANGE_WIDE = "2";
     private static final String AGV_RANGE_NARROW = "1";
     private static final String INSPECTION_AREA_WAITING = "WAITING";
@@ -928,18 +930,16 @@ public class PdaApiController {
         }
 
         if (taskType == 3 && isInspectionEmptyReturnRequest(request)) {
-            if (palletNo == null) {
-                return R.fail(400, "托盘号不能为空");
-            }
             String targetBinCode = toBinCode;
             if (targetBinCode == null) {
                 return R.fail(400, "目标站点不能为空");
             }
-            String palletType = resolvePalletTypeCode(palletNo);
+            String effectivePalletNo = palletNo != null ? palletNo : targetBinCode;
+            String palletType = resolvePalletTypeCodeWithBinFallback(effectivePalletNo, targetBinCode);
             if (palletType == null) {
                 return R.fail(400, "托盘类型错误");
             }
-            String inspectionTargetBin = resolveInspectionTargetBinForReturn(request.getValveNo(), palletNo);
+            String inspectionTargetBin = resolveInspectionTargetBinForReturn(request.getValveNo(), effectivePalletNo);
             if (inspectionTargetBin == null) {
                 return R.fail(400, "送检目标站点未设置");
             }
@@ -951,7 +951,7 @@ public class PdaApiController {
             AgvTaskBo taskBo = new AgvTaskBo();
             taskBo.setTaskType(taskType);
             taskBo.setTaskNo(StrUtil.trimToNull(request.getOutID()));
-            taskBo.setPalletCode(palletNo);
+            taskBo.setPalletCode(effectivePalletNo);
             taskBo.setFromBinCode(inspectionTargetBin);
             taskBo.setToBinCode(targetBinCode);
             taskBo.setRemark(INSPECTION_EMPTY_RETURN_REMARK);
@@ -986,7 +986,7 @@ public class PdaApiController {
             response.setTaskType(taskTypeName);
             response.setStatus("PENDING");
             response.setToBinCode(targetBinCode);
-            recordTaskOperation(taskType, deviceCode, palletNo, taskNo, "送检空托回库任务下发成功", 1, null);
+            recordTaskOperation(taskType, deviceCode, effectivePalletNo, taskNo, "送检空托回库任务下发成功", 1, null);
             return R.ok(response);
         }
         if (taskType == 3 && isOutboundEmptyReturnRequest(request)) {
@@ -2597,12 +2597,10 @@ public class PdaApiController {
                 .filter(item -> "01".equals(MapUtil.getStr(item, "binState")))
                 .map(item -> MapUtil.getStr(item, "binCode"))
                 .filter(StrUtil::isNotBlank)
-                .filter(binCode -> isFixedInboundStorageBin(binCode, palletTypeCode))
-                .filter(binCode -> isBinAllowedForPalletType(binCode, palletTypeCode))
                 .filter(binCode -> isBinOnRequestedLevel(binCode, request.getStorageLevel()))
                 .filter(binCode -> isBinOnRequestedFloor(binCode, request.getFirstFloor()))
-                .filter(this::isWmsAvailableInboundBin)
-                .sorted()
+                .filter(binCode -> isWmsAvailableInboundBin(binCode, palletTypeCode))
+                .sorted(inboundBinComparator(palletTypeCode))
                 .findFirst()
                 .orElse(null);
         }
@@ -2611,11 +2609,9 @@ public class PdaApiController {
             String binCode = MapUtil.getStr(map, "binCode");
             if ("01".equals(binState)
                 && StrUtil.isNotBlank(binCode)
-                && isFixedInboundStorageBin(binCode, palletTypeCode)
-                && isBinAllowedForPalletType(binCode, palletTypeCode)
                 && isBinOnRequestedLevel(binCode, request.getStorageLevel())
                 && isBinOnRequestedFloor(binCode, request.getFirstFloor())
-                && isWmsAvailableInboundBin(binCode)) {
+                && isWmsAvailableInboundBin(binCode, palletTypeCode)) {
                 return binCode;
             }
         }
@@ -2647,36 +2643,6 @@ public class PdaApiController {
             return null;
         }
         return INBOUND_LARGE_LOAD_BIN.equals(outsideSite) ? PALLET_TYPE_LARGE_CODE : PALLET_TYPE_SMALL_CODE;
-    }
-
-    private boolean isBinAllowedForPalletType(String binCode, String palletTypeCode) {
-        if (StrUtil.isBlank(palletTypeCode)) {
-            return true;
-        }
-        Integer bay = extractBinBay(binCode);
-        if (bay == null) {
-            return false;
-        }
-        if (StrUtil.equalsIgnoreCase(palletTypeCode, PALLET_TYPE_LARGE_CODE)) {
-            return bay >= 13;
-        }
-        if (StrUtil.equalsIgnoreCase(palletTypeCode, PALLET_TYPE_SMALL_CODE)) {
-            return bay < 13;
-        }
-        return true;
-    }
-
-    private boolean isFixedInboundStorageBin(String binCode, String palletTypeCode) {
-        if (StrUtil.isBlank(binCode)) {
-            return false;
-        }
-        if (StrUtil.equalsIgnoreCase(palletTypeCode, PALLET_TYPE_LARGE_CODE)) {
-            return INBOUND_LARGE_STORAGE_BINS.contains(binCode);
-        }
-        if (StrUtil.equalsIgnoreCase(palletTypeCode, PALLET_TYPE_SMALL_CODE)) {
-            return INBOUND_SMALL_STORAGE_BINS.contains(binCode);
-        }
-        return INBOUND_SMALL_STORAGE_BINS.contains(binCode) || INBOUND_LARGE_STORAGE_BINS.contains(binCode);
     }
 
     private boolean isBinOnRequestedFloor(String binCode, Boolean firstFloor) {
@@ -2714,12 +2680,37 @@ public class PdaApiController {
         return storageLevel + "层";
     }
 
-    private boolean isWmsAvailableInboundBin(String binCode) {
+    private boolean isWmsAvailableInboundBin(String binCode, String palletTypeCode) {
         BinVo bin = binService.queryByBinCode(binCode);
         return bin != null
+            && isWmsBinTypeAllowedForPalletType(bin.getBinType(), palletTypeCode)
             && Objects.equals(bin.getStorageStatus(), BinService.STORAGE_STATUS_EMPTY_BIN)
             && Objects.equals(bin.getStatus(), 0)
             && StrUtil.isBlank(bin.getBoundFactoryNo());
+    }
+
+    private boolean isWmsBinTypeAllowedForPalletType(Integer binType, String palletTypeCode) {
+        if (StrUtil.equalsIgnoreCase(palletTypeCode, PALLET_TYPE_SMALL_CODE)) {
+            return Objects.equals(binType, BIN_TYPE_SMALL_PALLET);
+        }
+        if (StrUtil.equalsIgnoreCase(palletTypeCode, PALLET_TYPE_LARGE_CODE)) {
+            return Objects.equals(binType, BIN_TYPE_LARGE_PALLET);
+        }
+        return true;
+    }
+
+    private Comparator<String> inboundBinComparator(String palletTypeCode) {
+        List<String> preferredBins = StrUtil.equalsIgnoreCase(palletTypeCode, PALLET_TYPE_LARGE_CODE)
+            ? INBOUND_LARGE_PREFERRED_STORAGE_BINS : INBOUND_SMALL_PREFERRED_STORAGE_BINS;
+        return Comparator
+            .comparingInt((String binCode) -> inboundPreferredBinIndex(binCode, preferredBins))
+            .thenComparingInt(binCode -> Optional.ofNullable(extractBinBay(binCode)).orElse(Integer.MAX_VALUE))
+            .thenComparing(binCode -> binCode);
+    }
+
+    private int inboundPreferredBinIndex(String binCode, List<String> preferredBins) {
+        int index = preferredBins.indexOf(binCode);
+        return index >= 0 ? index : Integer.MAX_VALUE;
     }
 
     private Integer extractBinBay(String binCode) {
