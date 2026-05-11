@@ -699,7 +699,7 @@ public class PdaApiController {
             if (request.getFirstFloor() != null && !isBinOnRequestedFloor(targetBinCode, request.getFirstFloor())) {
                 return R.fail(400, request.getFirstFloor() ? "目标库位不是一层库位" : "目标库位不是二/三层库位");
             }
-            String palletType = resolvePalletTypeCode(palletNo);
+            String palletType = resolveInboundPalletTypeByLoadBin(fromBinCode);
             if (palletType == null) {
                 palletType = resolvePalletTypeCodeFromBinCode(targetBinCode);
             }
@@ -738,10 +738,7 @@ public class PdaApiController {
                 return R.fail(400, "起始站点不能为空");
             }
             String effectivePalletNo = palletNo != null ? palletNo : fromBinCode;
-            String palletType = resolvePalletTypeCode(effectivePalletNo);
-            if (palletType == null) {
-                palletType = resolvePalletTypeCodeFromBinCode(fromBinCode);
-            }
+            String palletType = resolvePalletTypeCodeFromBinCode(fromBinCode);
             if (palletType == null) {
                 return R.fail(400, "托盘类型错误");
             }
@@ -814,7 +811,7 @@ public class PdaApiController {
             if (targetBinCode == null) {
                 return R.fail(400, "送检目标站点未设置");
             }
-            String palletType = resolvePalletTypeCodeWithBinFallback(effectivePalletNo, fromBinCode);
+            String palletType = resolvePalletTypeCodeFromBinCode(fromBinCode);
             if (palletType == null) {
                 return R.fail(400, "托盘类型错误");
             }
@@ -878,7 +875,7 @@ public class PdaApiController {
             if (inspectionTargetBin == null) {
                 return R.fail(400, "送检目标站点未设置");
             }
-            String palletType = resolvePalletTypeCodeWithBinFallback(effectivePalletNo, targetBinCode);
+            String palletType = resolvePalletTypeCodeFromBinCode(targetBinCode);
             if (palletType == null) {
                 return R.fail(400, "托盘类型错误");
             }
@@ -935,7 +932,7 @@ public class PdaApiController {
                 return R.fail(400, "目标站点不能为空");
             }
             String effectivePalletNo = palletNo != null ? palletNo : targetBinCode;
-            String palletType = resolvePalletTypeCodeWithBinFallback(effectivePalletNo, targetBinCode);
+            String palletType = resolvePalletTypeCodeFromBinCode(targetBinCode);
             if (palletType == null) {
                 return R.fail(400, "托盘类型错误");
             }
@@ -995,14 +992,11 @@ public class PdaApiController {
                 return R.fail(400, "目标站点不能为空");
             }
             String effectivePalletNo = palletNo != null ? palletNo : targetBinCode;
-            String palletType = resolvePalletTypeCodeWithBinFallback(effectivePalletNo, targetBinCode);
+            String palletType = resolvePalletTypeCodeFromBinCode(targetBinCode);
             if (palletType == null) {
                 return R.fail(400, "托盘类型错误");
             }
-            String startBinCode = resolveOutboundEmptyReturnStartBin(effectivePalletNo);
-            if (startBinCode == null) {
-                startBinCode = resolveOutboundEmptyReturnStartBinByPalletType(palletType);
-            }
+            String startBinCode = resolveOutboundEmptyReturnStartBinByPalletType(palletType);
             if (startBinCode == null) {
                 return R.fail(400, "托盘类型错误");
             }
@@ -1058,14 +1052,11 @@ public class PdaApiController {
                 return R.fail(400, "起始站点不能为空");
             }
             String effectivePalletNo = palletNo != null ? palletNo : fromBinCode;
-            String palletType = resolvePalletTypeCodeWithBinFallback(effectivePalletNo, fromBinCode);
+            String palletType = resolvePalletTypeCodeFromBinCode(fromBinCode);
             if (palletType == null) {
                 return R.fail(400, "托盘类型不支持");
             }
-            String targetBinCode = resolveOutboundToBinCode(effectivePalletNo);
-            if (targetBinCode == null) {
-                targetBinCode = resolveOutboundToBinCodeByPalletType(palletType);
-            }
+            String targetBinCode = resolveOutboundToBinCodeByPalletType(palletType);
             if (targetBinCode == null) {
                 return R.fail(400, "托盘类型不支持");
             }
@@ -1582,11 +1573,6 @@ public class PdaApiController {
         return agvTaskMapper.selectOne(wrapper);
     }
 
-    private String resolveOutboundToBinCode(String palletNo) {
-        String typeCode = resolvePalletTypeCode(palletNo);
-        return resolveOutboundToBinCodeByPalletType(typeCode);
-    }
-
     private String resolveOutboundToBinCodeByPalletType(String typeCode) {
         if (StrUtil.equalsIgnoreCase(typeCode, PALLET_TYPE_SMALL_CODE)) {
             return OUTBOUND_SMALL_PALLET_BIN;
@@ -1595,11 +1581,6 @@ public class PdaApiController {
             return OUTBOUND_LARGE_PALLET_BIN;
         }
         return null;
-    }
-
-    private String resolveOutboundEmptyReturnStartBin(String palletNo) {
-        String typeCode = resolvePalletTypeCode(palletNo);
-        return resolveOutboundEmptyReturnStartBinByPalletType(typeCode);
     }
 
     private String resolveOutboundEmptyReturnStartBinByPalletType(String typeCode) {
@@ -1612,56 +1593,15 @@ public class PdaApiController {
         return null;
     }
 
-    private String resolvePalletTypeCodeWithBinFallback(String palletNo, String binCode) {
-        String palletType = resolvePalletTypeCode(palletNo);
-        if (palletType == null) {
-            palletType = resolvePalletTypeCodeFromBinCode(palletNo);
-        }
-        if (palletType == null) {
-            palletType = resolvePalletTypeCodeFromBinCode(binCode);
-        }
-        return palletType;
-    }
-
-    private String resolvePalletTypeCode(String palletNo) {
-        if (StrUtil.isBlank(palletNo)) {
-            return null;
-        }
-        PalletVo palletVo = palletService.queryByPalletCode(palletNo);
-        if (palletVo == null) {
-            return null;
-        }
-        String inferredTypeCode = resolvePalletTypeCodeFromPalletNo(palletNo);
-        if (inferredTypeCode != null) {
-            return inferredTypeCode;
-        }
-        if (palletVo.getPalletTypeId() == null) {
-            return null;
-        }
-        PalletType palletType = palletTypeService.getById(palletVo.getPalletTypeId());
-        if (palletType == null || palletType.getTypeCode() == null) {
-            return null;
-        }
-        String typeCode = palletType.getTypeCode();
-        if (isSmallPalletType(typeCode)) {
-            return PALLET_TYPE_SMALL_CODE;
-        }
-        if (isLargePalletType(typeCode)) {
+    private String resolveInboundPalletTypeByLoadBin(String loadBin) {
+        if (INBOUND_LARGE_LOAD_BIN.equals(loadBin)) {
             return PALLET_TYPE_LARGE_CODE;
         }
-        return typeCode;
-    }
-
-    private String resolvePalletTypeCodeFromPalletNo(String palletNo) {
-        if (StrUtil.isBlank(palletNo)) {
-            return null;
-        }
-        String normalized = palletNo.trim().toUpperCase(Locale.ROOT);
-        if (normalized.startsWith("X")) {
+        if (INBOUND_SMALL_LOAD_BIN_1.equals(loadBin)
+            || INBOUND_SMALL_LOAD_BIN_2.equals(loadBin)
+            || INBOUND_SMALL_LOAD_BIN_3.equals(loadBin)
+            || INBOUND_SMALL_LOAD_BIN_4.equals(loadBin)) {
             return PALLET_TYPE_SMALL_CODE;
-        }
-        if (normalized.startsWith("D")) {
-            return PALLET_TYPE_LARGE_CODE;
         }
         return null;
     }
@@ -1760,9 +1700,9 @@ public class PdaApiController {
             triggerInboundQueueDispatch();
             return;
         }
-        String palletType = resolvePalletTypeCode(palletNo);
+        String palletType = resolveInboundPalletTypeByLoadBin(fromBinCode);
         if (palletType == null) {
-            agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "托盘类型错误");
+            agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "入库装卸点错误");
             triggerInboundQueueDispatch();
             return;
         }
@@ -2281,10 +2221,7 @@ public class PdaApiController {
             target = StrUtil.trimToNull(valve.getInspectionTargetBin());
         }
         if (target == null && StrUtil.isNotBlank(palletNo)) {
-            String palletType = resolvePalletTypeCode(palletNo);
-            if (palletType == null) {
-                palletType = resolvePalletTypeCodeFromBinCode(palletNo);
-            }
+            String palletType = resolvePalletTypeCodeFromBinCode(palletNo);
             target = resolveInspectionTargetBin(INSPECTION_AREA_WAITING, palletType);
         }
         return target;
