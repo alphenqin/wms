@@ -2601,10 +2601,10 @@ public class PdaApiController {
     private String selectFirstAvailableBinCode(Object dataObj, PdaBinAvailableRequest request) {
         String palletTypeCode = resolveAvailableBinPalletType(request);
         if (dataObj instanceof List<?> list) {
-            return list.stream()
+            String selectedBin = list.stream()
                 .filter(item -> item instanceof Map)
                 .map(item -> (Map<?, ?>) item)
-                .filter(item -> "01".equals(MapUtil.getStr(item, "binState")))
+                .filter(item -> isAgvBinFreeState(MapUtil.getStr(item, "binState")))
                 .map(item -> MapUtil.getStr(item, "binCode"))
                 .filter(StrUtil::isNotBlank)
                 .filter(binCode -> isBinOnRequestedLevel(binCode, request.getStorageLevel()))
@@ -2613,11 +2613,12 @@ public class PdaApiController {
                 .sorted(inboundBinComparator(palletTypeCode))
                 .findFirst()
                 .orElse(null);
+            return StrUtil.isNotBlank(selectedBin) ? selectedBin : selectFirstWmsAvailableInboundBinCode(request, palletTypeCode);
         }
         if (dataObj instanceof Map<?, ?> map) {
             String binState = MapUtil.getStr(map, "binState");
             String binCode = MapUtil.getStr(map, "binCode");
-            if ("01".equals(binState)
+            if (isAgvBinFreeState(binState)
                 && StrUtil.isNotBlank(binCode)
                 && isBinOnRequestedLevel(binCode, request.getStorageLevel())
                 && isBinOnRequestedFloor(binCode, request.getFirstFloor())
@@ -2625,7 +2626,7 @@ public class PdaApiController {
                 return binCode;
             }
         }
-        return null;
+        return selectFirstWmsAvailableInboundBinCode(request, palletTypeCode);
     }
 
     private String buildNoAvailableBinMessage(PdaBinAvailableRequest request) {
@@ -2697,6 +2698,32 @@ public class PdaApiController {
             && Objects.equals(bin.getStorageStatus(), BinService.STORAGE_STATUS_EMPTY_BIN)
             && Objects.equals(bin.getStatus(), 0)
             && StrUtil.isBlank(bin.getBoundFactoryNo());
+    }
+
+    private String selectFirstWmsAvailableInboundBinCode(PdaBinAvailableRequest request, String palletTypeCode) {
+        return binService.queryAvailableBins(request.getWarehouseId(), request.getAreaId()).stream()
+            .filter(bin -> bin != null && StrUtil.isNotBlank(bin.getBinCode()))
+            .filter(bin -> isWmsBinTypeAllowedForPalletType(bin.getBinType(), palletTypeCode))
+            .filter(bin -> StrUtil.isBlank(bin.getBoundFactoryNo()))
+            .map(BinVo::getBinCode)
+            .filter(binCode -> isBinOnRequestedLevel(binCode, request.getStorageLevel()))
+            .filter(binCode -> isBinOnRequestedFloor(binCode, request.getFirstFloor()))
+            .sorted(inboundBinComparator(palletTypeCode))
+            .findFirst()
+            .orElse(null);
+    }
+
+    private boolean isAgvBinFreeState(String binState) {
+        String normalized = StrUtil.trimToEmpty(binState);
+        return StrUtil.isBlank(normalized)
+            || "01".equals(normalized)
+            || "00".equals(normalized)
+            || "0".equals(normalized)
+            || "FREE".equalsIgnoreCase(normalized)
+            || "IDLE".equalsIgnoreCase(normalized)
+            || "EMPTY".equalsIgnoreCase(normalized)
+            || "空闲".equals(normalized)
+            || "空库位".equals(normalized);
     }
 
     private boolean isWmsBinTypeAllowedForPalletType(Integer binType, String palletTypeCode) {
