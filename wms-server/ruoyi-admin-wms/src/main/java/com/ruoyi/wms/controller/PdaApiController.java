@@ -87,10 +87,10 @@ public class PdaApiController {
     private static final String AGV_TASK_TYPE_PICK_AND_DROP = "01";
     private static final String AGV_TASK_LEVEL_NORMAL = "2";
     private static final String TASK_SOURCE_PDA = "PDA";
-    private static final String OUTBOUND_SMALL_PALLET_BIN = "Z1-装卸点";
-    private static final String OUTBOUND_LARGE_PALLET_BIN = "Z5-装卸点";
-    private static final String OUTBOUND_EMPTY_RETURN_SMALL_START = "Z1-装卸点";
-    private static final String OUTBOUND_EMPTY_RETURN_LARGE_START = "Z5-装卸点";
+    private static final String OUTBOUND_SMALL_PALLET_BIN = "Z6-装卸点";
+    private static final String OUTBOUND_LARGE_PALLET_BIN = "Z7-装卸点";
+    private static final String OUTBOUND_EMPTY_RETURN_SMALL_START = "Z6-装卸点";
+    private static final String OUTBOUND_EMPTY_RETURN_LARGE_START = "Z7-装卸点";
     private static final String PALLET_TYPE_SMALL_CODE = "t1";
     private static final String PALLET_TYPE_LARGE_CODE = "t2";
     private static final String INBOUND_EMPTY_PALLET_SMALL_START_CODE = "x004";
@@ -2365,6 +2365,7 @@ public class PdaApiController {
                                                   String valveNo, String palletNo) {
         CompletableFuture.runAsync(() -> {
             try {
+                String previousBinCode = resolveCurrentValveBinCode(valveNo, palletNo);
                 if (!waitForOpenTaskFinished(buildValveReturnStepOutId(taskNo, 1))) {
                     agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "样品回库步骤1未完成");
                     return;
@@ -2374,7 +2375,11 @@ public class PdaApiController {
                 }
                 binService.markFullPallet(route.targetBinCode,
                     resolveValveNoForStorage(valveNo, palletNo, route.targetBinCode));
-                updateValveStorage(valveNo, palletNo, route.targetBinCode, 0);
+                if (StrUtil.isNotBlank(previousBinCode)
+                    && !StrUtil.equals(previousBinCode, route.targetBinCode)) {
+                    binService.markEmptyBin(previousBinCode);
+                }
+                updateValveStorage(valveNo, palletNo, route.targetBinCode, 2);
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 2, null);
             } catch (Exception e) {
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
@@ -2549,6 +2554,11 @@ public class PdaApiController {
         update.setCurrentBinCode(StrUtil.trimToNull(targetBinCode));
         update.setStatus(status);
         valveMapper.updateById(update);
+    }
+
+    private String resolveCurrentValveBinCode(String valveNo, String palletNo) {
+        Valve valve = findValve(valveNo, palletNo);
+        return valve == null ? null : StrUtil.trimToNull(valve.getCurrentBinCode());
     }
 
     private void markValvesOutboundByPallet(String palletNo) {
