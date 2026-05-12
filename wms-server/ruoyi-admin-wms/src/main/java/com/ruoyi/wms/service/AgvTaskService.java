@@ -239,7 +239,7 @@ public class AgvTaskService extends ServiceImpl<AgvTaskMapper, AgvTask> {
                 valveStatus = 3;
             }
             if (valveStatus != null) {
-                updateValveStatusByPalletCode(task.getPalletCode(), valveStatus);
+                updateValveStatusByTaskReference(task.getBizOrderNo(), task.getPalletCode(), valveStatus);
             }
         }
     }
@@ -327,21 +327,58 @@ public class AgvTaskService extends ServiceImpl<AgvTaskMapper, AgvTask> {
      */
     @Transactional(rollbackFor = Exception.class)
     public void updateValveStatusByPalletCode(String palletCode, Integer status) {
-        if (StrUtil.isBlank(palletCode)) {
-            return;
+        updateValveStatusByTaskReference(null, palletCode, status);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void updateValveStatusByTaskReference(String valveNo, String palletCode, Integer status) {
+        com.ruoyi.wms.domain.entity.Valve valve = null;
+        if (StrUtil.isNotBlank(valveNo)) {
+            LambdaQueryWrapper<com.ruoyi.wms.domain.entity.Valve> valveWrapper = Wrappers.lambdaQuery();
+            valveWrapper.eq(com.ruoyi.wms.domain.entity.Valve::getValveNo, valveNo);
+            valve = valveMapper.selectOne(valveWrapper);
         }
-        // 通过托盘编号查找阀门
-        LambdaQueryWrapper<com.ruoyi.wms.domain.entity.Valve> valveWrapper = Wrappers.lambdaQuery();
-        valveWrapper.eq(com.ruoyi.wms.domain.entity.Valve::getPalletCode, palletCode);
-        valveWrapper.orderByDesc(com.ruoyi.wms.domain.entity.Valve::getUpdateTime);
-        valveWrapper.last("limit 1");
-        com.ruoyi.wms.domain.entity.Valve valve = valveMapper.selectOne(valveWrapper);
+        if (StrUtil.isBlank(palletCode)) {
+            if (valve == null) {
+                return;
+            }
+        } else if (valve == null) {
+            // 兼容未记录出厂编号的旧任务：任务 palletCode 可能是库位号。
+            LambdaQueryWrapper<com.ruoyi.wms.domain.entity.Valve> valveWrapper = Wrappers.lambdaQuery();
+            valveWrapper.eq(com.ruoyi.wms.domain.entity.Valve::getCurrentBinCode, palletCode);
+            valveWrapper.orderByDesc(com.ruoyi.wms.domain.entity.Valve::getUpdateTime);
+            valveWrapper.last("limit 1");
+            valve = valveMapper.selectOne(valveWrapper);
+        }
         if (valve != null) {
             valve.setStatus(status);
+            if (Objects.equals(status, 2)) {
+                valve.setReturnDate(new Date());
+            }
             if (Objects.equals(status, 3) && valve.getOutboundTime() == null) {
                 valve.setOutboundTime(new Date());
             }
+            if (Objects.equals(status, 3)) {
+                valve.setRemark(appendBinRemark(valve.getRemark(), valve.getCurrentBinCode()));
+            }
             valveMapper.updateById(valve);
         }
+    }
+
+    private String appendBinRemark(String remark, String binCode) {
+        String normalizedBinCode = StrUtil.trimToNull(binCode);
+        if (normalizedBinCode == null) {
+            return StrUtil.trimToNull(remark);
+        }
+        String normalizedRemark = StrUtil.trimToNull(remark);
+        if (normalizedRemark == null) {
+            return normalizedBinCode;
+        }
+        for (String part : normalizedRemark.split("[,，]")) {
+            if (StrUtil.equals(StrUtil.trimToNull(part), normalizedBinCode)) {
+                return normalizedRemark;
+            }
+        }
+        return normalizedRemark + "，" + normalizedBinCode;
     }
 }

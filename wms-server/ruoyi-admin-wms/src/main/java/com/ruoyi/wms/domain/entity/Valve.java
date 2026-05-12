@@ -55,9 +55,14 @@ public class Valve extends BaseEntity {
     private Long palletId;
 
     /**
-     * 所属托盘编号
+     * 送检日期
      */
-    private String palletCode;
+    private Date inspectionDate;
+
+    /**
+     * 回库日期
+     */
+    private Date returnDate;
 
     /**
      * 当前所在货位ID

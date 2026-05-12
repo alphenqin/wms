@@ -138,7 +138,6 @@ public class AgvTaskCompensateJob {
             return Arrays.asList(
                 new TaskStepRef(taskNo + "-1", "1"),
                 new TaskStepRef(taskNo + "-2", "2"),
-                new TaskStepRef(taskNo + "-3", "3"),
                 new TaskStepRef(taskNo + "-4", "4")
             );
         }
@@ -206,13 +205,13 @@ public class AgvTaskCompensateJob {
         Integer taskType = task.getTaskType();
         if (TASK_INSPECTION == taskType) {
             if (task.getPalletCode() != null && !task.getPalletCode().trim().isEmpty()) {
-                agvTaskService.updateValveStatusByPalletCode(task.getPalletCode(), 2);
+                agvTaskService.updateValveStatusByTaskReference(task.getBizOrderNo(), task.getPalletCode(), 2);
             }
             return;
         }
         if (TASK_OUTBOUND == taskType) {
             if (task.getPalletCode() != null && !task.getPalletCode().trim().isEmpty()) {
-                agvTaskService.updateValveStatusByPalletCode(task.getPalletCode(), 3);
+                agvTaskService.updateValveStatusByTaskReference(task.getBizOrderNo(), task.getPalletCode(), 3);
             }
             unbindPalletSilently(task.getPalletCode());
         }

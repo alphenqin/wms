@@ -106,7 +106,7 @@ public class PalletService extends ServiceImpl<PalletMapper, Pallet> {
      * 查询指定类型、从指定编号开始的首个可用空托盘（按托盘编号升序）
      */
     public PalletVo queryFirstAvailableByTypeFromCode(Long palletTypeId, String startCode) {
-        return queryFirstAvailableByTypeFromCodeAndPreferredLevel(palletTypeId, startCode, null, null);
+        return queryFirstAvailableByTypeFromCodeAndPreferredLevel(palletTypeId, startCode, null, (String) null);
     }
 
     /**
@@ -114,6 +114,17 @@ public class PalletService extends ServiceImpl<PalletMapper, Pallet> {
      */
     public PalletVo queryFirstAvailableByTypeFromCodeAndPreferredLevel(Long palletTypeId, String startCode,
                                                                        Integer preferredLevel, String excludeBinCode) {
+        Set<String> excludeBinCodes = StrUtil.isBlank(excludeBinCode)
+            ? Set.of()
+            : Set.of(excludeBinCode.trim());
+        return queryFirstAvailableByTypeFromCodeAndPreferredLevel(palletTypeId, startCode, preferredLevel, excludeBinCodes);
+    }
+
+    /**
+     * 查询指定类型的首个可用空托盘，优先选择指定层数，并排除指定库位。
+     */
+    public PalletVo queryFirstAvailableByTypeFromCodeAndPreferredLevel(Long palletTypeId, String startCode,
+                                                                       Integer preferredLevel, Collection<String> excludeBinCodes) {
         if (palletTypeId == null) {
             return null;
         }
@@ -130,10 +141,13 @@ public class PalletService extends ServiceImpl<PalletMapper, Pallet> {
         }
         lqw.orderByAsc(Pallet::getPalletCode);
         List<Pallet> pallets = palletMapper.selectList(lqw);
-        String normalizedExcludeBinCode = StrUtil.trimToNull(excludeBinCode);
-        if (normalizedExcludeBinCode != null) {
+        Set<String> normalizedExcludeBinCodes = excludeBinCodes == null ? Set.of() : excludeBinCodes.stream()
+            .map(StrUtil::trimToNull)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
+        if (!normalizedExcludeBinCodes.isEmpty()) {
             pallets = pallets.stream()
-                .filter(pallet -> !normalizedExcludeBinCode.equals(pallet.getCurrentBinCode()))
+                .filter(pallet -> !normalizedExcludeBinCodes.contains(StrUtil.trimToNull(pallet.getCurrentBinCode())))
                 .collect(Collectors.toList());
         }
         Pallet pallet = null;

@@ -43,6 +43,16 @@ public class PdaValveInfo implements Serializable {
     private String palletNo;
 
     /**
+     * 送检日期
+     */
+    private String inspectionDate;
+
+    /**
+     * 回库日期
+     */
+    private String returnDate;
+
+    /**
      * 库位号
      */
     private String binCode;
@@ -56,5 +66,10 @@ public class PdaValveInfo implements Serializable {
      * 送检目标站点（如 Z6-装卸点/Z7-装卸点）
      */
     private String inspectionTargetBin;
+
+    /**
+     * 备注
+     */
+    private String remark;
 }
 

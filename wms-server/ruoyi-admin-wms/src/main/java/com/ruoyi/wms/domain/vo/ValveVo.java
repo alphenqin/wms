@@ -38,8 +38,11 @@ public class ValveVo extends BaseVo {
     @ExcelProperty(value = "所属托盘ID")
     private Long palletId;
 
-    @ExcelProperty(value = "所属托盘编号")
-    private String palletCode;
+    @ExcelProperty(value = "送检日期")
+    private Date inspectionDate;
+
+    @ExcelProperty(value = "回库日期")
+    private Date returnDate;
 
     @ExcelProperty(value = "当前货位ID")
     private Long currentBinId;

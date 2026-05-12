@@ -113,8 +113,8 @@ public class ValveController extends BaseController {
     @SaCheckPermission("wms:valve:edit")
     @Log(title = "阀门", businessType = BusinessType.UPDATE)
     @PutMapping("/{id}/bindPallet")
-    public R<Void> bindPallet(@PathVariable Long id, @RequestParam Long palletId, @RequestParam String palletCode) {
-        valveService.bindPallet(id, palletId, palletCode);
+    public R<Void> bindPallet(@PathVariable Long id, @RequestParam Long palletId) {
+        valveService.bindPallet(id, palletId);
         return R.ok();
     }
 

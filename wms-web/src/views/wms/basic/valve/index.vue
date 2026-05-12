@@ -94,6 +94,16 @@
         <el-table-column type="selection" width="55" align="center" />
         <el-table-column label="出厂编号" prop="valveNo" min-width="220" class-name="factory-no-column" />
         <el-table-column label="当前库位" prop="currentBinCode" />
+        <el-table-column label="送检日期" prop="inspectionDate" width="170">
+          <template #default="scope">
+            {{ formatDate(scope.row.inspectionDate) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="回库日期" prop="returnDate" width="170">
+          <template #default="scope">
+            {{ formatDate(scope.row.returnDate) }}
+          </template>
+        </el-table-column>
         <el-table-column label="状态" prop="status">
           <template #default="scope">
             <dict-tag :options="dict.type.wms_valve_status" :value="scope.row.status" />
@@ -110,6 +120,7 @@
           </template>
         </el-table-column>
         <el-table-column label="厂家" prop="manufacturer" />
+        <el-table-column label="备注" prop="remark" min-width="160" show-overflow-tooltip />
         <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="200">
           <template #default="scope">
             <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['wms:valve:edit']">修改</el-button>
@@ -158,8 +169,27 @@
             clearable
           />
         </el-form-item>
-        <el-form-item label="托盘编号" prop="palletCode">
-          <el-input v-model="form.palletCode" placeholder="请输入托盘编号" />
+        <el-form-item label="送检日期" prop="inspectionDate">
+          <el-date-picker
+            v-model="form.inspectionDate"
+            type="date"
+            value-format="YYYY-MM-DD"
+            format="YYYY-MM-DD"
+            placeholder="请选择送检日期"
+            style="width: 100%"
+            clearable
+          />
+        </el-form-item>
+        <el-form-item label="回库日期" prop="returnDate">
+          <el-date-picker
+            v-model="form.returnDate"
+            type="date"
+            value-format="YYYY-MM-DD"
+            format="YYYY-MM-DD"
+            placeholder="请选择回库日期"
+            style="width: 100%"
+            clearable
+          />
         </el-form-item>
         <el-form-item label="当前库位" prop="currentBinCode">
           <el-input v-model="form.currentBinCode" placeholder="请输入当前库位" />
@@ -218,7 +248,8 @@ const initFormData = {
   createTime: undefined,
   outboundTime: undefined,
   palletId: undefined,
-  palletCode: undefined,
+  inspectionDate: undefined,
+  returnDate: undefined,
   currentBinId: undefined,
   currentBinCode: undefined,
   status: 0,

@@ -223,8 +223,8 @@ public class ShipmentOrderService {
             if (valveVo.getStatus() == null || valveVo.getStatus() != 0) {
                 throw new BaseException("阀门状态不正确，无法出库: " + valveNo);
             }
-            if (palletCode == null && valveVo.getPalletCode() != null) {
-                palletCode = valveVo.getPalletCode();
+            if (palletCode == null && valveVo.getCurrentBinCode() != null) {
+                palletCode = valveVo.getCurrentBinCode();
             }
         }
 

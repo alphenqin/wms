@@ -244,7 +244,7 @@ public class ReceiptOrderService {
             if (valveVo == null) {
                 throw new BaseException("阀门不存在: " + valveNo);
             }
-            valveService.bindPallet(valveVo.getId(), palletVo.getId(), palletCode);
+            valveService.bindPallet(valveVo.getId(), palletVo.getId());
             // 更新阀门货位
             if (toBinCode != null) {
                 var binVo = binService.queryByBinCode(toBinCode);

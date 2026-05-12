@@ -1,5 +1,6 @@
 package com.ruoyi.wms.controller;
 
+import cn.hutool.core.date.DateUtil;
 import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.log.annotation.Log;
 import com.ruoyi.common.log.enums.BusinessType;
@@ -98,7 +99,8 @@ public class PdaAssistController extends BaseController {
             result.put("valveNo", valveVo.getValveNo());
             result.put("manufacturer", valveVo.getManufacturer());
             result.put("status", valveVo.getStatus());
-            result.put("palletCode", valveVo.getPalletCode());
+            result.put("inspectionDate", valveVo.getInspectionDate() == null ? null : DateUtil.format(valveVo.getInspectionDate(), "yyyy-MM-dd"));
+            result.put("returnDate", valveVo.getReturnDate() == null ? null : DateUtil.format(valveVo.getReturnDate(), "yyyy-MM-dd"));
             result.put("currentBinCode", valveVo.getCurrentBinCode());
             return R.ok(result);
         } catch (Exception e) {

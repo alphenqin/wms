@@ -79,7 +79,6 @@ public class ValveService extends ServiceImpl<ValveMapper, Valve> {
         lqw.like(StrUtil.isNotBlank(bo.getManufacturer()), Valve::getManufacturer, bo.getManufacturer());
         lqw.like(StrUtil.isNotBlank(bo.getBatchNo()), Valve::getBatchNo, bo.getBatchNo());
         lqw.eq(bo.getPalletId() != null, Valve::getPalletId, bo.getPalletId());
-        lqw.like(StrUtil.isNotBlank(bo.getPalletCode()), Valve::getPalletCode, bo.getPalletCode());
         lqw.eq(bo.getCurrentBinId() != null, Valve::getCurrentBinId, bo.getCurrentBinId());
         lqw.like(StrUtil.isNotBlank(bo.getCurrentBinCode()), Valve::getCurrentBinCode, bo.getCurrentBinCode());
         lqw.eq(bo.getStatus() != null, Valve::getStatus, bo.getStatus());
@@ -157,7 +156,9 @@ public class ValveService extends ServiceImpl<ValveMapper, Valve> {
         valveMapper.update(null, Wrappers.lambdaUpdate(Valve.class)
             .eq(Valve::getId, bo.getId())
             .set(Valve::getCreateTime, bo.getCreateTime())
-            .set(Valve::getOutboundTime, bo.getOutboundTime()));
+            .set(Valve::getOutboundTime, bo.getOutboundTime())
+            .set(Valve::getInspectionDate, bo.getInspectionDate())
+            .set(Valve::getReturnDate, bo.getReturnDate()));
         Valve updated = valveMapper.selectById(bo.getId());
         syncBinStorageForValve(current, updated);
     }
@@ -198,24 +199,46 @@ public class ValveService extends ServiceImpl<ValveMapper, Valve> {
         }
         Valve oldValve = copyValveStorage(valve);
         valve.setStatus(status);
+        if (Objects.equals(status, 2)) {
+            valve.setReturnDate(new Date());
+        }
         if (Objects.equals(status, 3) && valve.getOutboundTime() == null) {
             valve.setOutboundTime(new Date());
         }
+        if (Objects.equals(status, 3)) {
+            valve.setRemark(appendBinRemark(valve.getRemark(), valve.getCurrentBinCode()));
+        }
         valveMapper.updateById(valve);
         syncBinStorageForValve(oldValve, valve);
+    }
+
+    private String appendBinRemark(String remark, String binCode) {
+        String normalizedBinCode = StrUtil.trimToNull(binCode);
+        if (normalizedBinCode == null) {
+            return StrUtil.trimToNull(remark);
+        }
+        String normalizedRemark = StrUtil.trimToNull(remark);
+        if (normalizedRemark == null) {
+            return normalizedBinCode;
+        }
+        for (String part : normalizedRemark.split("[,，]")) {
+            if (StrUtil.equals(StrUtil.trimToNull(part), normalizedBinCode)) {
+                return normalizedRemark;
+            }
+        }
+        return normalizedRemark + "，" + normalizedBinCode;
     }
 
     /**
      * 绑定托盘
      */
     @Transactional(rollbackFor = Exception.class)
-    public void bindPallet(Long valveId, Long palletId, String palletCode) {
+    public void bindPallet(Long valveId, Long palletId) {
         Valve valve = valveMapper.selectById(valveId);
         if (valve == null) {
             throw new ServiceException("阀门不存在");
         }
         valve.setPalletId(palletId);
-        valve.setPalletCode(palletCode);
         valveMapper.updateById(valve);
     }
 
