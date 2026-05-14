@@ -207,8 +207,16 @@ public class ValveService extends ServiceImpl<ValveMapper, Valve> {
         }
         if (Objects.equals(status, 3)) {
             valve.setRemark(appendBinRemark(valve.getRemark(), valve.getCurrentBinCode()));
+            valve.setCurrentBinId(null);
+            valve.setCurrentBinCode(null);
         }
         valveMapper.updateById(valve);
+        if (Objects.equals(status, 3)) {
+            valveMapper.update(null, Wrappers.lambdaUpdate(Valve.class)
+                .eq(Valve::getId, valve.getId())
+                .set(Valve::getCurrentBinId, null)
+                .set(Valve::getCurrentBinCode, null));
+        }
         syncBinStorageForValve(oldValve, valve);
     }
 

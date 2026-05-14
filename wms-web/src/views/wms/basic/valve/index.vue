@@ -16,7 +16,7 @@
             <el-option label="已出库" value="3" />
           </el-select>
         </el-form-item>
-        <el-form-item label="入库时间" prop="createTimeRange">
+        <el-form-item label="入库日期" prop="createTimeRange">
           <el-date-picker
             v-model="queryParams.createTimeRange"
             type="daterange"
@@ -29,7 +29,7 @@
             clearable
           />
         </el-form-item>
-        <el-form-item label="出库时间" prop="outboundTimeRange">
+        <el-form-item label="出库日期" prop="outboundTimeRange">
           <el-date-picker
             v-model="queryParams.outboundTimeRange"
             type="daterange"
@@ -92,7 +92,18 @@
 
       <el-table v-loading="loading" :data="valveList" @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="55" align="center" />
+        <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="200">
+          <template #default="scope">
+            <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['wms:valve:edit']">修改</el-button>
+            <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['wms:valve:remove']">删除</el-button>
+          </template>
+        </el-table-column>
         <el-table-column label="出厂编号" prop="valveNo" min-width="220" class-name="factory-no-column" />
+        <el-table-column label="状态" prop="status">
+          <template #default="scope">
+            <dict-tag :options="dict.type.wms_valve_status" :value="scope.row.status" />
+          </template>
+        </el-table-column>
         <el-table-column label="当前库位" prop="currentBinCode" />
         <el-table-column label="送检日期" prop="inspectionDate" width="170">
           <template #default="scope">
@@ -104,29 +115,18 @@
             {{ formatDate(scope.row.returnDate) }}
           </template>
         </el-table-column>
-        <el-table-column label="状态" prop="status">
-          <template #default="scope">
-            <dict-tag :options="dict.type.wms_valve_status" :value="scope.row.status" />
-          </template>
-        </el-table-column>
-        <el-table-column label="入库时间" prop="createTime" width="170">
+        <el-table-column label="入库日期" prop="createTime" width="170">
           <template #default="scope">
             {{ formatDate(scope.row.createTime) }}
           </template>
         </el-table-column>
-        <el-table-column label="出库时间" prop="outboundTime" width="170">
+        <el-table-column label="出库日期" prop="outboundTime" width="170">
           <template #default="scope">
             {{ formatDate(scope.row.outboundTime) }}
           </template>
         </el-table-column>
-        <el-table-column label="厂家" prop="manufacturer" />
         <el-table-column label="备注" prop="remark" min-width="160" show-overflow-tooltip />
-        <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="200">
-          <template #default="scope">
-            <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['wms:valve:edit']">修改</el-button>
-            <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['wms:valve:remove']">删除</el-button>
-          </template>
-        </el-table-column>
+        <el-table-column label="厂家" prop="manufacturer" />
       </el-table>
 
       <pagination
@@ -147,24 +147,24 @@
         <el-form-item label="厂家" prop="manufacturer">
           <el-input v-model="form.manufacturer" placeholder="请输入厂家" />
         </el-form-item>
-        <el-form-item label="入库时间" prop="createTime">
+        <el-form-item label="入库日期" prop="createTime">
           <el-date-picker
             v-model="form.createTime"
             type="date"
             value-format="YYYY-MM-DD 00:00:00"
             format="YYYY-MM-DD"
-            placeholder="请选择入库时间"
+            placeholder="请选择入库日期"
             style="width: 100%"
             clearable
           />
         </el-form-item>
-        <el-form-item label="出库时间" prop="outboundTime">
+        <el-form-item label="出库日期" prop="outboundTime">
           <el-date-picker
             v-model="form.outboundTime"
             type="date"
             value-format="YYYY-MM-DD 00:00:00"
             format="YYYY-MM-DD"
-            placeholder="请选择出库时间"
+            placeholder="请选择出库日期"
             style="width: 100%"
             clearable
           />
@@ -173,7 +173,7 @@
           <el-date-picker
             v-model="form.inspectionDate"
             type="date"
-            value-format="YYYY-MM-DD"
+            value-format="YYYY-MM-DD 00:00:00"
             format="YYYY-MM-DD"
             placeholder="请选择送检日期"
             style="width: 100%"
@@ -184,7 +184,7 @@
           <el-date-picker
             v-model="form.returnDate"
             type="date"
-            value-format="YYYY-MM-DD"
+            value-format="YYYY-MM-DD 00:00:00"
             format="YYYY-MM-DD"
             placeholder="请选择回库日期"
             style="width: 100%"

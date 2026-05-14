@@ -360,8 +360,16 @@ public class AgvTaskService extends ServiceImpl<AgvTaskMapper, AgvTask> {
             }
             if (Objects.equals(status, 3)) {
                 valve.setRemark(appendBinRemark(valve.getRemark(), valve.getCurrentBinCode()));
+                valve.setCurrentBinId(null);
+                valve.setCurrentBinCode(null);
             }
             valveMapper.updateById(valve);
+            if (Objects.equals(status, 3)) {
+                valveMapper.update(null, Wrappers.lambdaUpdate(com.ruoyi.wms.domain.entity.Valve.class)
+                    .eq(com.ruoyi.wms.domain.entity.Valve::getId, valve.getId())
+                    .set(com.ruoyi.wms.domain.entity.Valve::getCurrentBinId, null)
+                    .set(com.ruoyi.wms.domain.entity.Valve::getCurrentBinCode, null));
+            }
         }
     }
 

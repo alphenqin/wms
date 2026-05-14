@@ -459,7 +459,22 @@ public class PdaApiController {
                 try {
                     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
                     Date inboundDate = sdf.parse(request.getInboundDate());
-                    wrapper.eq(Valve::getProductionDate, inboundDate);
+                    Calendar cal = Calendar.getInstance();
+                    cal.setTime(inboundDate);
+                    cal.add(Calendar.DAY_OF_MONTH, 1);
+                    Date nextDate = cal.getTime();
+                    LocalDateTime beginCreateTime = inboundDate.toInstant()
+                        .atZone(ZoneId.systemDefault())
+                        .toLocalDate()
+                        .atStartOfDay();
+                    LocalDateTime endCreateTime = beginCreateTime.plusDays(1);
+                    wrapper.and(w -> w
+                        .ge(Valve::getProductionDate, inboundDate)
+                        .lt(Valve::getProductionDate, nextDate)
+                        .or(n -> n
+                            .isNull(Valve::getProductionDate)
+                            .ge(Valve::getCreateTime, beginCreateTime)
+                            .lt(Valve::getCreateTime, endCreateTime)));
                 } catch (Exception e) {
                     log.warn("入库日期解析失败: {}", request.getInboundDate());
                 }
@@ -501,11 +516,7 @@ public class PdaApiController {
                     info.setReturnDate(DateUtil.format(valve.getReturnDate(), "yyyy-MM-dd"));
                 }
                 
-                // 入库日期
-                if (valve.getProductionDate() != null) {
-                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-                    info.setInboundDate(sdf.format(valve.getProductionDate()));
-                }
+                info.setInboundDate(resolveValveInboundDate(valve));
                 
                 // 物料编码（可以从物料类型表获取，这里先使用出厂编号）
                 info.setMatCode("MAT-" + valve.getValveNo());
@@ -523,6 +534,19 @@ public class PdaApiController {
             log.error("阀门查询失败", e);
             return R.fail(500, "阀门查询失败: " + e.getMessage());
         }
+    }
+
+    private String resolveValveInboundDate(Valve valve) {
+        if (valve == null) {
+            return null;
+        }
+        if (valve.getProductionDate() != null) {
+            return DateUtil.format(valve.getProductionDate(), "yyyy-MM-dd");
+        }
+        if (valve.getCreateTime() != null) {
+            return valve.getCreateTime().format(DateTimeFormatter.ISO_LOCAL_DATE);
+        }
+        return null;
     }
 
     /**
@@ -706,6 +730,7 @@ public class PdaApiController {
             AgvTaskBo taskBo = new AgvTaskBo();
             taskBo.setTaskType(taskType);
             taskBo.setTaskNo(StrUtil.trimToNull(request.getOutID()));
+            taskBo.setBizOrderNo(StrUtil.trimToNull(request.getValveNo()));
             taskBo.setPalletCode(palletNo);
             taskBo.setFromBinCode(fromBinCode);
             taskBo.setToBinCode(targetBinCode);
@@ -1723,6 +1748,27 @@ public class PdaApiController {
             triggerInboundQueueDispatch();
             return;
         }
+        String executableTargetBinCode = resolveExecutableInboundTargetBin(task, palletType);
+        if (executableTargetBinCode == null) {
+            agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "未找到可用入库库位");
+            triggerInboundQueueDispatch();
+            return;
+        }
+        if (!Objects.equals(executableTargetBinCode, targetBinCode)) {
+            targetBinCode = executableTargetBinCode;
+            if (Objects.equals(palletNo, task.getToBinCode())) {
+                palletNo = executableTargetBinCode;
+            }
+            task.setToBinCode(executableTargetBinCode);
+            task.setPalletCode(palletNo);
+            agvTaskMapper.updateById(task);
+            route = buildInboundRoute(palletType, fromBinCode, executableTargetBinCode);
+            if (route == null) {
+                agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "重新分配入库库位失败");
+                triggerInboundQueueDispatch();
+                return;
+            }
+        }
         String matCode = extractInboundMatCode(task.getRemark());
         try {
             String step1OutId = buildInboundStepOutId(taskNo, 1);
@@ -1781,6 +1827,58 @@ public class PdaApiController {
                 triggerInboundQueueDispatch();
             }
         }, inboundExecutor);
+    }
+
+    private String resolveExecutableInboundTargetBin(AgvTask task, String palletTypeCode) {
+        String originalTargetBinCode = StrUtil.trimToNull(task.getToBinCode());
+        if (originalTargetBinCode == null) {
+            return null;
+        }
+        String valveNo = resolveInboundTaskValveNo(task);
+        if (isExecutableInboundTargetBin(originalTargetBinCode, palletTypeCode, valveNo)) {
+            return originalTargetBinCode;
+        }
+        if (valveNo == null) {
+            return null;
+        }
+
+        PdaBinAvailableRequest request = new PdaBinAvailableRequest();
+        request.setPalletType(palletTypeCode);
+        request.setStorageLevel(extractBinLevel(originalTargetBinCode));
+        String nextTargetBinCode = selectFirstWmsAvailableInboundBinCode(request, palletTypeCode);
+        if (StrUtil.isBlank(nextTargetBinCode)) {
+            return null;
+        }
+
+        binService.markEmptyBinIfBoundTo(originalTargetBinCode, valveNo);
+        binService.markFullPallet(nextTargetBinCode, valveNo);
+        return nextTargetBinCode;
+    }
+
+    private String resolveInboundTaskValveNo(AgvTask task) {
+        String valveNo = StrUtil.trimToNull(task.getBizOrderNo());
+        if (valveNo != null) {
+            return valveNo;
+        }
+        String matCode = extractInboundMatCode(task.getRemark());
+        if (StrUtil.startWithIgnoreCase(matCode, "MAT-")) {
+            return StrUtil.trimToNull(matCode.substring("MAT-".length()));
+        }
+        return null;
+    }
+
+    private boolean isExecutableInboundTargetBin(String binCode, String palletTypeCode, String valveNo) {
+        BinVo bin = binService.queryByBinCode(binCode);
+        if (bin == null || !isWmsBinTypeAllowedForPalletType(bin.getBinType(), palletTypeCode)) {
+            return false;
+        }
+        boolean emptyBin = Objects.equals(bin.getStorageStatus(), BinService.STORAGE_STATUS_EMPTY_BIN)
+            && Objects.equals(bin.getStatus(), 0)
+            && StrUtil.isBlank(bin.getBoundFactoryNo());
+        boolean reservedForCurrentValve = StrUtil.isNotBlank(valveNo)
+            && Objects.equals(bin.getStorageStatus(), BinService.STORAGE_STATUS_FULL_PALLET)
+            && StrUtil.equals(StrUtil.trimToNull(bin.getBoundFactoryNo()), valveNo);
+        return emptyBin || reservedForCurrentValve;
     }
 
     private String buildInboundQueueRemark(String matCode, String remark) {
@@ -1996,25 +2094,27 @@ public class PdaApiController {
         if (normalizedValveNo != null) {
             return normalizedValveNo;
         }
-        LambdaQueryWrapper<Valve> wrapper = Wrappers.lambdaQuery();
-        boolean hasCondition = false;
         String normalizedBinCode = StrUtil.trimToNull(binCode);
         if (normalizedBinCode != null) {
+            LambdaQueryWrapper<Valve> wrapper = Wrappers.lambdaQuery();
             wrapper.eq(Valve::getCurrentBinCode, normalizedBinCode);
-            hasCondition = true;
+            wrapper.orderByDesc(Valve::getUpdateTime);
+            wrapper.last("limit 1");
+            Valve valve = valveMapper.selectOne(wrapper);
+            if (valve != null) {
+                return StrUtil.trimToNull(valve.getValveNo());
+            }
         }
         String normalizedPalletNo = StrUtil.trimToNull(palletNo);
         if (normalizedPalletNo != null) {
+            LambdaQueryWrapper<Valve> wrapper = Wrappers.lambdaQuery();
             wrapper.eq(Valve::getCurrentBinCode, normalizedPalletNo);
-            hasCondition = true;
+            wrapper.orderByDesc(Valve::getUpdateTime);
+            wrapper.last("limit 1");
+            Valve valve = valveMapper.selectOne(wrapper);
+            return valve != null ? StrUtil.trimToNull(valve.getValveNo()) : null;
         }
-        if (!hasCondition) {
-            return null;
-        }
-        wrapper.orderByDesc(Valve::getUpdateTime);
-        wrapper.last("limit 1");
-        Valve valve = valveMapper.selectOne(wrapper);
-        return valve != null ? StrUtil.trimToNull(valve.getValveNo()) : null;
+        return null;
     }
 
     private void updateValveInspectionTarget(String valveNo, String palletNo, String targetBinCode, String area) {
@@ -2062,8 +2162,16 @@ public class PdaApiController {
         }
         if (Objects.equals(status, 3)) {
             update.setRemark(appendBinRemark(valve.getRemark(), valve.getCurrentBinCode()));
+            update.setCurrentBinId(null);
+            update.setCurrentBinCode(null);
         }
         valveMapper.updateById(update);
+        if (Objects.equals(status, 3)) {
+            valveMapper.update(null, Wrappers.<Valve>lambdaUpdate()
+                .eq(Valve::getId, valve.getId())
+                .set(Valve::getCurrentBinId, null)
+                .set(Valve::getCurrentBinCode, null));
+        }
     }
 
     private String appendBinRemark(String remark, String binCode) {
