@@ -1800,33 +1800,154 @@ public class PdaApiController {
                     agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "入库流程步骤1未完成");
                     return;
                 }
-                PalletVo outboundPallet = resolveNextOutsideReplenishmentPallet(route.firstStep.fromBinCode,
-                    palletTypeCode, route.targetBinCode, route.secondStep.fromBinCode);
-                if (outboundPallet == null || StrUtil.isBlank(outboundPallet.getCurrentBinCode())) {
-                    agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "未找到可补位空托盘");
-                    return;
-                }
-                InboundStep thirdStep = new InboundStep(route.thirdStep.agvRange,
-                    outboundPallet.getCurrentBinCode(), route.thirdStep.toBinCode);
-                if (!dispatchInboundReplenishmentStep(taskNo, 2, route.secondStep, thirdStep,
-                    route.targetBinCode, matCode)) {
-                    return;
-                }
-                moveInboundPalletInside(inboundPalletNo, route.targetBinCode);
-                binService.markFullPallet(route.targetBinCode,
-                    resolveValveNoForStorage(null, inboundPalletNo, route.targetBinCode));
-                binService.markEmptyBin(thirdStep.fromBinCode);
-                if (!dispatchInboundStep(taskNo, 4, route.fourthStep, route.targetBinCode, null)) {
-                    return;
-                }
-                moveOutboundPalletOutside(outboundPallet.getPalletCode(), route.firstStep.fromBinCode, route.firstStep.fromBinCode);
-                agvTaskService.updateTaskStatusByTaskNo(taskNo, 2, null);
+                dispatchInboundFollowupAfterFirstStep(taskNo, inboundPalletNo, route, palletTypeCode, matCode);
             } catch (Exception e) {
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
             } finally {
                 triggerInboundQueueDispatch();
             }
         }, inboundExecutor);
+    }
+
+    private boolean dispatchInboundFollowupAfterFirstStep(String taskNo, String inboundPalletNo,
+                                                          InboundRoute route, String palletTypeCode, String matCode) {
+        try {
+            PalletVo outboundPallet = resolveNextOutsideReplenishmentPallet(route.firstStep.fromBinCode,
+                palletTypeCode, route.targetBinCode, route.secondStep.fromBinCode);
+            if (outboundPallet == null || StrUtil.isBlank(outboundPallet.getCurrentBinCode())) {
+                agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "未找到可补位空托盘");
+                return false;
+            }
+            InboundStep thirdStep = new InboundStep(route.thirdStep.agvRange,
+                outboundPallet.getCurrentBinCode(), route.thirdStep.toBinCode);
+            if (!dispatchInboundReplenishmentStep(taskNo, 2, route.secondStep, thirdStep,
+                route.targetBinCode, matCode)) {
+                return false;
+            }
+            moveInboundPalletInside(inboundPalletNo, route.targetBinCode);
+            binService.markFullPallet(route.targetBinCode,
+                resolveValveNoForStorage(null, inboundPalletNo, route.targetBinCode));
+            binService.markEmptyBin(thirdStep.fromBinCode);
+
+            PreparedInboundTask nextTask = prepareNextQueuedInboundTaskForChainedDispatch();
+            if (nextTask != null) {
+                int chainedResult = dispatchInboundReturnAndNextStart(taskNo, route.fourthStep, nextTask);
+                if (chainedResult == 1) {
+                    moveOutboundPalletOutside(outboundPallet.getPalletCode(), route.firstStep.fromBinCode, route.firstStep.fromBinCode);
+                    agvTaskService.updateTaskStatusByTaskNo(taskNo, 2, null);
+                    return dispatchInboundFollowupAfterFirstStep(nextTask.taskNo, nextTask.palletNo,
+                        nextTask.route, nextTask.palletTypeCode, nextTask.matCode);
+                }
+                if (chainedResult == -1) {
+                    return false;
+                }
+            }
+
+            if (!dispatchInboundStep(taskNo, 4, route.fourthStep, route.targetBinCode, null)) {
+                return false;
+            }
+            moveOutboundPalletOutside(outboundPallet.getPalletCode(), route.firstStep.fromBinCode, route.firstStep.fromBinCode);
+            agvTaskService.updateTaskStatusByTaskNo(taskNo, 2, null);
+            return true;
+        } catch (Exception e) {
+            agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
+            return false;
+        }
+    }
+
+    private PreparedInboundTask prepareNextQueuedInboundTaskForChainedDispatch() {
+        AgvTask nextTask;
+        synchronized (inboundQueueLock) {
+            nextTask = claimNextQueuedInboundTask();
+        }
+        if (nextTask == null) {
+            return null;
+        }
+        return prepareInboundTaskForExecution(nextTask);
+    }
+
+    private PreparedInboundTask prepareInboundTaskForExecution(AgvTask task) {
+        String taskNo = StrUtil.trimToNull(task.getTaskNo());
+        String palletNo = StrUtil.trimToNull(task.getPalletCode());
+        String fromBinCode = StrUtil.trimToNull(task.getFromBinCode());
+        String targetBinCode = StrUtil.trimToNull(task.getToBinCode());
+        if (taskNo == null || palletNo == null || fromBinCode == null || targetBinCode == null) {
+            agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "入库任务参数不完整");
+            return null;
+        }
+        String palletType = resolveInboundPalletTypeByLoadBin(fromBinCode);
+        if (palletType == null) {
+            agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "入库装卸点错误");
+            return null;
+        }
+        InboundRoute route = buildInboundRoute(palletType, fromBinCode, targetBinCode);
+        if (route == null) {
+            agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "入库站点与托盘类型不匹配");
+            return null;
+        }
+        String executableTargetBinCode = resolveExecutableInboundTargetBin(task, palletType);
+        if (executableTargetBinCode == null) {
+            agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "未找到可用入库库位");
+            return null;
+        }
+        if (!Objects.equals(executableTargetBinCode, targetBinCode)) {
+            if (Objects.equals(palletNo, task.getToBinCode())) {
+                palletNo = executableTargetBinCode;
+            }
+            task.setToBinCode(executableTargetBinCode);
+            task.setPalletCode(palletNo);
+            agvTaskMapper.updateById(task);
+            route = buildInboundRoute(palletType, fromBinCode, executableTargetBinCode);
+            if (route == null) {
+                agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "重新分配入库库位失败");
+                return null;
+            }
+        }
+        return new PreparedInboundTask(task, taskNo, palletNo, route, palletType, extractInboundMatCode(task.getRemark()));
+    }
+
+    private int dispatchInboundReturnAndNextStart(String currentTaskNo, InboundStep currentFourthStep,
+                                                  PreparedInboundTask nextTask) {
+        String outId = currentTaskNo + "-4-NEXT-" + nextTask.taskNo + "-1";
+        AgvOpenTaskBo taskBo = buildContinuousPickDropTask(outId,
+            currentFourthStep.fromBinCode,
+            currentFourthStep.toBinCode,
+            null,
+            nextTask.route.firstStep.fromBinCode,
+            nextTask.route.firstStep.toBinCode,
+            null,
+            currentFourthStep.agvRange);
+        try {
+            Map<String, Object> agvResp = agvOpenTaskService.sendTask(taskBo);
+            String code = MapUtil.getStr(agvResp, "code");
+            String message = MapUtil.getStr(agvResp, "message");
+            if (!"20000".equals(code)) {
+                requeueInboundTask(nextTask.task);
+                log.warn("入库衔接任务下发失败，回退为单独第4步: currentTaskNo={}, nextTaskNo={}, message={}",
+                    currentTaskNo, nextTask.taskNo, message);
+                return 0;
+            }
+            if (!waitForOpenTaskFinished(outId)) {
+                agvTaskService.updateTaskStatusByTaskNo(currentTaskNo, 3, "入库衔接任务未完成");
+                agvTaskService.updateTaskStatusByTaskNo(nextTask.taskNo, 3, "入库衔接任务未完成");
+                return -1;
+            }
+            return 1;
+        } catch (Exception e) {
+            requeueInboundTask(nextTask.task);
+            log.warn("入库衔接任务异常，回退为单独第4步: currentTaskNo={}, nextTaskNo={}, error={}",
+                currentTaskNo, nextTask.taskNo, e.getMessage());
+            return 0;
+        }
+    }
+
+    private void requeueInboundTask(AgvTask task) {
+        if (task == null || task.getId() == null) {
+            return;
+        }
+        task.setStatus(0);
+        task.setErrorMsg(null);
+        agvTaskMapper.updateById(task);
     }
 
     private String resolveExecutableInboundTargetBin(AgvTask task, String palletTypeCode) {
@@ -2945,6 +3066,25 @@ public class PdaApiController {
             this.secondStep = secondStep;
             this.thirdStep = thirdStep;
             this.fourthStep = fourthStep;
+        }
+    }
+
+    private static class PreparedInboundTask {
+        private final AgvTask task;
+        private final String taskNo;
+        private final String palletNo;
+        private final InboundRoute route;
+        private final String palletTypeCode;
+        private final String matCode;
+
+        private PreparedInboundTask(AgvTask task, String taskNo, String palletNo,
+                                    InboundRoute route, String palletTypeCode, String matCode) {
+            this.task = task;
+            this.taskNo = taskNo;
+            this.palletNo = palletNo;
+            this.route = route;
+            this.palletTypeCode = palletTypeCode;
+            this.matCode = matCode;
         }
     }
 
