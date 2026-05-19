@@ -227,12 +227,14 @@ public class AgvTaskService extends ServiceImpl<AgvTaskMapper, AgvTask> {
         if (status == 2 && task.getTaskType() != null && task.getPalletCode() != null) {
             Integer valveStatus = null;
             if (task.getTaskType() == 3) {
-                // 回库任务完成，阀门状态更新为IN_STOCK（待检测）
+                // 样品回库完成后更新为INSPECTED（已检测），空托回库/呼叫托盘不更新样品状态。
                 String remark = task.getRemark();
                 boolean isInspectionEmptyReturn = StrUtil.equalsIgnoreCase(remark, INSPECTION_EMPTY_RETURN_REMARK)
                     || StrUtil.equalsIgnoreCase(remark, INSPECTION_EMPTY_RETURN_REMARK_LEGACY);
-                if (!isInspectionEmptyReturn) {
-                    valveStatus = 0;
+                boolean isOutboundEmptyReturn = StrUtil.equalsIgnoreCase(remark, OUTBOUND_EMPTY_RETURN_REMARK);
+                boolean isReturnCallPallet = StrUtil.equalsIgnoreCase(remark, RETURN_CALL_PALLET_REMARK);
+                if (!isInspectionEmptyReturn && !isOutboundEmptyReturn && !isReturnCallPallet) {
+                    valveStatus = 2;
                 }
             } else if (task.getTaskType() == 4) {
                 // 出库任务完成，阀门状态更新为OUTBOUND（已出库）

@@ -2357,10 +2357,10 @@ public class PdaApiController {
                     return;
                 }
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 2, null);
-                // 更新阀门状态为INSPECTED（已检测）
+                // 送检完成后样品仍处于检测中，回库完成后才更新为已检测。
                 AgvTask task = agvTaskMapper.selectOne(Wrappers.lambdaQuery(AgvTask.class).eq(AgvTask::getTaskNo, taskNo));
                 if (task != null && task.getPalletCode() != null) {
-                    updateValveStatus(task.getBizOrderNo(), task.getPalletCode(), 2);
+                    updateValveStatus(task.getBizOrderNo(), task.getPalletCode(), 1);
                 }
             } catch (Exception e) {
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());

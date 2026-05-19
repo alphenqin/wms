@@ -42,7 +42,7 @@
             <el-tag :type="renderTaskTypeTag(scope.row)">{{ renderTaskTypeLabel(scope.row) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="托盘编号" prop="palletCode" />
+        <el-table-column label="出厂编号" prop="bizOrderNo" />
         <el-table-column label="起始库位" prop="fromBinCode" />
         <el-table-column label="目标库位" prop="toBinCode" />
         <el-table-column label="任务状态" prop="status">
@@ -87,7 +87,7 @@
         <el-descriptions-item label="任务类型">
           <el-tag :type="renderTaskTypeTag(taskDetail)">{{ renderTaskTypeLabel(taskDetail) }}</el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="托盘编号">{{ taskDetail.palletCode }}</el-descriptions-item>
+        <el-descriptions-item label="出厂编号">{{ taskDetail.bizOrderNo }}</el-descriptions-item>
         <el-descriptions-item label="任务状态">
           <el-tag v-if="taskDetail.status === 0" type="info">待执行</el-tag>
           <el-tag v-else-if="taskDetail.status === 1" type="warning">执行中</el-tag>
@@ -97,7 +97,6 @@
         </el-descriptions-item>
         <el-descriptions-item label="起始库位">{{ taskDetail.fromBinCode }}</el-descriptions-item>
         <el-descriptions-item label="目标库位">{{ taskDetail.toBinCode }}</el-descriptions-item>
-        <el-descriptions-item label="业务单号">{{ taskDetail.bizOrderNo }}</el-descriptions-item>
         <el-descriptions-item label="AGV任务ID">{{ taskDetail.agvTaskId }}</el-descriptions-item>
         <el-descriptions-item label="创建时间">{{ taskDetail.createTime }}</el-descriptions-item>
         <el-descriptions-item label="完成时间">{{ taskDetail.finishTime }}</el-descriptions-item>

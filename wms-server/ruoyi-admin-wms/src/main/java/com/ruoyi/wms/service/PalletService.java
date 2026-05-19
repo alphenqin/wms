@@ -11,6 +11,7 @@ import com.ruoyi.common.core.utils.MapstructUtils;
 import com.ruoyi.common.mybatis.core.page.PageQuery;
 import com.ruoyi.common.mybatis.core.page.TableDataInfo;
 import com.ruoyi.wms.domain.bo.PalletBo;
+import com.ruoyi.wms.domain.entity.Bin;
 import com.ruoyi.wms.domain.entity.Pallet;
 import com.ruoyi.wms.domain.entity.PalletType;
 import com.ruoyi.wms.domain.vo.PalletVo;
@@ -150,6 +151,9 @@ public class PalletService extends ServiceImpl<PalletMapper, Pallet> {
                 .filter(pallet -> !normalizedExcludeBinCodes.contains(StrUtil.trimToNull(pallet.getCurrentBinCode())))
                 .collect(Collectors.toList());
         }
+        pallets = pallets.stream()
+            .filter(this::isLocatedOnEmptyPalletBin)
+            .collect(Collectors.toList());
         Pallet pallet = null;
         if (preferredLevel != null) {
             for (Pallet item : pallets) {
@@ -165,6 +169,19 @@ public class PalletService extends ServiceImpl<PalletMapper, Pallet> {
         PalletVo vo = pallet != null ? MapstructUtils.convert(pallet, PalletVo.class) : null;
         fillPalletTypeName(vo);
         return vo;
+    }
+
+    private boolean isLocatedOnEmptyPalletBin(Pallet pallet) {
+        if (pallet == null || StrUtil.isBlank(pallet.getCurrentBinCode())) {
+            return false;
+        }
+        Bin bin = binMapper.selectOne(Wrappers.<Bin>lambdaQuery()
+            .eq(Bin::getBinCode, StrUtil.trim(pallet.getCurrentBinCode())));
+        return bin != null
+            && Objects.equals(bin.getStorageStatus(), BinService.STORAGE_STATUS_EMPTY_PALLET)
+            && !Objects.equals(bin.getStatus(), 2)
+            && !Objects.equals(bin.getStatus(), 3)
+            && StrUtil.isBlank(bin.getBoundFactoryNo());
     }
 
     private Integer extractBinLevel(String binCode) {
