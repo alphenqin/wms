@@ -507,14 +507,7 @@ public class PdaApiController {
                 info.setValveNo(valve.getValveNo());
                 info.setVendorName(valve.getManufacturer());
                 info.setBinCode(valve.getCurrentBinCode());
-                String currentBinCode = StrUtil.trimToNull(valve.getCurrentBinCode());
-                if (currentBinCode != null) {
-                    Integer binType = binTypeCache.computeIfAbsent(currentBinCode, code -> {
-                        BinVo bin = binService.queryByBinCode(code);
-                        return bin == null ? null : bin.getBinType();
-                    });
-                    info.setBinType(binType);
-                }
+                info.setBinType(resolveValveBinType(valve, binTypeCache));
                 info.setValveStatus(convertValveStatusToString(valve.getStatus()));
                 info.setInspectionTargetBin(valve.getInspectionTargetBin());
                 info.setRemark(valve.getRemark());
@@ -896,19 +889,18 @@ public class PdaApiController {
             if (targetBinCode == null) {
                 return R.fail(400, "目标站点不能为空");
             }
+            if (fromBinCode == null) {
+                return R.fail(400, "库外站点不能为空");
+            }
+            if (request.getStorageLevel() != null && !isBinOnRequestedLevel(targetBinCode, request.getStorageLevel())) {
+                return R.fail(400, "目标库位不是" + formatStorageLevel(request.getStorageLevel()) + "库位");
+            }
             String effectivePalletNo = palletNo != null ? palletNo : targetBinCode;
-            String inspectionTargetBin = fromBinCode;
-            if (inspectionTargetBin == null) {
-                inspectionTargetBin = resolveInspectionTargetBinForReturn(request.getValveNo(), effectivePalletNo);
-            }
-            if (inspectionTargetBin == null) {
-                return R.fail(400, "送检目标站点未设置");
-            }
-            String palletType = resolvePalletTypeCodeFromBinCode(targetBinCode);
+            String palletType = resolveInboundPalletTypeByLoadBin(fromBinCode);
             if (palletType == null) {
                 return R.fail(400, "托盘类型错误");
             }
-            InspectionRoute route = buildValveReturnRoute(palletType, inspectionTargetBin, targetBinCode);
+            InboundRoute route = buildInboundRoute(palletType, fromBinCode, targetBinCode);
             if (route == null) {
                 return R.fail(400, "样品回库参数错误");
             }
@@ -918,7 +910,7 @@ public class PdaApiController {
             taskBo.setTaskNo(StrUtil.trimToNull(request.getOutID()));
             taskBo.setBizOrderNo(StrUtil.trimToNull(request.getValveNo()));
             taskBo.setPalletCode(effectivePalletNo);
-            taskBo.setFromBinCode(inspectionTargetBin);
+            taskBo.setFromBinCode(fromBinCode);
             taskBo.setToBinCode(targetBinCode);
             taskBo.setRemark(VALVE_RETURN_REMARK);
             taskBo.setTaskSource(TASK_SOURCE_PDA);
@@ -927,7 +919,7 @@ public class PdaApiController {
 
             String taskNo = taskBo.getTaskNo();
             try {
-                String step1OutId = buildValveReturnStepOutId(taskNo, 1);
+                String step1OutId = buildInboundStepOutId(taskNo, 1);
                 AgvOpenTaskBo first = buildPickDropTask(step1OutId,
                     route.firstStep.fromBinCode,
                     route.firstStep.toBinCode,
@@ -941,7 +933,7 @@ public class PdaApiController {
                     return R.fail(500, StrUtil.emptyToDefault(message, "AGV任务下发失败"));
                 }
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 1, null);
-                dispatchValveReturnFollowupSteps(taskNo, route, matCode, request.getValveNo(), effectivePalletNo);
+                dispatchValveReturnFollowupSteps(taskNo, route, palletType, matCode, request.getValveNo(), effectivePalletNo);
             } catch (Exception e) {
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
                 return R.fail(500, "任务下发失败: " + e.getMessage());
@@ -1653,6 +1645,37 @@ public class PdaApiController {
         }
         if (Objects.equals(bin.getBinType(), BIN_TYPE_LARGE_PALLET)) {
             return PALLET_TYPE_LARGE_CODE;
+        }
+        return null;
+    }
+
+    private Integer resolveValveBinType(Valve valve, Map<String, Integer> binTypeCache) {
+        if (valve == null) {
+            return null;
+        }
+        String currentBinCode = StrUtil.trimToNull(valve.getCurrentBinCode());
+        if (currentBinCode != null) {
+            Integer binType = binTypeCache.computeIfAbsent(currentBinCode, code -> {
+                BinVo bin = binService.queryByBinCode(code);
+                return bin == null ? null : bin.getBinType();
+            });
+            if (binType != null) {
+                return binType;
+            }
+        }
+        return resolveInspectionTargetBinType(valve.getInspectionTargetBin());
+    }
+
+    private Integer resolveInspectionTargetBinType(String inspectionTargetBin) {
+        if (StrUtil.equals(inspectionTargetBin, INSPECTION_TARGET_SMALL_WAITING)
+            || StrUtil.equals(inspectionTargetBin, INSPECTION_TARGET_SMALL_FLOW)
+            || StrUtil.equals(inspectionTargetBin, OUTBOUND_SMALL_PALLET_BIN)) {
+            return BIN_TYPE_SMALL_PALLET;
+        }
+        if (StrUtil.equals(inspectionTargetBin, INSPECTION_TARGET_LARGE_WAITING)
+            || StrUtil.equals(inspectionTargetBin, INSPECTION_TARGET_LARGE_FLOW)
+            || StrUtil.equals(inspectionTargetBin, OUTBOUND_LARGE_PALLET_BIN)) {
+            return BIN_TYPE_LARGE_PALLET;
         }
         return null;
     }
@@ -2626,24 +2649,39 @@ public class PdaApiController {
         }, inboundExecutor);
     }
 
-    private void dispatchValveReturnFollowupSteps(String taskNo, InspectionRoute route, String matCode,
-                                                  String valveNo, String palletNo) {
+    private void dispatchValveReturnFollowupSteps(String taskNo, InboundRoute route, String palletTypeCode,
+                                                  String matCode, String valveNo, String palletNo) {
         CompletableFuture.runAsync(() -> {
             try {
                 String previousBinCode = resolveCurrentValveBinCode(valveNo, palletNo);
-                if (!waitForOpenTaskFinished(buildValveReturnStepOutId(taskNo, 1))) {
+                if (!waitForOpenTaskFinished(buildInboundStepOutId(taskNo, 1))) {
                     agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "样品回库步骤1未完成");
                     return;
                 }
-                if (!dispatchValveReturnStep(taskNo, 2, route.secondStep, route.targetBinCode, matCode)) {
+                PalletVo outboundPallet = resolveNextOutsideReplenishmentPallet(route.firstStep.fromBinCode,
+                    palletTypeCode, route.targetBinCode, route.secondStep.fromBinCode);
+                if (outboundPallet == null || StrUtil.isBlank(outboundPallet.getCurrentBinCode())) {
+                    agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "未找到可补位空托盘");
                     return;
                 }
+                InboundStep thirdStep = new InboundStep(route.thirdStep.agvRange,
+                    outboundPallet.getCurrentBinCode(), route.thirdStep.toBinCode);
+                if (!dispatchInboundReplenishmentStep(taskNo, 2, route.secondStep, thirdStep,
+                    route.targetBinCode, matCode)) {
+                    return;
+                }
+                moveInboundPalletInside(palletNo, route.targetBinCode);
                 binService.markFullPallet(route.targetBinCode,
                     resolveValveNoForStorage(valveNo, palletNo, route.targetBinCode));
+                binService.markEmptyBin(thirdStep.fromBinCode);
                 if (StrUtil.isNotBlank(previousBinCode)
                     && !StrUtil.equals(previousBinCode, route.targetBinCode)) {
                     binService.markEmptyBin(previousBinCode);
                 }
+                if (!dispatchInboundStep(taskNo, 4, route.fourthStep, route.targetBinCode, null)) {
+                    return;
+                }
+                moveOutboundPalletOutside(outboundPallet.getPalletCode(), route.firstStep.fromBinCode, route.firstStep.fromBinCode);
                 updateValveStorage(valveNo, palletNo, route.targetBinCode, 2);
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 2, null);
             } catch (Exception e) {
