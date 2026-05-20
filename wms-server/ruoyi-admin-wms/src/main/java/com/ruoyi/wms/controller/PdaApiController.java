@@ -2165,7 +2165,7 @@ public class PdaApiController {
             : (StrUtil.equalsIgnoreCase(palletTypeCode, PALLET_TYPE_LARGE_CODE)
                 ? INBOUND_EMPTY_PALLET_LARGE_START_CODE : null);
         return palletService.queryFirstAvailableByTypeFromCodeAndPreferredLevel(palletType.getId(), startCode,
-            extractBinLevel(targetBinCode), List.of(targetBinCode, bufferBinCode));
+            extractBinLevel(targetBinCode), targetBinCode, List.of(targetBinCode, bufferBinCode));
     }
 
     private void moveInboundPalletInside(String palletNo, String targetBinCode) {

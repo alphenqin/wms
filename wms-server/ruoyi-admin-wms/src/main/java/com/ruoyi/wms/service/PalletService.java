@@ -23,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -104,7 +105,7 @@ public class PalletService extends ServiceImpl<PalletMapper, Pallet> {
     }
 
     /**
-     * 查询指定类型、从指定编号开始的首个可用空托盘（按托盘编号升序）
+     * 查询指定类型、从指定编号开始的首个可用空托盘。
      */
     public PalletVo queryFirstAvailableByTypeFromCode(Long palletTypeId, String startCode) {
         return queryFirstAvailableByTypeFromCodeAndPreferredLevel(palletTypeId, startCode, null, (String) null);
@@ -126,6 +127,15 @@ public class PalletService extends ServiceImpl<PalletMapper, Pallet> {
      */
     public PalletVo queryFirstAvailableByTypeFromCodeAndPreferredLevel(Long palletTypeId, String startCode,
                                                                        Integer preferredLevel, Collection<String> excludeBinCodes) {
+        return queryFirstAvailableByTypeFromCodeAndPreferredLevel(palletTypeId, startCode, preferredLevel, null, excludeBinCodes);
+    }
+
+    /**
+     * 查询指定类型的首个可用空托盘，优先同层，再从指定排开始按排号轮转选择。
+     */
+    public PalletVo queryFirstAvailableByTypeFromCodeAndPreferredLevel(Long palletTypeId, String startCode,
+                                                                       Integer preferredLevel, String preferredBinCode,
+                                                                       Collection<String> excludeBinCodes) {
         if (palletTypeId == null) {
             return null;
         }
@@ -153,22 +163,47 @@ public class PalletService extends ServiceImpl<PalletMapper, Pallet> {
         }
         pallets = pallets.stream()
             .filter(this::isLocatedOnEmptyPalletBin)
+            .sorted(emptyPalletBinComparator(preferredLevel, preferredBinCode))
             .collect(Collectors.toList());
-        Pallet pallet = null;
-        if (preferredLevel != null) {
-            for (Pallet item : pallets) {
-                if (Objects.equals(preferredLevel, extractBinLevel(item.getCurrentBinCode()))) {
-                    pallet = item;
-                    break;
-                }
-            }
-        }
-        if (pallet == null && !pallets.isEmpty()) {
-            pallet = pallets.get(0);
-        }
+        Pallet pallet = pallets.isEmpty() ? null : pallets.get(0);
         PalletVo vo = pallet != null ? MapstructUtils.convert(pallet, PalletVo.class) : null;
         fillPalletTypeName(vo);
         return vo;
+    }
+
+    private Comparator<Pallet> emptyPalletBinComparator(Integer preferredLevel, String preferredBinCode) {
+        Integer preferredRow = extractBinRow(preferredBinCode);
+        return Comparator
+            .comparingInt((Pallet pallet) -> levelPriority(pallet.getCurrentBinCode(), preferredLevel))
+            .thenComparingInt(pallet -> rowPriority(pallet.getCurrentBinCode(), preferredRow))
+            .thenComparingInt(pallet -> nullLast(extractBinColumn(pallet.getCurrentBinCode())))
+            .thenComparingInt(pallet -> nullLast(extractBinLevel(pallet.getCurrentBinCode())))
+            .thenComparing(pallet -> defaultString(pallet.getCurrentBinCode()))
+            .thenComparing(pallet -> defaultString(pallet.getPalletCode()));
+    }
+
+    private int levelPriority(String binCode, Integer preferredLevel) {
+        Integer level = extractBinLevel(binCode);
+        if (preferredLevel == null || level == null) {
+            return nullLast(level);
+        }
+        return Objects.equals(level, preferredLevel) ? 0 : 10000 + level;
+    }
+
+    private int rowPriority(String binCode, Integer preferredRow) {
+        Integer row = extractBinRow(binCode);
+        if (preferredRow == null || row == null) {
+            return nullLast(row);
+        }
+        return row >= preferredRow ? row - preferredRow : 10000 + row;
+    }
+
+    private int nullLast(Integer value) {
+        return value == null ? Integer.MAX_VALUE : value;
+    }
+
+    private String defaultString(String value) {
+        return value == null ? "" : value;
     }
 
     private boolean isLocatedOnEmptyPalletBin(Pallet pallet) {
@@ -182,6 +217,40 @@ public class PalletService extends ServiceImpl<PalletMapper, Pallet> {
             && !Objects.equals(bin.getStatus(), 2)
             && !Objects.equals(bin.getStatus(), 3)
             && StrUtil.isBlank(bin.getBoundFactoryNo());
+    }
+
+    private Integer extractBinRow(String binCode) {
+        if (StrUtil.isBlank(binCode)) {
+            return null;
+        }
+        String[] parts = binCode.trim().split("-");
+        if (parts.length < 3) {
+            return null;
+        }
+        String rowPart = parts[0];
+        if (rowPart.length() < 2) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(rowPart.substring(1));
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private Integer extractBinColumn(String binCode) {
+        if (StrUtil.isBlank(binCode)) {
+            return null;
+        }
+        String[] parts = binCode.trim().split("-");
+        if (parts.length < 3) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(parts[1]);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private Integer extractBinLevel(String binCode) {
