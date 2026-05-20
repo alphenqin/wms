@@ -501,11 +501,20 @@ public class PdaApiController {
 
             // 转换为响应DTO
             PdaValveQueryResponse response = new PdaValveQueryResponse();
+            Map<String, Integer> binTypeCache = new HashMap<>();
             List<PdaValveInfo> list = result.getRecords().stream().map(valve -> {
                 PdaValveInfo info = new PdaValveInfo();
                 info.setValveNo(valve.getValveNo());
                 info.setVendorName(valve.getManufacturer());
                 info.setBinCode(valve.getCurrentBinCode());
+                String currentBinCode = StrUtil.trimToNull(valve.getCurrentBinCode());
+                if (currentBinCode != null) {
+                    Integer binType = binTypeCache.computeIfAbsent(currentBinCode, code -> {
+                        BinVo bin = binService.queryByBinCode(code);
+                        return bin == null ? null : bin.getBinType();
+                    });
+                    info.setBinType(binType);
+                }
                 info.setValveStatus(convertValveStatusToString(valve.getStatus()));
                 info.setInspectionTargetBin(valve.getInspectionTargetBin());
                 info.setRemark(valve.getRemark());
@@ -1631,11 +1640,21 @@ public class PdaApiController {
     }
 
     private String resolvePalletTypeCodeFromBinCode(String binCode) {
-        Integer bay = extractBinBay(binCode);
-        if (bay == null) {
+        String normalizedBinCode = StrUtil.trimToNull(binCode);
+        if (normalizedBinCode == null) {
             return null;
         }
-        return bay >= 13 ? PALLET_TYPE_LARGE_CODE : PALLET_TYPE_SMALL_CODE;
+        BinVo bin = binService.queryByBinCode(normalizedBinCode);
+        if (bin == null || bin.getBinType() == null) {
+            return null;
+        }
+        if (Objects.equals(bin.getBinType(), BIN_TYPE_SMALL_PALLET)) {
+            return PALLET_TYPE_SMALL_CODE;
+        }
+        if (Objects.equals(bin.getBinType(), BIN_TYPE_LARGE_PALLET)) {
+            return PALLET_TYPE_LARGE_CODE;
+        }
+        return null;
     }
 
     private boolean isSmallPalletType(String typeCode) {

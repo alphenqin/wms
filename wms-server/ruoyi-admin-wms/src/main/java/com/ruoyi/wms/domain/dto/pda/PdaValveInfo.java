@@ -58,6 +58,11 @@ public class PdaValveInfo implements Serializable {
     private String binCode;
 
     /**
+     * 库位类型（1小托盘、2大托盘）
+     */
+    private Integer binType;
+
+    /**
      * 阀门状态（IN_STOCK、IN_INSPECTION、INSPECTED、OUTBOUND）
      */
     private String valveStatus;
