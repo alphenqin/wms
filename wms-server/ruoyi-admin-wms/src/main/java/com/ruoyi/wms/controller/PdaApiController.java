@@ -300,11 +300,34 @@ public class PdaApiController {
     @Transactional(rollbackFor = Exception.class)
     public R<Void> unbindPallet(@Valid @RequestBody PdaPalletUnbindRequest request) {
         try {
-            PalletVo palletVo = palletService.queryByPalletCode(request.getPalletNo());
-            if (palletVo == null || palletVo.getId() == null) {
+            String palletNo = StrUtil.trimToNull(request.getPalletNo());
+            String valveNo = StrUtil.trimToNull(request.getValveNo());
+            String binCode = StrUtil.trimToNull(request.getBinCode());
+            if (palletNo == null && valveNo == null) {
+                return R.fail(400, "托盘号或出厂编号不能为空");
+            }
+
+            boolean unbound = false;
+            if (valveNo != null) {
+                Valve valve = valveMapper.selectOne(Wrappers.<Valve>lambdaQuery()
+                    .eq(Valve::getValveNo, valveNo));
+                if (valve != null) {
+                    String boundBinCode = StrUtil.blankToDefault(binCode, valve.getCurrentBinCode());
+                    valveMapper.deleteById(valve.getId());
+                    binService.markEmptyBinIfBoundTo(boundBinCode, valveNo);
+                    unbound = true;
+                }
+            }
+
+            PalletVo palletVo = palletNo == null ? null : palletService.queryByPalletCode(palletNo);
+            if (palletVo != null && palletVo.getId() != null) {
+                palletService.unbindMaterial(palletVo.getId());
+                unbound = true;
+            }
+
+            if (!unbound) {
                 return R.fail(404, "托盘不存在");
             }
-            palletService.unbindMaterial(palletVo.getId());
             return R.ok();
         } catch (Exception e) {
             log.error("托盘置空失败", e);
@@ -319,6 +342,10 @@ public class PdaApiController {
     public R<PdaBinAvailableResponse> getAvailableBin(@RequestBody(required = false) PdaBinAvailableRequest request) {
         try {
             PdaBinAvailableRequest safeRequest = request == null ? new PdaBinAvailableRequest() : request;
+            String outsideSite = StrUtil.trimToNull(safeRequest.getOutsideSite());
+            if (outsideSite != null && hasActiveInboundTaskAtLoadBin(outsideSite)) {
+                return R.fail(409, "该库外站点已有入库/回库任务排队或执行中，请选择其他库外站点");
+            }
             Map<String, Object> agvResp = agvOpenTaskService.binInfo(null);
             String code = MapUtil.getStr(agvResp, "code");
             if (!"20000".equals(code)) {
@@ -692,7 +719,8 @@ public class PdaApiController {
                 return R.ok(response);
             }
         }
-        if (taskType != 1 && isInboundLocked()) {
+        boolean valveReturnRequest = taskType == 3 && isValveReturnRequest(request);
+        if (taskType != 1 && !valveReturnRequest && isInboundLocked()) {
             return R.fail(409, "入库任务执行中，请稍后再试");
         }
         String fromBinCode = StrUtil.trimToNull(request.getFromBinCode());
@@ -918,33 +946,14 @@ public class PdaApiController {
             agvTaskService.insertByBo(taskBo);
 
             String taskNo = taskBo.getTaskNo();
-            try {
-                String step1OutId = buildInboundStepOutId(taskNo, 1);
-                AgvOpenTaskBo first = buildPickDropTask(step1OutId,
-                    route.firstStep.fromBinCode,
-                    route.firstStep.toBinCode,
-                    null,
-                    route.firstStep.agvRange);
-                Map<String, Object> agvResp = agvOpenTaskService.sendTask(first);
-                String code = MapUtil.getStr(agvResp, "code");
-                String message = MapUtil.getStr(agvResp, "message");
-                if (!"20000".equals(code)) {
-                    agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, StrUtil.emptyToDefault(message, "AGV任务下发失败"));
-                    return R.fail(500, StrUtil.emptyToDefault(message, "AGV任务下发失败"));
-                }
-                agvTaskService.updateTaskStatusByTaskNo(taskNo, 1, null);
-                dispatchValveReturnFollowupSteps(taskNo, route, palletType, matCode, request.getValveNo(), effectivePalletNo);
-            } catch (Exception e) {
-                agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
-                return R.fail(500, "任务下发失败: " + e.getMessage());
-            }
+            triggerInboundQueueDispatch();
 
             PdaTaskDispatchResponse response = new PdaTaskDispatchResponse();
             response.setOutID(taskNo);
             response.setTaskType(taskTypeName);
             response.setStatus("PENDING");
             response.setToBinCode(targetBinCode);
-            recordTaskOperation(taskType, deviceCode, effectivePalletNo, taskNo, "样品回库任务下发成功", 1, null);
+            recordTaskOperation(taskType, deviceCode, effectivePalletNo, taskNo, "样品回库任务已加入队列", 1, null);
             return R.ok(response);
         }
 
@@ -1195,7 +1204,7 @@ public class PdaApiController {
             }
 
             agvTaskService.cancelTaskWithAgv(taskVo.getId());
-            if (taskVo.getTaskType() != null && taskVo.getTaskType() == 1) {
+            if (isInboundOrValveReturnTask(taskVo.getTaskType(), taskVo.getRemark())) {
                 triggerInboundQueueDispatch();
             }
             recordOperation(9, deviceCode, outId, outId, null, 1, "任务取消成功", null);
@@ -1459,6 +1468,11 @@ public class PdaApiController {
         return countActiveInboundTasks() > 0;
     }
 
+    private boolean isInboundOrValveReturnTask(Integer taskType, String remark) {
+        return Objects.equals(taskType, 1)
+            || (Objects.equals(taskType, 3) && VALVE_RETURN_REMARK.equalsIgnoreCase(StrUtil.trimToEmpty(remark)));
+    }
+
     private boolean isInboundLocked() {
         return isLockedByLatest(countActiveInboundTasks(), getLatestInboundTask());
     }
@@ -1487,7 +1501,8 @@ public class PdaApiController {
 
     private long countActiveInboundTasks() {
         LambdaQueryWrapper<AgvTask> wrapper = Wrappers.lambdaQuery();
-        wrapper.eq(AgvTask::getTaskType, 1);
+        wrapper.and(w -> w.eq(AgvTask::getTaskType, 1)
+            .or(v -> v.eq(AgvTask::getTaskType, 3).eq(AgvTask::getRemark, VALVE_RETURN_REMARK)));
         wrapper.in(AgvTask::getStatus, 0, 1);
         return agvTaskMapper.selectCount(wrapper);
     }
@@ -1540,7 +1555,8 @@ public class PdaApiController {
 
     private AgvTask getLatestInboundTask() {
         LambdaQueryWrapper<AgvTask> wrapper = Wrappers.lambdaQuery();
-        wrapper.eq(AgvTask::getTaskType, 1);
+        wrapper.and(w -> w.eq(AgvTask::getTaskType, 1)
+            .or(v -> v.eq(AgvTask::getTaskType, 3).eq(AgvTask::getRemark, VALVE_RETURN_REMARK)));
         wrapper.orderByDesc(AgvTask::getCreateTime);
         wrapper.last("limit 1");
         return agvTaskMapper.selectOne(wrapper);
@@ -1730,14 +1746,16 @@ public class PdaApiController {
 
     private long countExecutingInboundTasks() {
         LambdaQueryWrapper<AgvTask> wrapper = Wrappers.lambdaQuery();
-        wrapper.eq(AgvTask::getTaskType, 1);
+        wrapper.and(w -> w.eq(AgvTask::getTaskType, 1)
+            .or(v -> v.eq(AgvTask::getTaskType, 3).eq(AgvTask::getRemark, VALVE_RETURN_REMARK)));
         wrapper.eq(AgvTask::getStatus, 1);
         return agvTaskMapper.selectCount(wrapper);
     }
 
     private AgvTask claimNextQueuedInboundTask() {
         LambdaQueryWrapper<AgvTask> wrapper = Wrappers.lambdaQuery();
-        wrapper.eq(AgvTask::getTaskType, 1);
+        wrapper.and(w -> w.eq(AgvTask::getTaskType, 1)
+            .or(v -> v.eq(AgvTask::getTaskType, 3).eq(AgvTask::getRemark, VALVE_RETURN_REMARK)));
         wrapper.eq(AgvTask::getStatus, 0);
         wrapper.orderByAsc(AgvTask::getCreateTime);
         wrapper.orderByAsc(AgvTask::getId);
@@ -1753,13 +1771,36 @@ public class PdaApiController {
         return task;
     }
 
+    private AgvTask claimNextQueuedInboundForChain() {
+        LambdaQueryWrapper<AgvTask> wrapper = Wrappers.lambdaQuery();
+        wrapper.and(w -> w.eq(AgvTask::getTaskType, 1)
+            .or(v -> v.eq(AgvTask::getTaskType, 3).eq(AgvTask::getRemark, VALVE_RETURN_REMARK)));
+        wrapper.eq(AgvTask::getStatus, 0);
+        wrapper.orderByAsc(AgvTask::getCreateTime);
+        wrapper.orderByAsc(AgvTask::getId);
+        wrapper.last("limit 1");
+        AgvTask task = agvTaskMapper.selectOne(wrapper);
+        if (task == null) {
+            return null;
+        }
+        if (!Objects.equals(task.getTaskType(), 1)) {
+            return null;
+        }
+        task.setStatus(1);
+        task.setDispatchTime(new Date());
+        task.setErrorMsg(null);
+        agvTaskMapper.updateById(task);
+        return task;
+    }
+
     private boolean hasActiveInboundTaskAtLoadBin(String loadBinCode) {
         String normalizedLoadBin = StrUtil.trimToNull(loadBinCode);
         if (normalizedLoadBin == null) {
             return false;
         }
         LambdaQueryWrapper<AgvTask> wrapper = Wrappers.lambdaQuery();
-        wrapper.eq(AgvTask::getTaskType, 1);
+        wrapper.and(w -> w.eq(AgvTask::getTaskType, 1)
+            .or(v -> v.eq(AgvTask::getTaskType, 3).eq(AgvTask::getRemark, VALVE_RETURN_REMARK)));
         wrapper.in(AgvTask::getStatus, 0, 1);
         wrapper.eq(AgvTask::getFromBinCode, normalizedLoadBin);
         return agvTaskMapper.selectCount(wrapper) > 0;
@@ -1767,6 +1808,11 @@ public class PdaApiController {
 
     private void executeQueuedInboundTask(AgvTask task) {
         if (task == null) {
+            return;
+        }
+        if (Objects.equals(task.getTaskType(), 3)
+            && VALVE_RETURN_REMARK.equalsIgnoreCase(StrUtil.trimToEmpty(task.getRemark()))) {
+            executeQueuedValveReturnTask(task);
             return;
         }
         String taskNo = StrUtil.trimToNull(task.getTaskNo());
@@ -1828,6 +1874,72 @@ public class PdaApiController {
                 return;
             }
             dispatchInboundFollowupSteps(taskNo, palletNo, route, palletType, matCode);
+        } catch (Exception e) {
+            agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
+            triggerInboundQueueDispatch();
+        }
+    }
+
+    private void executeQueuedValveReturnTask(AgvTask task) {
+        String taskNo = StrUtil.trimToNull(task.getTaskNo());
+        String palletNo = StrUtil.trimToNull(task.getPalletCode());
+        String fromBinCode = StrUtil.trimToNull(task.getFromBinCode());
+        String targetBinCode = StrUtil.trimToNull(task.getToBinCode());
+        if (taskNo == null || palletNo == null || fromBinCode == null || targetBinCode == null) {
+            agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "回库任务参数不完整");
+            triggerInboundQueueDispatch();
+            return;
+        }
+        String palletType = resolveInboundPalletTypeByLoadBin(fromBinCode);
+        if (palletType == null) {
+            agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "回库装卸点错误");
+            triggerInboundQueueDispatch();
+            return;
+        }
+        InboundRoute route = buildInboundRoute(palletType, fromBinCode, targetBinCode);
+        if (route == null) {
+            agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "回库站点与托盘类型不匹配");
+            triggerInboundQueueDispatch();
+            return;
+        }
+        String executableTargetBinCode = resolveExecutableInboundTargetBin(task, palletType);
+        if (executableTargetBinCode == null) {
+            agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "未找到可用回库库位");
+            triggerInboundQueueDispatch();
+            return;
+        }
+        if (!Objects.equals(executableTargetBinCode, targetBinCode)) {
+            targetBinCode = executableTargetBinCode;
+            if (Objects.equals(palletNo, task.getToBinCode())) {
+                palletNo = executableTargetBinCode;
+            }
+            task.setToBinCode(executableTargetBinCode);
+            task.setPalletCode(palletNo);
+            agvTaskMapper.updateById(task);
+            route = buildInboundRoute(palletType, fromBinCode, executableTargetBinCode);
+            if (route == null) {
+                agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "重新分配回库库位失败");
+                triggerInboundQueueDispatch();
+                return;
+            }
+        }
+        try {
+            String step1OutId = buildInboundStepOutId(taskNo, 1);
+            AgvOpenTaskBo first = buildPickDropTask(step1OutId,
+                route.firstStep.fromBinCode,
+                route.firstStep.toBinCode,
+                null,
+                route.firstStep.agvRange);
+            Map<String, Object> agvResp = agvOpenTaskService.sendTask(first);
+            String code = MapUtil.getStr(agvResp, "code");
+            String message = MapUtil.getStr(agvResp, "message");
+            if (!"20000".equals(code)) {
+                agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, StrUtil.emptyToDefault(message, "AGV任务下发失败"));
+                triggerInboundQueueDispatch();
+                return;
+            }
+            dispatchValveReturnFollowupSteps(taskNo, route, palletType, extractInboundMatCode(task.getRemark()),
+                task.getBizOrderNo(), palletNo);
         } catch (Exception e) {
             agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
             triggerInboundQueueDispatch();
@@ -1900,7 +2012,7 @@ public class PdaApiController {
     private PreparedInboundTask prepareNextQueuedInboundTaskForChainedDispatch() {
         AgvTask nextTask;
         synchronized (inboundQueueLock) {
-            nextTask = claimNextQueuedInboundTask();
+            nextTask = claimNextQueuedInboundForChain();
         }
         if (nextTask == null) {
             return null;
@@ -2406,6 +2518,8 @@ public class PdaApiController {
                 }
             } catch (Exception e) {
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
+            } finally {
+                triggerInboundQueueDispatch();
             }
         }, inboundExecutor);
     }
@@ -2451,6 +2565,8 @@ public class PdaApiController {
                 unbindPalletSilently(palletNo);
             } catch (Exception e) {
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
+            } finally {
+                triggerInboundQueueDispatch();
             }
         }, inboundExecutor);
     }
@@ -2686,6 +2802,8 @@ public class PdaApiController {
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 2, null);
             } catch (Exception e) {
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
+            } finally {
+                triggerInboundQueueDispatch();
             }
         }, inboundExecutor);
     }

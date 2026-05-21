@@ -143,6 +143,7 @@ public class AgvTaskService extends ServiceImpl<AgvTaskMapper, AgvTask> {
         lqw.eq(bo.getStatus() != null, AgvTask::getStatus, bo.getStatus());
         lqw.eq(StrUtil.isNotBlank(bo.getAgvDeviceNo()), AgvTask::getAgvDeviceNo, bo.getAgvDeviceNo());
         lqw.orderByDesc(AgvTask::getCreateTime);
+        lqw.orderByDesc(AgvTask::getId);
         return lqw;
     }
 

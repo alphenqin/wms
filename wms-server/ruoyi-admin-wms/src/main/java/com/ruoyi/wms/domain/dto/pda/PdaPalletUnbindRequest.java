@@ -1,6 +1,5 @@
 package com.ruoyi.wms.domain.dto.pda;
 
-import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -15,6 +14,15 @@ public class PdaPalletUnbindRequest implements Serializable {
     /**
      * 托盘编号
      */
-    @NotBlank(message = "托盘号不能为空")
     private String palletNo;
+
+    /**
+     * 出厂编号
+     */
+    private String valveNo;
+
+    /**
+     * 库位号
+     */
+    private String binCode;
 }

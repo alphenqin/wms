@@ -131,7 +131,7 @@ public class PalletService extends ServiceImpl<PalletMapper, Pallet> {
     }
 
     /**
-     * 查询指定类型的首个可用空托盘，优先同层，再从指定排开始按排号轮转选择。
+     * 查询指定类型的首个可用空托盘，优先同排，再从指定排开始按排号轮转选择。
      */
     public PalletVo queryFirstAvailableByTypeFromCodeAndPreferredLevel(Long palletTypeId, String startCode,
                                                                        Integer preferredLevel, String preferredBinCode,
@@ -174,8 +174,8 @@ public class PalletService extends ServiceImpl<PalletMapper, Pallet> {
     private Comparator<Pallet> emptyPalletBinComparator(Integer preferredLevel, String preferredBinCode) {
         Integer preferredRow = extractBinRow(preferredBinCode);
         return Comparator
-            .comparingInt((Pallet pallet) -> levelPriority(pallet.getCurrentBinCode(), preferredLevel))
-            .thenComparingInt(pallet -> rowPriority(pallet.getCurrentBinCode(), preferredRow))
+            .comparingInt((Pallet pallet) -> rowPriority(pallet.getCurrentBinCode(), preferredRow))
+            .thenComparingInt(pallet -> levelPriority(pallet.getCurrentBinCode(), preferredLevel))
             .thenComparingInt(pallet -> nullLast(extractBinColumn(pallet.getCurrentBinCode())))
             .thenComparingInt(pallet -> nullLast(extractBinLevel(pallet.getCurrentBinCode())))
             .thenComparing(pallet -> defaultString(pallet.getCurrentBinCode()))
