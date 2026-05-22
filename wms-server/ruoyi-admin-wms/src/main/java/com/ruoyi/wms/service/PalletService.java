@@ -147,10 +147,6 @@ public class PalletService extends ServiceImpl<PalletMapper, Pallet> {
         lqw.and(wrapper -> wrapper.isNull(Pallet::getOutsideSite).or().eq(Pallet::getOutsideSite, ""));
         lqw.isNotNull(Pallet::getCurrentBinCode);
         lqw.ne(Pallet::getCurrentBinCode, "");
-        if (StrUtil.isNotBlank(startCode)) {
-            lqw.ge(Pallet::getPalletCode, startCode);
-        }
-        lqw.orderByAsc(Pallet::getPalletCode);
         List<Pallet> pallets = palletMapper.selectList(lqw);
         Set<String> normalizedExcludeBinCodes = excludeBinCodes == null ? Set.of() : excludeBinCodes.stream()
             .map(StrUtil::trimToNull)
@@ -179,7 +175,7 @@ public class PalletService extends ServiceImpl<PalletMapper, Pallet> {
             .thenComparingInt(pallet -> nullLast(extractBinColumn(pallet.getCurrentBinCode())))
             .thenComparingInt(pallet -> nullLast(extractBinLevel(pallet.getCurrentBinCode())))
             .thenComparing(pallet -> defaultString(pallet.getCurrentBinCode()))
-            .thenComparing(pallet -> defaultString(pallet.getPalletCode()));
+            .thenComparingLong(pallet -> pallet.getId() == null ? Long.MAX_VALUE : pallet.getId());
     }
 
     private int levelPriority(String binCode, Integer preferredLevel) {

@@ -93,8 +93,6 @@ public class PdaApiController {
     private static final String OUTBOUND_EMPTY_RETURN_LARGE_START = "Z7-装卸点";
     private static final String PALLET_TYPE_SMALL_CODE = "t1";
     private static final String PALLET_TYPE_LARGE_CODE = "t2";
-    private static final String INBOUND_EMPTY_PALLET_SMALL_START_CODE = "x004";
-    private static final String INBOUND_EMPTY_PALLET_LARGE_START_CODE = "d001";
     private static final String INBOUND_SMALL_LOAD_BIN_1 = "Z1-装卸点";
     private static final String INBOUND_SMALL_LOAD_BIN_2 = "Z2-装卸点";
     private static final String INBOUND_SMALL_LOAD_BIN_3 = "Z3-装卸点";
@@ -1987,7 +1985,7 @@ public class PdaApiController {
             if (nextTask != null) {
                 int chainedResult = dispatchInboundReturnAndNextStart(taskNo, route.fourthStep, nextTask);
                 if (chainedResult == 1) {
-                    moveOutboundPalletOutside(outboundPallet.getPalletCode(), route.firstStep.fromBinCode, route.firstStep.fromBinCode);
+                    moveOutboundPalletOutside(outboundPallet, route.firstStep.fromBinCode, route.firstStep.fromBinCode);
                     agvTaskService.updateTaskStatusByTaskNo(taskNo, 2, null);
                     return dispatchInboundFollowupAfterFirstStep(nextTask.taskNo, nextTask.palletNo,
                         nextTask.route, nextTask.palletTypeCode, nextTask.matCode);
@@ -2000,7 +1998,7 @@ public class PdaApiController {
             if (!dispatchInboundStep(taskNo, 4, route.fourthStep, route.targetBinCode, null)) {
                 return false;
             }
-            moveOutboundPalletOutside(outboundPallet.getPalletCode(), route.firstStep.fromBinCode, route.firstStep.fromBinCode);
+            moveOutboundPalletOutside(outboundPallet, route.firstStep.fromBinCode, route.firstStep.fromBinCode);
             agvTaskService.updateTaskStatusByTaskNo(taskNo, 2, null);
             return true;
         } catch (Exception e) {
@@ -2314,11 +2312,7 @@ public class PdaApiController {
         if (palletType == null || palletType.getId() == null) {
             return null;
         }
-        String startCode = StrUtil.equalsIgnoreCase(palletTypeCode, PALLET_TYPE_SMALL_CODE)
-            ? INBOUND_EMPTY_PALLET_SMALL_START_CODE
-            : (StrUtil.equalsIgnoreCase(palletTypeCode, PALLET_TYPE_LARGE_CODE)
-                ? INBOUND_EMPTY_PALLET_LARGE_START_CODE : null);
-        return palletService.queryFirstAvailableByTypeFromCodeAndPreferredLevel(palletType.getId(), startCode,
+        return palletService.queryFirstAvailableByTypeFromCodeAndPreferredLevel(palletType.getId(), null,
             extractBinLevel(targetBinCode), targetBinCode, List.of(targetBinCode, bufferBinCode));
     }
 
@@ -2338,12 +2332,9 @@ public class PdaApiController {
         palletService.updatePalletLocationOutsideSite(palletVo.getId(), binId, targetBinCode, null);
     }
 
-    private void moveOutboundPalletOutside(String palletNo, String loadBinCode, String outsideSite) {
-        if (StrUtil.isBlank(palletNo) || StrUtil.isBlank(loadBinCode) || StrUtil.isBlank(outsideSite)) {
-            return;
-        }
-        PalletVo palletVo = palletService.queryByPalletCode(palletNo);
-        if (palletVo == null || palletVo.getId() == null) {
+    private void moveOutboundPalletOutside(PalletVo palletVo, String loadBinCode, String outsideSite) {
+        if (palletVo == null || palletVo.getId() == null
+            || StrUtil.isBlank(loadBinCode) || StrUtil.isBlank(outsideSite)) {
             return;
         }
         palletService.updatePalletLocationOutsideSite(palletVo.getId(), null, loadBinCode, outsideSite);
@@ -2797,7 +2788,7 @@ public class PdaApiController {
                 if (!dispatchInboundStep(taskNo, 4, route.fourthStep, route.targetBinCode, null)) {
                     return;
                 }
-                moveOutboundPalletOutside(outboundPallet.getPalletCode(), route.firstStep.fromBinCode, route.firstStep.fromBinCode);
+                moveOutboundPalletOutside(outboundPallet, route.firstStep.fromBinCode, route.firstStep.fromBinCode);
                 updateValveStorage(valveNo, palletNo, route.targetBinCode, 2);
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 2, null);
             } catch (Exception e) {
