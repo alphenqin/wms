@@ -141,10 +141,6 @@ public class PalletService extends ServiceImpl<PalletMapper, Pallet> {
         }
         LambdaQueryWrapper<Pallet> lqw = Wrappers.lambdaQuery();
         lqw.eq(Pallet::getPalletTypeId, palletTypeId);
-        lqw.eq(Pallet::getIsEmpty, 1);
-        lqw.eq(Pallet::getIsBound, 0);
-        lqw.eq(Pallet::getStatus, "0");
-        lqw.and(wrapper -> wrapper.isNull(Pallet::getOutsideSite).or().eq(Pallet::getOutsideSite, ""));
         lqw.isNotNull(Pallet::getCurrentBinCode);
         lqw.ne(Pallet::getCurrentBinCode, "");
         List<Pallet> pallets = palletMapper.selectList(lqw);
@@ -220,10 +216,7 @@ public class PalletService extends ServiceImpl<PalletMapper, Pallet> {
         Bin bin = binMapper.selectOne(Wrappers.<Bin>lambdaQuery()
             .eq(Bin::getBinCode, StrUtil.trim(pallet.getCurrentBinCode())));
         return bin != null
-            && Objects.equals(bin.getStorageStatus(), BinService.STORAGE_STATUS_EMPTY_PALLET)
-            && !Objects.equals(bin.getStatus(), 2)
-            && !Objects.equals(bin.getStatus(), 3)
-            && StrUtil.isBlank(bin.getBoundFactoryNo());
+            && Objects.equals(bin.getStorageStatus(), BinService.STORAGE_STATUS_EMPTY_PALLET);
     }
 
     private Integer extractBinRow(String binCode) {
