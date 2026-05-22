@@ -169,10 +169,11 @@ public class PalletService extends ServiceImpl<PalletMapper, Pallet> {
 
     private Comparator<Pallet> emptyPalletBinComparator(Integer preferredLevel, String preferredBinCode) {
         Integer preferredRow = extractBinRow(preferredBinCode);
+        Integer preferredColumn = extractBinColumn(preferredBinCode);
         return Comparator
             .comparingInt((Pallet pallet) -> rowPriority(pallet.getCurrentBinCode(), preferredRow))
             .thenComparingInt(pallet -> levelPriority(pallet.getCurrentBinCode(), preferredLevel))
-            .thenComparingInt(pallet -> nullLast(extractBinColumn(pallet.getCurrentBinCode())))
+            .thenComparingInt(pallet -> columnPriority(pallet.getCurrentBinCode(), preferredColumn))
             .thenComparingInt(pallet -> nullLast(extractBinLevel(pallet.getCurrentBinCode())))
             .thenComparing(pallet -> defaultString(pallet.getCurrentBinCode()))
             .thenComparingLong(pallet -> pallet.getId() == null ? Long.MAX_VALUE : pallet.getId());
@@ -192,6 +193,16 @@ public class PalletService extends ServiceImpl<PalletMapper, Pallet> {
             return nullLast(row);
         }
         return row >= preferredRow ? row - preferredRow : 10000 + row;
+    }
+
+    private int columnPriority(String binCode, Integer preferredColumn) {
+        Integer column = extractBinColumn(binCode);
+        if (preferredColumn == null || column == null) {
+            return nullLast(column);
+        }
+        int distance = Math.abs(column - preferredColumn);
+        int sidePriority = column <= preferredColumn ? 0 : 1;
+        return distance * 10 + sidePriority;
     }
 
     private int nullLast(Integer value) {
