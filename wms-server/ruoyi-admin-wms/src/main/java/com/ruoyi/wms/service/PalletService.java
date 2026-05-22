@@ -216,7 +216,8 @@ public class PalletService extends ServiceImpl<PalletMapper, Pallet> {
         Bin bin = binMapper.selectOne(Wrappers.<Bin>lambdaQuery()
             .eq(Bin::getBinCode, StrUtil.trim(pallet.getCurrentBinCode())));
         return bin != null
-            && Objects.equals(bin.getStorageStatus(), BinService.STORAGE_STATUS_EMPTY_PALLET);
+            && Objects.equals(bin.getStorageStatus(), BinService.STORAGE_STATUS_EMPTY_PALLET)
+            && !Objects.equals(bin.getStatus(), 2);
     }
 
     private Integer extractBinRow(String binCode) {
