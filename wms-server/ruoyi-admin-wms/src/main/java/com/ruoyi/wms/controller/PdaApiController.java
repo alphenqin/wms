@@ -76,6 +76,7 @@ public class PdaApiController {
     private final PalletMapper palletMapper;
     private final ValveMapper valveMapper;
     private final AgvTaskMapper agvTaskMapper;
+    private final OutsideEmptyPalletMapper outsideEmptyPalletMapper;
 
     /**
      * Token有效期（秒），默认24小时
@@ -88,9 +89,9 @@ public class PdaApiController {
     private static final String AGV_TASK_LEVEL_NORMAL = "2";
     private static final String TASK_SOURCE_PDA = "PDA";
     private static final String OUTBOUND_SMALL_PALLET_BIN = "Z6-装卸点";
-    private static final String OUTBOUND_LARGE_PALLET_BIN = "Z7-装卸点";
+    private static final String OUTBOUND_LARGE_PALLET_BIN = "Z10-装卸点";
     private static final String OUTBOUND_EMPTY_RETURN_SMALL_START = "Z6-装卸点";
-    private static final String OUTBOUND_EMPTY_RETURN_LARGE_START = "Z7-装卸点";
+    private static final String OUTBOUND_EMPTY_RETURN_LARGE_START = "Z10-装卸点";
     private static final String PALLET_TYPE_SMALL_CODE = "t1";
     private static final String PALLET_TYPE_LARGE_CODE = "t2";
     private static final String INBOUND_SMALL_LOAD_BIN_1 = "Z1-装卸点";
@@ -113,14 +114,21 @@ public class PdaApiController {
     private static final String INSPECTION_AREA_WAITING_LABEL = "待检区";
     private static final String INSPECTION_AREA_FLOW_LABEL = "直排流量装置区";
     private static final String INSPECTION_TARGET_SMALL_WAITING = "Z6-装卸点";
-    private static final String INSPECTION_TARGET_LARGE_WAITING = "Z7-装卸点";
+    private static final String INSPECTION_TARGET_LARGE_WAITING = "Z10-装卸点";
     private static final String INSPECTION_TARGET_SMALL_FLOW = "Z6-装卸点";
-    private static final String INSPECTION_TARGET_LARGE_FLOW = "Z7-装卸点";
+    private static final String INSPECTION_TARGET_LARGE_FLOW = "Z10-装卸点";
+    private static final List<String> OUTSIDE_SMALL_PALLET_BINS = List.of("Z6-装卸点", "Z7-装卸点", "Z8-装卸点", "Z9-装卸点");
+    private static final List<String> OUTSIDE_LARGE_PALLET_BINS = List.of("Z10-装卸点");
     private static final String INSPECTION_EMPTY_RETURN_REMARK = "INSPECTION_EMPTY_RETURN";
     private static final String INSPECTION_EMPTY_RETURN_REMARK_LEGACY = "EMPTY_RETURN_FROM_INSPECTION";
     private static final String OUTBOUND_EMPTY_RETURN_REMARK = "OUTBOUND_EMPTY_RETURN";
+    private static final String OUTSIDE_EMPTY_RETURN_REMARK = "OUTSIDE_EMPTY_RETURN";
     private static final String RETURN_CALL_PALLET_REMARK = "RETURN_CALL_PALLET";
     private static final String VALVE_RETURN_REMARK = "VALVE_RETURN";
+    private static final String OUTSIDE_EMPTY_STATUS_WAITING = "WAITING";
+    private static final String OUTSIDE_EMPTY_STATUS_DISPATCHING = "DISPATCHING";
+    private static final String OUTSIDE_EMPTY_STATUS_RETURNED = "RETURNED";
+    private static final String OUTSIDE_EMPTY_STATUS_FAILED = "FAILED";
     private static final String AGV_OPEN_TASK_STATUS_FINISHED = "08";
     private static final String AGV_OPEN_TASK_STATUS_CLEARED = "09";
     private static final long AGV_OPEN_TASK_POLL_INTERVAL_MS = 10_000L;
@@ -795,9 +803,15 @@ public class PdaApiController {
             if (area == null) {
                 area = INSPECTION_AREA_WAITING;
             }
-            String targetBinCode = resolveInspectionTargetBin(area, palletType);
+            String targetBinCode = StrUtil.trimToNull(request.getToBinCode());
+            if (targetBinCode == null) {
+                targetBinCode = resolveInspectionTargetBin(area, palletType);
+            }
             if (targetBinCode == null) {
                 return R.fail(400, "送检目标站点解析失败");
+            }
+            if (!isOutsideSiteAllowedForPalletType(targetBinCode, palletType)) {
+                return R.fail(400, "送检目标站点与托盘类型不匹配");
             }
             InspectionRoute route = buildInspectionRoute(palletType, fromBinCode, targetBinCode);
             if (route == null) {
@@ -1032,9 +1046,15 @@ public class PdaApiController {
             if (palletType == null) {
                 return R.fail(400, "托盘类型错误");
             }
-            String startBinCode = resolveOutboundEmptyReturnStartBinByPalletType(palletType);
+            String startBinCode = fromBinCode;
+            if (startBinCode == null) {
+                startBinCode = resolveOutboundEmptyReturnStartBinByPalletType(palletType);
+            }
             if (startBinCode == null) {
                 return R.fail(400, "托盘类型错误");
+            }
+            if (!isOutsideSiteAllowedForPalletType(startBinCode, palletType)) {
+                return R.fail(400, "出库空托起始站点与托盘类型不匹配");
             }
             InspectionRoute route = buildOutboundEmptyReturnRoute(palletType, startBinCode, targetBinCode);
             if (route == null) {
@@ -1093,9 +1113,15 @@ public class PdaApiController {
             if (palletType == null) {
                 return R.fail(400, "托盘类型不支持");
             }
-            String targetBinCode = resolveOutboundToBinCodeByPalletType(palletType);
+            String targetBinCode = StrUtil.trimToNull(request.getToBinCode());
+            if (targetBinCode == null) {
+                targetBinCode = resolveOutboundToBinCodeByPalletType(palletType);
+            }
             if (targetBinCode == null) {
                 return R.fail(400, "托盘类型不支持");
+            }
+            if (!isOutsideSiteAllowedForPalletType(targetBinCode, palletType)) {
+                return R.fail(400, "出库目标站点与托盘类型不匹配");
             }
             OutboundRoute route = buildOutboundRoute(palletType, fromBinCode, targetBinCode);
             if (route == null) {
@@ -1217,6 +1243,49 @@ public class PdaApiController {
             recordOperation(9, deviceCode, outId, outId, null, 0, null, e.getMessage());
             return R.fail(500, "取消任务失败: " + e.getMessage());
         }
+    }
+
+    /**
+     * 查询待回库的库外空托盘。
+     */
+    @PostMapping("/outside-empty-pallet/list")
+    public R<List<OutsideEmptyPallet>> listOutsideEmptyPallets() {
+        LambdaQueryWrapper<OutsideEmptyPallet> wrapper = Wrappers.lambdaQuery();
+        wrapper.in(OutsideEmptyPallet::getStatus, OUTSIDE_EMPTY_STATUS_WAITING, OUTSIDE_EMPTY_STATUS_FAILED);
+        wrapper.orderByAsc(OutsideEmptyPallet::getStationCode);
+        wrapper.orderByDesc(OutsideEmptyPallet::getCreateTime);
+        return R.ok(outsideEmptyPalletMapper.selectList(wrapper));
+    }
+
+    /**
+     * 批量提交库外空托回库，后台按站点顺序依次下发。
+     */
+    @PostMapping("/outside-empty-pallet/return/batch")
+    public R<Map<String, Object>> returnOutsideEmptyPallets(@RequestBody OutsideEmptyPalletReturnRequest request) {
+        if (request == null || request.ids == null || request.ids.isEmpty()) {
+            return R.fail(400, "请选择库外空托盘");
+        }
+        LambdaQueryWrapper<OutsideEmptyPallet> wrapper = Wrappers.lambdaQuery();
+        wrapper.in(OutsideEmptyPallet::getId, request.ids);
+        wrapper.in(OutsideEmptyPallet::getStatus, OUTSIDE_EMPTY_STATUS_WAITING, OUTSIDE_EMPTY_STATUS_FAILED);
+        wrapper.orderByAsc(OutsideEmptyPallet::getStationCode);
+        List<OutsideEmptyPallet> records = outsideEmptyPalletMapper.selectList(wrapper);
+        if (records.isEmpty()) {
+            return R.fail(400, "未找到可回库的空托盘");
+        }
+        for (OutsideEmptyPallet record : records) {
+            OutsideEmptyPallet update = new OutsideEmptyPallet();
+            update.setId(record.getId());
+            update.setStatus(OUTSIDE_EMPTY_STATUS_DISPATCHING);
+            update.setErrorMsg(null);
+            outsideEmptyPalletMapper.updateById(update);
+        }
+        String deviceCode = StrUtil.trimToNull(request.deviceCode);
+        CompletableFuture.runAsync(() -> dispatchOutsideEmptyPalletReturns(records, deviceCode), inboundExecutor);
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("accepted", records.size());
+        return R.ok(data);
     }
 
     private void recordTaskOperation(Integer taskType, String pdaDeviceNo, String palletNo, String outId,
@@ -1552,7 +1621,7 @@ public class PdaApiController {
     private long countActiveOutboundEmptyReturnTasks() {
         LambdaQueryWrapper<AgvTask> wrapper = Wrappers.lambdaQuery();
         wrapper.eq(AgvTask::getTaskType, 3);
-        wrapper.eq(AgvTask::getRemark, OUTBOUND_EMPTY_RETURN_REMARK);
+        wrapper.in(AgvTask::getRemark, OUTBOUND_EMPTY_RETURN_REMARK, OUTSIDE_EMPTY_RETURN_REMARK);
         wrapper.in(AgvTask::getStatus, 0, 1);
         return agvTaskMapper.selectCount(wrapper);
     }
@@ -1612,7 +1681,7 @@ public class PdaApiController {
     private AgvTask getLatestOutboundEmptyReturnTask() {
         LambdaQueryWrapper<AgvTask> wrapper = Wrappers.lambdaQuery();
         wrapper.eq(AgvTask::getTaskType, 3);
-        wrapper.eq(AgvTask::getRemark, OUTBOUND_EMPTY_RETURN_REMARK);
+        wrapper.in(AgvTask::getRemark, OUTBOUND_EMPTY_RETURN_REMARK, OUTSIDE_EMPTY_RETURN_REMARK);
         wrapper.orderByDesc(AgvTask::getCreateTime);
         wrapper.last("limit 1");
         return agvTaskMapper.selectOne(wrapper);
@@ -1634,6 +1703,146 @@ public class PdaApiController {
         }
         if (StrUtil.equalsIgnoreCase(typeCode, PALLET_TYPE_LARGE_CODE)) {
             return OUTBOUND_EMPTY_RETURN_LARGE_START;
+        }
+        return null;
+    }
+
+    private void saveOutsideEmptyPallet(String stationCode, String targetBinCode, String palletType,
+                                        String palletNo, String sourceTaskNo, String sourceType) {
+        if (StrUtil.isBlank(stationCode) || StrUtil.isBlank(targetBinCode)) {
+            return;
+        }
+        try {
+            LambdaQueryWrapper<OutsideEmptyPallet> wrapper = Wrappers.lambdaQuery();
+            wrapper.eq(OutsideEmptyPallet::getStationCode, stationCode);
+            wrapper.in(OutsideEmptyPallet::getStatus, OUTSIDE_EMPTY_STATUS_WAITING, OUTSIDE_EMPTY_STATUS_DISPATCHING);
+            wrapper.orderByDesc(OutsideEmptyPallet::getCreateTime);
+            wrapper.last("limit 1");
+            OutsideEmptyPallet existing = outsideEmptyPalletMapper.selectOne(wrapper);
+
+            OutsideEmptyPallet record = new OutsideEmptyPallet();
+            record.setStationCode(stationCode);
+            record.setTargetBinCode(targetBinCode);
+            record.setPalletType(palletType);
+            record.setPalletNo(StrUtil.trimToNull(palletNo));
+            record.setSourceTaskNo(sourceTaskNo);
+            record.setSourceType(sourceType);
+            record.setStatus(OUTSIDE_EMPTY_STATUS_WAITING);
+            record.setReturnTaskNo(null);
+            record.setErrorMsg(null);
+            if (existing == null) {
+                outsideEmptyPalletMapper.insert(record);
+            } else {
+                record.setId(existing.getId());
+                outsideEmptyPalletMapper.updateById(record);
+            }
+        } catch (Exception e) {
+            log.error("保存库外空托盘记录失败 station={}, target={}", stationCode, targetBinCode, e);
+        }
+    }
+
+    private void dispatchOutsideEmptyPalletReturns(List<OutsideEmptyPallet> records, String deviceCode) {
+        for (OutsideEmptyPallet record : records) {
+            dispatchOneOutsideEmptyPalletReturn(record, deviceCode);
+        }
+    }
+
+    private void dispatchOneOutsideEmptyPalletReturn(OutsideEmptyPallet record, String deviceCode) {
+        String taskNo = null;
+        try {
+            String stationCode = StrUtil.trimToNull(record.getStationCode());
+            String targetBinCode = StrUtil.trimToNull(record.getTargetBinCode());
+            String palletType = StrUtil.trimToNull(record.getPalletType());
+            if (palletType == null) {
+                palletType = resolvePalletTypeByOutsideSite(stationCode);
+            }
+            if (stationCode == null || targetBinCode == null || palletType == null) {
+                markOutsideEmptyPalletFailed(record.getId(), null, "库外空托盘参数错误");
+                return;
+            }
+            InspectionRoute route = buildInspectionEmptyReturnRoute(palletType, stationCode, targetBinCode);
+            if (route == null) {
+                markOutsideEmptyPalletFailed(record.getId(), null, "空托回库路径参数错误");
+                return;
+            }
+
+            taskNo = "H" + DateUtil.format(new Date(), "yyyyMMddHHmmssSSS") + "-" + record.getId();
+            String effectivePalletNo = StrUtil.blankToDefault(record.getPalletNo(), targetBinCode);
+            AgvTaskBo taskBo = new AgvTaskBo();
+            taskBo.setTaskType(3);
+            taskBo.setTaskNo(taskNo);
+            taskBo.setPalletCode(effectivePalletNo);
+            taskBo.setFromBinCode(stationCode);
+            taskBo.setToBinCode(targetBinCode);
+            taskBo.setRemark(OUTSIDE_EMPTY_RETURN_REMARK);
+            taskBo.setTaskSource(TASK_SOURCE_PDA);
+            taskBo.setPdaDeviceNo(deviceCode);
+            agvTaskService.insertByBo(taskBo);
+
+            OutsideEmptyPallet dispatching = new OutsideEmptyPallet();
+            dispatching.setId(record.getId());
+            dispatching.setReturnTaskNo(taskNo);
+            dispatching.setStatus(OUTSIDE_EMPTY_STATUS_DISPATCHING);
+            outsideEmptyPalletMapper.updateById(dispatching);
+
+            String step1OutId = buildInspectionEmptyReturnStepOutId(taskNo, 1);
+            AgvOpenTaskBo first = buildPickDropTask(step1OutId,
+                route.firstStep.fromBinCode,
+                route.firstStep.toBinCode,
+                null,
+                route.firstStep.agvRange);
+            Map<String, Object> agvResp = agvOpenTaskService.sendTask(first);
+            String code = MapUtil.getStr(agvResp, "code");
+            String message = MapUtil.getStr(agvResp, "message");
+            if (!"20000".equals(code)) {
+                String error = StrUtil.emptyToDefault(message, "AGV任务下发失败");
+                agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, error);
+                markOutsideEmptyPalletFailed(record.getId(), taskNo, error);
+                return;
+            }
+            agvTaskService.updateTaskStatusByTaskNo(taskNo, 1, null);
+            if (!waitForOpenTaskFinished(step1OutId)) {
+                agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "空托回库步骤1未完成");
+                markOutsideEmptyPalletFailed(record.getId(), taskNo, "空托回库步骤1未完成");
+                return;
+            }
+            if (!dispatchInspectionEmptyReturnStep(taskNo, 2, route.secondStep, route.targetBinCode)) {
+                markOutsideEmptyPalletFailed(record.getId(), taskNo, "空托回库步骤2未完成");
+                return;
+            }
+            binService.markEmptyPallet(route.targetBinCode);
+            agvTaskService.updateTaskStatusByTaskNo(taskNo, 2, null);
+
+            OutsideEmptyPallet returned = new OutsideEmptyPallet();
+            returned.setId(record.getId());
+            returned.setStatus(OUTSIDE_EMPTY_STATUS_RETURNED);
+            returned.setReturnTaskNo(taskNo);
+            returned.setErrorMsg(null);
+            outsideEmptyPalletMapper.updateById(returned);
+        } catch (Exception e) {
+            if (taskNo != null) {
+                agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
+            }
+            markOutsideEmptyPalletFailed(record.getId(), taskNo, e.getMessage());
+        }
+    }
+
+    private void markOutsideEmptyPalletFailed(Long id, String taskNo, String errorMsg) {
+        OutsideEmptyPallet failed = new OutsideEmptyPallet();
+        failed.setId(id);
+        failed.setStatus(OUTSIDE_EMPTY_STATUS_FAILED);
+        failed.setReturnTaskNo(taskNo);
+        failed.setErrorMsg(errorMsg);
+        outsideEmptyPalletMapper.updateById(failed);
+    }
+
+    private String resolvePalletTypeByOutsideSite(String outsideSite) {
+        Integer binType = resolveInspectionTargetBinType(outsideSite);
+        if (Objects.equals(binType, BIN_TYPE_SMALL_PALLET)) {
+            return PALLET_TYPE_SMALL_CODE;
+        }
+        if (Objects.equals(binType, BIN_TYPE_LARGE_PALLET)) {
+            return PALLET_TYPE_LARGE_CODE;
         }
         return null;
     }
@@ -1687,17 +1896,23 @@ public class PdaApiController {
     }
 
     private Integer resolveInspectionTargetBinType(String inspectionTargetBin) {
-        if (StrUtil.equals(inspectionTargetBin, INSPECTION_TARGET_SMALL_WAITING)
-            || StrUtil.equals(inspectionTargetBin, INSPECTION_TARGET_SMALL_FLOW)
-            || StrUtil.equals(inspectionTargetBin, OUTBOUND_SMALL_PALLET_BIN)) {
+        if (OUTSIDE_SMALL_PALLET_BINS.contains(inspectionTargetBin)) {
             return BIN_TYPE_SMALL_PALLET;
         }
-        if (StrUtil.equals(inspectionTargetBin, INSPECTION_TARGET_LARGE_WAITING)
-            || StrUtil.equals(inspectionTargetBin, INSPECTION_TARGET_LARGE_FLOW)
-            || StrUtil.equals(inspectionTargetBin, OUTBOUND_LARGE_PALLET_BIN)) {
+        if (OUTSIDE_LARGE_PALLET_BINS.contains(inspectionTargetBin)) {
             return BIN_TYPE_LARGE_PALLET;
         }
         return null;
+    }
+
+    private boolean isOutsideSiteAllowedForPalletType(String outsideSite, String palletTypeCode) {
+        if (StrUtil.equalsIgnoreCase(palletTypeCode, PALLET_TYPE_SMALL_CODE)) {
+            return OUTSIDE_SMALL_PALLET_BINS.contains(outsideSite);
+        }
+        if (StrUtil.equalsIgnoreCase(palletTypeCode, PALLET_TYPE_LARGE_CODE)) {
+            return OUTSIDE_LARGE_PALLET_BINS.contains(outsideSite);
+        }
+        return false;
     }
 
     private boolean isSmallPalletType(String typeCode) {
@@ -2525,6 +2740,8 @@ public class PdaApiController {
                 AgvTask task = agvTaskMapper.selectOne(Wrappers.lambdaQuery(AgvTask.class).eq(AgvTask::getTaskNo, taskNo));
                 if (task != null && task.getPalletCode() != null) {
                     updateValveStatus(task.getBizOrderNo(), task.getPalletCode(), 1);
+                    saveOutsideEmptyPallet(route.targetBinCode, route.firstStep.fromBinCode,
+                        resolvePalletTypeByOutsideSite(route.targetBinCode), task.getPalletCode(), taskNo, "INSPECTION");
                 }
             } catch (Exception e) {
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
@@ -2573,6 +2790,8 @@ public class PdaApiController {
                 updateValveStatus(valveNo, palletNo, 3);
                 binService.markEmptyBin(route.firstStep.fromBinCode);
                 unbindPalletSilently(palletNo);
+                saveOutsideEmptyPallet(route.targetBinCode, route.firstStep.fromBinCode,
+                    resolvePalletTypeByOutsideSite(route.targetBinCode), palletNo, taskNo, "OUTBOUND");
             } catch (Exception e) {
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
             } finally {
@@ -3322,5 +3541,10 @@ public class PdaApiController {
             this.firstStep = firstStep;
             this.secondStep = secondStep;
         }
+    }
+
+    public static class OutsideEmptyPalletReturnRequest {
+        public List<Long> ids;
+        public String deviceCode;
     }
 }

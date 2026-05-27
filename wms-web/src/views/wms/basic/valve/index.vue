@@ -5,6 +5,9 @@
         <el-form-item label="出厂编号" prop="valveNo">
           <el-input v-model="queryParams.valveNo" placeholder="请输入出厂编号" clearable class="query-input" @keyup.enter="handleQuery" />
         </el-form-item>
+        <el-form-item label="厂家" prop="manufacturer">
+          <el-input v-model="queryParams.manufacturer" placeholder="请输入厂家" clearable class="query-input" @keyup.enter="handleQuery" />
+        </el-form-item>
         <el-form-item label="当前库位" prop="currentBinCode">
           <el-input v-model="queryParams.currentBinCode" placeholder="请输入当前库位" clearable class="query-input" @keyup.enter="handleQuery" />
         </el-form-item>
@@ -262,6 +265,7 @@ const data = reactive({
     pageNum: 1,
     pageSize: 50,
     valveNo: undefined,
+    manufacturer: undefined,
     status: undefined,
     currentBinCode: undefined,
     createTimeRange: undefined,

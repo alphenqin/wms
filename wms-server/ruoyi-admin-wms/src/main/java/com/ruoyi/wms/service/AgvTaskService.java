@@ -44,6 +44,7 @@ public class AgvTaskService extends ServiceImpl<AgvTaskMapper, AgvTask> {
     private static final String INSPECTION_EMPTY_RETURN_REMARK = "INSPECTION_EMPTY_RETURN";
     private static final String INSPECTION_EMPTY_RETURN_REMARK_LEGACY = "EMPTY_RETURN_FROM_INSPECTION";
     private static final String OUTBOUND_EMPTY_RETURN_REMARK = "OUTBOUND_EMPTY_RETURN";
+    private static final String OUTSIDE_EMPTY_RETURN_REMARK = "OUTSIDE_EMPTY_RETURN";
     private static final String RETURN_CALL_PALLET_REMARK = "RETURN_CALL_PALLET";
     private static final String VALVE_RETURN_REMARK = "VALVE_RETURN";
 
@@ -126,7 +127,7 @@ public class AgvTaskService extends ServiceImpl<AgvTaskMapper, AgvTask> {
                     break;
                 case "OUTBOUND_EMPTY_RETURN":
                     lqw.eq(AgvTask::getTaskType, 3);
-                    lqw.eq(AgvTask::getRemark, OUTBOUND_EMPTY_RETURN_REMARK);
+                    lqw.in(AgvTask::getRemark, OUTBOUND_EMPTY_RETURN_REMARK, OUTSIDE_EMPTY_RETURN_REMARK);
                     break;
                 default:
                     break;
@@ -233,8 +234,9 @@ public class AgvTaskService extends ServiceImpl<AgvTaskMapper, AgvTask> {
                 boolean isInspectionEmptyReturn = StrUtil.equalsIgnoreCase(remark, INSPECTION_EMPTY_RETURN_REMARK)
                     || StrUtil.equalsIgnoreCase(remark, INSPECTION_EMPTY_RETURN_REMARK_LEGACY);
                 boolean isOutboundEmptyReturn = StrUtil.equalsIgnoreCase(remark, OUTBOUND_EMPTY_RETURN_REMARK);
+                boolean isOutsideEmptyReturn = StrUtil.equalsIgnoreCase(remark, OUTSIDE_EMPTY_RETURN_REMARK);
                 boolean isReturnCallPallet = StrUtil.equalsIgnoreCase(remark, RETURN_CALL_PALLET_REMARK);
-                if (!isInspectionEmptyReturn && !isOutboundEmptyReturn && !isReturnCallPallet) {
+                if (!isInspectionEmptyReturn && !isOutboundEmptyReturn && !isOutsideEmptyReturn && !isReturnCallPallet) {
                     valveStatus = 2;
                 }
             } else if (task.getTaskType() == 4) {

@@ -42,6 +42,7 @@ public class AgvTaskCompensateJob {
     private static final String INSPECTION_EMPTY_RETURN_REMARK = "INSPECTION_EMPTY_RETURN";
     private static final String INSPECTION_EMPTY_RETURN_REMARK_LEGACY = "EMPTY_RETURN_FROM_INSPECTION";
     private static final String OUTBOUND_EMPTY_RETURN_REMARK = "OUTBOUND_EMPTY_RETURN";
+    private static final String OUTSIDE_EMPTY_RETURN_REMARK = "OUTSIDE_EMPTY_RETURN";
     private static final String RETURN_CALL_PALLET_REMARK = "RETURN_CALL_PALLET";
     private static final String VALVE_RETURN_REMARK = "VALVE_RETURN";
 
@@ -167,6 +168,12 @@ public class AgvTaskCompensateJob {
                     return Arrays.asList(
                         new TaskStepRef(taskNo + "-OR1", "1"),
                         new TaskStepRef(taskNo + "-OR2", "2")
+                    );
+                }
+                if (OUTSIDE_EMPTY_RETURN_REMARK.equalsIgnoreCase(remark)) {
+                    return Arrays.asList(
+                        new TaskStepRef(taskNo + "-ER1", "1"),
+                        new TaskStepRef(taskNo + "-ER2", "2")
                     );
                 }
                 if (RETURN_CALL_PALLET_REMARK.equalsIgnoreCase(remark)) {
