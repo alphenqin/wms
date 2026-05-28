@@ -43,7 +43,6 @@ public class PdaTaskDispatchRequest {
     /**
      * 目标站点/库位
      */
-    @NotBlank(message = "目标站点不能为空")
     private String toBinCode;
 
     /**

@@ -271,11 +271,7 @@ const data = reactive({
     createTimeRange: undefined,
     outboundTimeRange: undefined,
   },
-  rules: {
-    valveNo: [
-      { required: true, message: "出厂编号不能为空", trigger: "blur" }
-    ],
-  }
+  rules: {}
 });
 
 const { queryParams, form, rules } = toRefs(data);

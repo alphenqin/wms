@@ -132,6 +132,7 @@ public class ValveService extends ServiceImpl<ValveMapper, Valve> {
 
     @Transactional(rollbackFor = Exception.class)
     public void insertByBo(ValveBo bo) {
+        bo.setValveNo(StrUtil.trimToNull(bo.getValveNo()));
         validateValveNo(bo);
         Valve add = MapstructUtils.convert(bo, Valve.class);
         if (add.getStatus() == null) {
@@ -146,6 +147,7 @@ public class ValveService extends ServiceImpl<ValveMapper, Valve> {
 
     @Transactional(rollbackFor = Exception.class)
     public void updateByBo(ValveBo bo) {
+        bo.setValveNo(StrUtil.trimToNull(bo.getValveNo()));
         validateValveNo(bo);
         Valve current = valveMapper.selectById(bo.getId());
         if (current == null) {
@@ -164,6 +166,9 @@ public class ValveService extends ServiceImpl<ValveMapper, Valve> {
     }
 
     private void validateValveNo(ValveBo valve) {
+        if (StrUtil.isBlank(valve.getValveNo())) {
+            return;
+        }
         LambdaQueryWrapper<Valve> queryWrapper = Wrappers.lambdaQuery();
         queryWrapper.eq(Valve::getValveNo, valve.getValveNo());
         List<Valve> valveList = valveMapper.selectList(queryWrapper);

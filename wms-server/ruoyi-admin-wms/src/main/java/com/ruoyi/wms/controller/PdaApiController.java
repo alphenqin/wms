@@ -77,6 +77,7 @@ public class PdaApiController {
     private final ValveMapper valveMapper;
     private final AgvTaskMapper agvTaskMapper;
     private final OutsideEmptyPalletMapper outsideEmptyPalletMapper;
+    private final OutsideStationMapper outsideStationMapper;
 
     /**
      * Token有效期（秒），默认24小时
@@ -129,6 +130,9 @@ public class PdaApiController {
     private static final String OUTSIDE_EMPTY_STATUS_DISPATCHING = "DISPATCHING";
     private static final String OUTSIDE_EMPTY_STATUS_RETURNED = "RETURNED";
     private static final String OUTSIDE_EMPTY_STATUS_FAILED = "FAILED";
+    private static final String OUTSIDE_STATION_STATUS_IDLE = "IDLE";
+    private static final String OUTSIDE_STATION_STATUS_OCCUPIED = "OCCUPIED";
+    private static final String OUTSIDE_STATION_STATUS_RETURNING = "RETURNING";
     private static final String AGV_OPEN_TASK_STATUS_FINISHED = "08";
     private static final String AGV_OPEN_TASK_STATUS_CLEARED = "09";
     private static final long AGV_OPEN_TASK_POLL_INTERVAL_MS = 10_000L;
@@ -137,6 +141,7 @@ public class PdaApiController {
 
     private final ExecutorService inboundExecutor = Executors.newCachedThreadPool();
     private final Object inboundQueueLock = new Object();
+    private final Object outsideStationLock = new Object();
 
     /**
      * 登录接口
@@ -554,7 +559,7 @@ public class PdaApiController {
                 info.setInboundDate(resolveValveInboundDate(valve));
                 
                 // 物料编码（可以从物料类型表获取，这里先使用出厂编号）
-                info.setMatCode("MAT-" + valve.getValveNo());
+                info.setMatCode(StrUtil.isNotBlank(valve.getValveNo()) ? "MAT-" + valve.getValveNo() : null);
                 
                 return info;
             }).collect(Collectors.toList());
@@ -803,18 +808,19 @@ public class PdaApiController {
             if (area == null) {
                 area = INSPECTION_AREA_WAITING;
             }
-            String targetBinCode = StrUtil.trimToNull(request.getToBinCode());
-            if (targetBinCode == null) {
-                targetBinCode = resolveInspectionTargetBin(area, palletType);
+            OutsideStation allocatedStation = allocateOutsideStation(palletType, fromBinCode, effectivePalletNo,
+                StrUtil.trimToNull(request.getOutID()), "INSPECTION");
+            if (allocatedStation == null) {
+                return R.fail(409, "库外站点已满，请先空托回库");
             }
-            if (targetBinCode == null) {
-                return R.fail(400, "送检目标站点解析失败");
-            }
+            String targetBinCode = allocatedStation.getStationCode();
             if (!isOutsideSiteAllowedForPalletType(targetBinCode, palletType)) {
+                releaseOutsideStation(targetBinCode);
                 return R.fail(400, "送检目标站点与托盘类型不匹配");
             }
             InspectionRoute route = buildInspectionRoute(palletType, fromBinCode, targetBinCode);
             if (route == null) {
+                releaseOutsideStation(targetBinCode);
                 return R.fail(400, "送检任务参数错误");
             }
 
@@ -843,6 +849,7 @@ public class PdaApiController {
                 String message = MapUtil.getStr(agvResp, "message");
                 if (!"20000".equals(code)) {
                     agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, StrUtil.emptyToDefault(message, "AGV任务下发失败"));
+                    releaseOutsideStation(targetBinCode);
                     return R.fail(500, StrUtil.emptyToDefault(message, "AGV任务下发失败"));
                 }
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 1, null);
@@ -851,6 +858,7 @@ public class PdaApiController {
                 dispatchInspectionFollowupSteps(taskNo, route, matCode);
             } catch (Exception e) {
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
+                releaseOutsideStation(targetBinCode);
                 return R.fail(500, "任务下发失败: " + e.getMessage());
             }
 
@@ -1113,18 +1121,19 @@ public class PdaApiController {
             if (palletType == null) {
                 return R.fail(400, "托盘类型不支持");
             }
-            String targetBinCode = StrUtil.trimToNull(request.getToBinCode());
-            if (targetBinCode == null) {
-                targetBinCode = resolveOutboundToBinCodeByPalletType(palletType);
+            OutsideStation allocatedStation = allocateOutsideStation(palletType, fromBinCode, effectivePalletNo,
+                StrUtil.trimToNull(request.getOutID()), "OUTBOUND");
+            if (allocatedStation == null) {
+                return R.fail(409, "库外站点已满，请先空托回库");
             }
-            if (targetBinCode == null) {
-                return R.fail(400, "托盘类型不支持");
-            }
+            String targetBinCode = allocatedStation.getStationCode();
             if (!isOutsideSiteAllowedForPalletType(targetBinCode, palletType)) {
+                releaseOutsideStation(targetBinCode);
                 return R.fail(400, "出库目标站点与托盘类型不匹配");
             }
             OutboundRoute route = buildOutboundRoute(palletType, fromBinCode, targetBinCode);
             if (route == null) {
+                releaseOutsideStation(targetBinCode);
                 return R.fail(400, "出库任务参数错误");
             }
 
@@ -1153,12 +1162,14 @@ public class PdaApiController {
                 String message = MapUtil.getStr(agvResp, "message");
                 if (!"20000".equals(code)) {
                     agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, StrUtil.emptyToDefault(message, "AGV任务下发失败"));
+                    releaseOutsideStation(targetBinCode);
                     return R.fail(500, StrUtil.emptyToDefault(message, "AGV任务下发失败"));
                 }
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 1, null);
                 dispatchOutboundFollowupSteps(taskNo, route, matCode, request.getValveNo(), effectivePalletNo);
             } catch (Exception e) {
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
+                releaseOutsideStation(targetBinCode);
                 return R.fail(500, "任务下发失败: " + e.getMessage());
             }
 
@@ -1250,11 +1261,14 @@ public class PdaApiController {
      */
     @PostMapping("/outside-empty-pallet/list")
     public R<List<OutsideEmptyPallet>> listOutsideEmptyPallets() {
-        LambdaQueryWrapper<OutsideEmptyPallet> wrapper = Wrappers.lambdaQuery();
-        wrapper.in(OutsideEmptyPallet::getStatus, OUTSIDE_EMPTY_STATUS_WAITING, OUTSIDE_EMPTY_STATUS_FAILED);
-        wrapper.orderByAsc(OutsideEmptyPallet::getStationCode);
-        wrapper.orderByDesc(OutsideEmptyPallet::getCreateTime);
-        return R.ok(outsideEmptyPalletMapper.selectList(wrapper));
+        ensureOutsideStationsInitialized();
+        LambdaQueryWrapper<OutsideStation> wrapper = Wrappers.lambdaQuery();
+        wrapper.in(OutsideStation::getStatus, OUTSIDE_STATION_STATUS_OCCUPIED, OUTSIDE_STATION_STATUS_RETURNING);
+        wrapper.orderByAsc(OutsideStation::getStationCode);
+        List<OutsideEmptyPallet> records = outsideStationMapper.selectList(wrapper).stream()
+            .map(this::convertStationToOutsideEmptyPallet)
+            .collect(Collectors.toList());
+        return R.ok(records);
     }
 
     /**
@@ -1265,20 +1279,24 @@ public class PdaApiController {
         if (request == null || request.ids == null || request.ids.isEmpty()) {
             return R.fail(400, "请选择库外空托盘");
         }
-        LambdaQueryWrapper<OutsideEmptyPallet> wrapper = Wrappers.lambdaQuery();
-        wrapper.in(OutsideEmptyPallet::getId, request.ids);
-        wrapper.in(OutsideEmptyPallet::getStatus, OUTSIDE_EMPTY_STATUS_WAITING, OUTSIDE_EMPTY_STATUS_FAILED);
-        wrapper.orderByAsc(OutsideEmptyPallet::getStationCode);
-        List<OutsideEmptyPallet> records = outsideEmptyPalletMapper.selectList(wrapper);
+        ensureOutsideStationsInitialized();
+        LambdaQueryWrapper<OutsideStation> wrapper = Wrappers.lambdaQuery();
+        wrapper.in(OutsideStation::getId, request.ids);
+        wrapper.in(OutsideStation::getStatus, OUTSIDE_STATION_STATUS_OCCUPIED);
+        wrapper.orderByAsc(OutsideStation::getStationCode);
+        List<OutsideStation> stations = outsideStationMapper.selectList(wrapper);
+        List<OutsideEmptyPallet> records = stations.stream()
+            .map(this::convertStationToOutsideEmptyPallet)
+            .collect(Collectors.toList());
         if (records.isEmpty()) {
             return R.fail(400, "未找到可回库的空托盘");
         }
-        for (OutsideEmptyPallet record : records) {
-            OutsideEmptyPallet update = new OutsideEmptyPallet();
-            update.setId(record.getId());
-            update.setStatus(OUTSIDE_EMPTY_STATUS_DISPATCHING);
+        for (OutsideStation station : stations) {
+            OutsideStation update = new OutsideStation();
+            update.setId(station.getId());
+            update.setStatus(OUTSIDE_STATION_STATUS_RETURNING);
             update.setErrorMsg(null);
-            outsideEmptyPalletMapper.updateById(update);
+            outsideStationMapper.updateById(update);
         }
         String deviceCode = StrUtil.trimToNull(request.deviceCode);
         CompletableFuture.runAsync(() -> dispatchOutsideEmptyPalletReturns(records, deviceCode), inboundExecutor);
@@ -1707,11 +1725,147 @@ public class PdaApiController {
         return null;
     }
 
+    private void ensureOutsideStationsInitialized() {
+        synchronized (outsideStationLock) {
+            ensureOutsideStation("Z6-装卸点", PALLET_TYPE_SMALL_CODE);
+            ensureOutsideStation("Z7-装卸点", PALLET_TYPE_SMALL_CODE);
+            ensureOutsideStation("Z8-装卸点", PALLET_TYPE_SMALL_CODE);
+            ensureOutsideStation("Z9-装卸点", PALLET_TYPE_SMALL_CODE);
+            ensureOutsideStation("Z10-装卸点", PALLET_TYPE_LARGE_CODE);
+        }
+    }
+
+    private void ensureOutsideStation(String stationCode, String palletType) {
+        LambdaQueryWrapper<OutsideStation> wrapper = Wrappers.lambdaQuery();
+        wrapper.eq(OutsideStation::getStationCode, stationCode);
+        wrapper.last("limit 1");
+        OutsideStation existing = outsideStationMapper.selectOne(wrapper);
+        if (existing != null) {
+            return;
+        }
+        OutsideStation station = new OutsideStation();
+        station.setStationCode(stationCode);
+        station.setPalletType(palletType);
+        station.setStatus(OUTSIDE_STATION_STATUS_IDLE);
+        outsideStationMapper.insert(station);
+    }
+
+    private OutsideStation allocateOutsideStation(String palletType, String sourceBinCode,
+                                                 String palletNo, String sourceTaskNo, String sourceType) {
+        synchronized (outsideStationLock) {
+            ensureOutsideStationsInitialized();
+            LambdaQueryWrapper<OutsideStation> wrapper = Wrappers.lambdaQuery();
+            wrapper.eq(OutsideStation::getPalletType, palletType);
+            wrapper.eq(OutsideStation::getStatus, OUTSIDE_STATION_STATUS_IDLE);
+            wrapper.orderByAsc(OutsideStation::getStationCode);
+            wrapper.last("limit 1");
+            OutsideStation station = outsideStationMapper.selectOne(wrapper);
+            if (station == null) {
+                return null;
+            }
+            outsideStationMapper.update(null, Wrappers.lambdaUpdate(OutsideStation.class)
+                .eq(OutsideStation::getId, station.getId())
+                .set(OutsideStation::getStatus, OUTSIDE_STATION_STATUS_OCCUPIED)
+                .set(OutsideStation::getSourceBinCode, sourceBinCode)
+                .set(OutsideStation::getPalletNo, StrUtil.trimToNull(palletNo))
+                .set(OutsideStation::getSourceTaskNo, sourceTaskNo)
+                .set(OutsideStation::getSourceType, sourceType)
+                .set(OutsideStation::getReturnTaskNo, null)
+                .set(OutsideStation::getErrorMsg, null));
+
+            station.setStatus(OUTSIDE_STATION_STATUS_OCCUPIED);
+            station.setSourceBinCode(sourceBinCode);
+            station.setPalletNo(StrUtil.trimToNull(palletNo));
+            station.setSourceTaskNo(sourceTaskNo);
+            station.setSourceType(sourceType);
+            station.setReturnTaskNo(null);
+            station.setErrorMsg(null);
+            return station;
+        }
+    }
+
+    private void releaseOutsideStation(String stationCode) {
+        String normalizedStationCode = StrUtil.trimToNull(stationCode);
+        if (normalizedStationCode == null) {
+            return;
+        }
+        synchronized (outsideStationLock) {
+            LambdaQueryWrapper<OutsideStation> wrapper = Wrappers.lambdaQuery();
+            wrapper.eq(OutsideStation::getStationCode, normalizedStationCode);
+            wrapper.last("limit 1");
+            OutsideStation station = outsideStationMapper.selectOne(wrapper);
+            if (station == null) {
+                return;
+            }
+            outsideStationMapper.update(null, Wrappers.lambdaUpdate(OutsideStation.class)
+                .eq(OutsideStation::getId, station.getId())
+                .set(OutsideStation::getStatus, OUTSIDE_STATION_STATUS_IDLE)
+                .set(OutsideStation::getSourceBinCode, null)
+                .set(OutsideStation::getPalletNo, null)
+                .set(OutsideStation::getSourceTaskNo, null)
+                .set(OutsideStation::getSourceType, null)
+                .set(OutsideStation::getReturnTaskNo, null)
+                .set(OutsideStation::getErrorMsg, null));
+        }
+    }
+
+    private void markOutsideStationOccupied(String stationCode, String sourceBinCode, String palletType,
+                                            String palletNo, String sourceTaskNo, String sourceType) {
+        String normalizedStationCode = StrUtil.trimToNull(stationCode);
+        if (normalizedStationCode == null) {
+            return;
+        }
+        synchronized (outsideStationLock) {
+            ensureOutsideStationsInitialized();
+            LambdaQueryWrapper<OutsideStation> wrapper = Wrappers.lambdaQuery();
+            wrapper.eq(OutsideStation::getStationCode, normalizedStationCode);
+            wrapper.last("limit 1");
+            OutsideStation station = outsideStationMapper.selectOne(wrapper);
+            if (station == null) {
+                return;
+            }
+            outsideStationMapper.update(null, Wrappers.lambdaUpdate(OutsideStation.class)
+                .eq(OutsideStation::getId, station.getId())
+                .set(OutsideStation::getPalletType, palletType)
+                .set(OutsideStation::getStatus, OUTSIDE_STATION_STATUS_OCCUPIED)
+                .set(OutsideStation::getSourceBinCode, sourceBinCode)
+                .set(OutsideStation::getPalletNo, StrUtil.trimToNull(palletNo))
+                .set(OutsideStation::getSourceTaskNo, sourceTaskNo)
+                .set(OutsideStation::getSourceType, sourceType)
+                .set(OutsideStation::getReturnTaskNo, null)
+                .set(OutsideStation::getErrorMsg, null));
+        }
+    }
+
+    private OutsideEmptyPallet convertStationToOutsideEmptyPallet(OutsideStation station) {
+        OutsideEmptyPallet record = new OutsideEmptyPallet();
+        record.setId(station.getId());
+        record.setStationCode(station.getStationCode());
+        record.setTargetBinCode(station.getSourceBinCode());
+        record.setPalletType(station.getPalletType());
+        record.setPalletNo(station.getPalletNo());
+        record.setSourceTaskNo(station.getSourceTaskNo());
+        record.setSourceType(station.getSourceType());
+        if (OUTSIDE_STATION_STATUS_RETURNING.equals(station.getStatus())) {
+            record.setStatus(OUTSIDE_EMPTY_STATUS_DISPATCHING);
+        } else if (StrUtil.isNotBlank(station.getErrorMsg())) {
+            record.setStatus(OUTSIDE_EMPTY_STATUS_FAILED);
+        } else {
+            record.setStatus(OUTSIDE_EMPTY_STATUS_WAITING);
+        }
+        record.setReturnTaskNo(station.getReturnTaskNo());
+        record.setErrorMsg(station.getErrorMsg());
+        record.setCreateTime(station.getCreateTime());
+        record.setUpdateTime(station.getUpdateTime());
+        return record;
+    }
+
     private void saveOutsideEmptyPallet(String stationCode, String targetBinCode, String palletType,
                                         String palletNo, String sourceTaskNo, String sourceType) {
         if (StrUtil.isBlank(stationCode) || StrUtil.isBlank(targetBinCode)) {
             return;
         }
+        markOutsideStationOccupied(stationCode, targetBinCode, palletType, palletNo, sourceTaskNo, sourceType);
         try {
             LambdaQueryWrapper<OutsideEmptyPallet> wrapper = Wrappers.lambdaQuery();
             wrapper.eq(OutsideEmptyPallet::getStationCode, stationCode);
@@ -1779,11 +1933,11 @@ public class PdaApiController {
             taskBo.setPdaDeviceNo(deviceCode);
             agvTaskService.insertByBo(taskBo);
 
-            OutsideEmptyPallet dispatching = new OutsideEmptyPallet();
+            OutsideStation dispatching = new OutsideStation();
             dispatching.setId(record.getId());
             dispatching.setReturnTaskNo(taskNo);
-            dispatching.setStatus(OUTSIDE_EMPTY_STATUS_DISPATCHING);
-            outsideEmptyPalletMapper.updateById(dispatching);
+            dispatching.setStatus(OUTSIDE_STATION_STATUS_RETURNING);
+            outsideStationMapper.updateById(dispatching);
 
             String step1OutId = buildInspectionEmptyReturnStepOutId(taskNo, 1);
             AgvOpenTaskBo first = buildPickDropTask(step1OutId,
@@ -1813,12 +1967,8 @@ public class PdaApiController {
             binService.markEmptyPallet(route.targetBinCode);
             agvTaskService.updateTaskStatusByTaskNo(taskNo, 2, null);
 
-            OutsideEmptyPallet returned = new OutsideEmptyPallet();
-            returned.setId(record.getId());
-            returned.setStatus(OUTSIDE_EMPTY_STATUS_RETURNED);
-            returned.setReturnTaskNo(taskNo);
-            returned.setErrorMsg(null);
-            outsideEmptyPalletMapper.updateById(returned);
+            releaseOutsideStation(stationCode);
+            markOutsideEmptyPalletReturned(stationCode, taskNo);
         } catch (Exception e) {
             if (taskNo != null) {
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
@@ -1828,12 +1978,30 @@ public class PdaApiController {
     }
 
     private void markOutsideEmptyPalletFailed(Long id, String taskNo, String errorMsg) {
-        OutsideEmptyPallet failed = new OutsideEmptyPallet();
+        OutsideStation failed = new OutsideStation();
         failed.setId(id);
-        failed.setStatus(OUTSIDE_EMPTY_STATUS_FAILED);
+        failed.setStatus(OUTSIDE_STATION_STATUS_OCCUPIED);
         failed.setReturnTaskNo(taskNo);
         failed.setErrorMsg(errorMsg);
-        outsideEmptyPalletMapper.updateById(failed);
+        outsideStationMapper.updateById(failed);
+    }
+
+    private void markOutsideEmptyPalletReturned(String stationCode, String taskNo) {
+        LambdaQueryWrapper<OutsideEmptyPallet> wrapper = Wrappers.lambdaQuery();
+        wrapper.eq(OutsideEmptyPallet::getStationCode, stationCode);
+        wrapper.in(OutsideEmptyPallet::getStatus, OUTSIDE_EMPTY_STATUS_WAITING, OUTSIDE_EMPTY_STATUS_DISPATCHING);
+        wrapper.orderByDesc(OutsideEmptyPallet::getCreateTime);
+        wrapper.last("limit 1");
+        OutsideEmptyPallet existing = outsideEmptyPalletMapper.selectOne(wrapper);
+        if (existing == null) {
+            return;
+        }
+        OutsideEmptyPallet returned = new OutsideEmptyPallet();
+        returned.setId(existing.getId());
+        returned.setStatus(OUTSIDE_EMPTY_STATUS_RETURNED);
+        returned.setReturnTaskNo(taskNo);
+        returned.setErrorMsg(null);
+        outsideEmptyPalletMapper.updateById(returned);
     }
 
     private String resolvePalletTypeByOutsideSite(String outsideSite) {
@@ -2725,6 +2893,7 @@ public class PdaApiController {
             try {
                 if (!waitForOpenTaskFinished(buildInspectionStepOutId(taskNo, 1))) {
                     agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "送检流程步骤1未完成");
+                    releaseOutsideStation(route.targetBinCode);
                     AgvTask task = agvTaskMapper.selectOne(Wrappers.lambdaQuery(AgvTask.class).eq(AgvTask::getTaskNo, taskNo));
                     if (task != null && task.getPalletCode() != null) {
                         updateValveStatus(task.getBizOrderNo(), task.getPalletCode(), 0);
@@ -2733,6 +2902,7 @@ public class PdaApiController {
                 }
                 binService.markEmptyBin(route.firstStep.fromBinCode);
                 if (!dispatchInspectionStep(taskNo, 2, route.secondStep, route.targetBinCode, matCode)) {
+                    releaseOutsideStation(route.targetBinCode);
                     return;
                 }
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 2, null);
@@ -2745,6 +2915,7 @@ public class PdaApiController {
                 }
             } catch (Exception e) {
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
+                releaseOutsideStation(route.targetBinCode);
             } finally {
                 triggerInboundQueueDispatch();
             }
@@ -2781,9 +2952,11 @@ public class PdaApiController {
             try {
                 if (!waitForOpenTaskFinished(buildOutboundStepOutId(taskNo, 1))) {
                     agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "出库流程步骤1未完成");
+                    releaseOutsideStation(route.targetBinCode);
                     return;
                 }
                 if (!dispatchOutboundStep(taskNo, 2, route.secondStep, route.targetBinCode, matCode)) {
+                    releaseOutsideStation(route.targetBinCode);
                     return;
                 }
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 2, null);
@@ -2794,6 +2967,7 @@ public class PdaApiController {
                     resolvePalletTypeByOutsideSite(route.targetBinCode), palletNo, taskNo, "OUTBOUND");
             } catch (Exception e) {
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
+                releaseOutsideStation(route.targetBinCode);
             } finally {
                 triggerInboundQueueDispatch();
             }
