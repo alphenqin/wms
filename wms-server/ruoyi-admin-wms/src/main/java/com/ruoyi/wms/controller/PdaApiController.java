@@ -138,9 +138,11 @@ public class PdaApiController {
     private static final long AGV_OPEN_TASK_POLL_INTERVAL_MS = 10_000L;
     private static final long AGV_OPEN_TASK_TIMEOUT_MS = 40L * 60L * 1000L;
     private static final String INBOUND_QUEUE_REMARK_PREFIX = "INBOUND_QUEUE";
+    private static final String OUTSIDE_QUEUE_MAT_PREFIX = "OUTSIDE_QUEUE_MAT:";
 
     private final ExecutorService inboundExecutor = Executors.newCachedThreadPool();
     private final Object inboundQueueLock = new Object();
+    private final Object outsideQueueLock = new Object();
     private final Object outsideStationLock = new Object();
 
     /**
@@ -831,43 +833,21 @@ public class PdaApiController {
             taskBo.setPalletCode(effectivePalletNo);
             taskBo.setFromBinCode(fromBinCode);
             taskBo.setToBinCode(targetBinCode);
-            taskBo.setRemark(StrUtil.trimToNull(request.getRemark()));
+            taskBo.setRemark(buildOutsideQueueRemark(matCode, request.getRemark()));
             taskBo.setTaskSource(TASK_SOURCE_PDA);
             taskBo.setPdaDeviceNo(StrUtil.trimToNull(request.getDeviceCode()));
             agvTaskService.insertByBo(taskBo);
 
             String taskNo = taskBo.getTaskNo();
-            try {
-                String step1OutId = buildInspectionStepOutId(taskNo, 1);
-                AgvOpenTaskBo first = buildPickDropTask(step1OutId,
-                    route.firstStep.fromBinCode,
-                    route.firstStep.toBinCode,
-                    null,
-                    route.firstStep.agvRange);
-                Map<String, Object> agvResp = agvOpenTaskService.sendTask(first);
-                String code = MapUtil.getStr(agvResp, "code");
-                String message = MapUtil.getStr(agvResp, "message");
-                if (!"20000".equals(code)) {
-                    agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, StrUtil.emptyToDefault(message, "AGV任务下发失败"));
-                    releaseOutsideStation(targetBinCode);
-                    return R.fail(500, StrUtil.emptyToDefault(message, "AGV任务下发失败"));
-                }
-                agvTaskService.updateTaskStatusByTaskNo(taskNo, 1, null);
-                updateValveInspectionTarget(request.getValveNo(), effectivePalletNo, targetBinCode, area);
-                updateValveStatus(request.getValveNo(), effectivePalletNo, 1); // 更新阀门状态为IN_INSPECTION（检测中）
-                dispatchInspectionFollowupSteps(taskNo, route, matCode);
-            } catch (Exception e) {
-                agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
-                releaseOutsideStation(targetBinCode);
-                return R.fail(500, "任务下发失败: " + e.getMessage());
-            }
+            updateOutsideStationSourceTaskNo(targetBinCode, taskNo);
+            triggerOutsideQueueDispatch();
 
             PdaTaskDispatchResponse response = new PdaTaskDispatchResponse();
             response.setOutID(taskNo);
             response.setTaskType(taskTypeName);
             response.setStatus("PENDING");
             response.setToBinCode(targetBinCode);
-            recordTaskOperation(taskType, deviceCode, effectivePalletNo, taskNo, "送检任务下发成功", 1, null);
+            recordTaskOperation(taskType, deviceCode, effectivePalletNo, taskNo, "送检任务已加入队列", 1, null);
             return R.ok(response);
         }
 
@@ -1144,41 +1124,21 @@ public class PdaApiController {
             taskBo.setPalletCode(effectivePalletNo);
             taskBo.setFromBinCode(fromBinCode);
             taskBo.setToBinCode(targetBinCode);
-            taskBo.setRemark(StrUtil.trimToNull(request.getRemark()));
+            taskBo.setRemark(buildOutsideQueueRemark(matCode, request.getRemark()));
             taskBo.setTaskSource(TASK_SOURCE_PDA);
             taskBo.setPdaDeviceNo(StrUtil.trimToNull(request.getDeviceCode()));
             agvTaskService.insertByBo(taskBo);
 
             String taskNo = taskBo.getTaskNo();
-            try {
-                String step1OutId = buildOutboundStepOutId(taskNo, 1);
-                AgvOpenTaskBo first = buildPickDropTask(step1OutId,
-                    route.firstStep.fromBinCode,
-                    route.firstStep.toBinCode,
-                    null,
-                    route.firstStep.agvRange);
-                Map<String, Object> agvResp = agvOpenTaskService.sendTask(first);
-                String code = MapUtil.getStr(agvResp, "code");
-                String message = MapUtil.getStr(agvResp, "message");
-                if (!"20000".equals(code)) {
-                    agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, StrUtil.emptyToDefault(message, "AGV任务下发失败"));
-                    releaseOutsideStation(targetBinCode);
-                    return R.fail(500, StrUtil.emptyToDefault(message, "AGV任务下发失败"));
-                }
-                agvTaskService.updateTaskStatusByTaskNo(taskNo, 1, null);
-                dispatchOutboundFollowupSteps(taskNo, route, matCode, request.getValveNo(), effectivePalletNo);
-            } catch (Exception e) {
-                agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
-                releaseOutsideStation(targetBinCode);
-                return R.fail(500, "任务下发失败: " + e.getMessage());
-            }
+            updateOutsideStationSourceTaskNo(targetBinCode, taskNo);
+            triggerOutsideQueueDispatch();
 
             PdaTaskDispatchResponse response = new PdaTaskDispatchResponse();
             response.setOutID(taskNo);
             response.setTaskType(taskTypeName);
             response.setStatus("PENDING");
             response.setToBinCode(targetBinCode);
-            recordTaskOperation(taskType, deviceCode, effectivePalletNo, taskNo, "出库任务下发成功", 1, null);
+            recordTaskOperation(taskType, deviceCode, effectivePalletNo, taskNo, "出库任务已加入队列", 1, null);
             return R.ok(response);
         }
         if (fromBinCode == null || toBinCode == null) {
@@ -1849,6 +1809,20 @@ public class PdaApiController {
         }
     }
 
+    private void updateOutsideStationSourceTaskNo(String stationCode, String sourceTaskNo) {
+        String normalizedStationCode = normalizeOutsideStationCode(stationCode);
+        String normalizedSourceTaskNo = StrUtil.trimToNull(sourceTaskNo);
+        if (normalizedStationCode == null || normalizedSourceTaskNo == null) {
+            return;
+        }
+        synchronized (outsideStationLock) {
+            outsideStationMapper.update(null, Wrappers.lambdaUpdate(OutsideStation.class)
+                .likeRight(OutsideStation::getStationCode, extractOutsideStationPrefix(normalizedStationCode))
+                .set(OutsideStation::getStationCode, normalizedStationCode)
+                .set(OutsideStation::getSourceTaskNo, normalizedSourceTaskNo));
+        }
+    }
+
     private OutsideEmptyPallet convertStationToOutsideEmptyPallet(OutsideStation station) {
         OutsideEmptyPallet record = new OutsideEmptyPallet();
         record.setId(station.getId());
@@ -2162,6 +2136,167 @@ public class PdaApiController {
     @Scheduled(fixedDelayString = "${wms.inbound.queue-pump-interval-ms:15000}")
     public void pumpInboundQueue() {
         tryDispatchNextInboundTask();
+    }
+
+    private void triggerOutsideQueueDispatch() {
+        CompletableFuture.runAsync(this::tryDispatchNextOutsideTask, inboundExecutor);
+    }
+
+    @Scheduled(fixedDelayString = "${wms.outside.queue-pump-interval-ms:15000}")
+    public void pumpOutsideQueue() {
+        tryDispatchNextOutsideTask();
+    }
+
+    private void tryDispatchNextOutsideTask() {
+        AgvTask nextTask;
+        synchronized (outsideQueueLock) {
+            if (countExecutingOutsideTasks() > 0) {
+                return;
+            }
+            nextTask = claimNextQueuedOutsideTask();
+        }
+        if (nextTask != null) {
+            executeQueuedOutsideTask(nextTask);
+        }
+    }
+
+    private long countExecutingOutsideTasks() {
+        LambdaQueryWrapper<AgvTask> wrapper = Wrappers.lambdaQuery();
+        wrapper.in(AgvTask::getTaskType, 2, 4);
+        wrapper.eq(AgvTask::getStatus, 1);
+        return agvTaskMapper.selectCount(wrapper);
+    }
+
+    private AgvTask claimNextQueuedOutsideTask() {
+        LambdaQueryWrapper<AgvTask> wrapper = Wrappers.lambdaQuery();
+        wrapper.in(AgvTask::getTaskType, 2, 4);
+        wrapper.eq(AgvTask::getStatus, 0);
+        wrapper.orderByAsc(AgvTask::getCreateTime);
+        wrapper.orderByAsc(AgvTask::getId);
+        wrapper.last("limit 1");
+        AgvTask task = agvTaskMapper.selectOne(wrapper);
+        if (task == null) {
+            return null;
+        }
+        task.setStatus(1);
+        task.setDispatchTime(new Date());
+        task.setErrorMsg(null);
+        agvTaskMapper.updateById(task);
+        return task;
+    }
+
+    private void executeQueuedOutsideTask(AgvTask task) {
+        if (task == null) {
+            return;
+        }
+        if (Objects.equals(task.getTaskType(), 2)) {
+            executeQueuedInspectionTask(task);
+            return;
+        }
+        if (Objects.equals(task.getTaskType(), 4)) {
+            executeQueuedOutboundTask(task);
+        }
+    }
+
+    private void executeQueuedInspectionTask(AgvTask task) {
+        String taskNo = StrUtil.trimToNull(task.getTaskNo());
+        String palletNo = StrUtil.trimToNull(task.getPalletCode());
+        String fromBinCode = StrUtil.trimToNull(task.getFromBinCode());
+        String targetBinCode = normalizeOutsideStationCode(task.getToBinCode());
+        if (taskNo == null || palletNo == null || fromBinCode == null || targetBinCode == null) {
+            agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "送检任务参数不完整");
+            releaseOutsideStation(targetBinCode);
+            triggerOutsideQueueDispatch();
+            return;
+        }
+        String palletType = resolvePalletTypeCodeFromBinCode(fromBinCode);
+        if (palletType == null || !isOutsideSiteAllowedForPalletType(targetBinCode, palletType)) {
+            agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "送检目标站点与托盘类型不匹配");
+            releaseOutsideStation(targetBinCode);
+            triggerOutsideQueueDispatch();
+            return;
+        }
+        InspectionRoute route = buildInspectionRoute(palletType, fromBinCode, targetBinCode);
+        if (route == null) {
+            agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "送检任务参数错误");
+            releaseOutsideStation(targetBinCode);
+            triggerOutsideQueueDispatch();
+            return;
+        }
+        try {
+            String step1OutId = buildInspectionStepOutId(taskNo, 1);
+            AgvOpenTaskBo first = buildPickDropTask(step1OutId,
+                route.firstStep.fromBinCode,
+                route.firstStep.toBinCode,
+                null,
+                route.firstStep.agvRange);
+            Map<String, Object> agvResp = agvOpenTaskService.sendTask(first);
+            String code = MapUtil.getStr(agvResp, "code");
+            String message = MapUtil.getStr(agvResp, "message");
+            if (!"20000".equals(code)) {
+                agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, StrUtil.emptyToDefault(message, "AGV任务下发失败"));
+                releaseOutsideStation(targetBinCode);
+                triggerOutsideQueueDispatch();
+                return;
+            }
+            updateValveInspectionTarget(task.getBizOrderNo(), palletNo, targetBinCode, INSPECTION_AREA_WAITING);
+            updateValveStatus(task.getBizOrderNo(), palletNo, 1);
+            dispatchInspectionFollowupSteps(taskNo, route, extractOutsideQueueMatCode(task.getRemark()));
+        } catch (Exception e) {
+            agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
+            releaseOutsideStation(targetBinCode);
+            triggerOutsideQueueDispatch();
+        }
+    }
+
+    private void executeQueuedOutboundTask(AgvTask task) {
+        String taskNo = StrUtil.trimToNull(task.getTaskNo());
+        String palletNo = StrUtil.trimToNull(task.getPalletCode());
+        String fromBinCode = StrUtil.trimToNull(task.getFromBinCode());
+        String targetBinCode = normalizeOutsideStationCode(task.getToBinCode());
+        if (taskNo == null || palletNo == null || fromBinCode == null || targetBinCode == null) {
+            agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "出库任务参数不完整");
+            releaseOutsideStation(targetBinCode);
+            triggerOutsideQueueDispatch();
+            return;
+        }
+        String palletType = resolvePalletTypeCodeFromBinCode(fromBinCode);
+        if (palletType == null || !isOutsideSiteAllowedForPalletType(targetBinCode, palletType)) {
+            agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "出库目标站点与托盘类型不匹配");
+            releaseOutsideStation(targetBinCode);
+            triggerOutsideQueueDispatch();
+            return;
+        }
+        OutboundRoute route = buildOutboundRoute(palletType, fromBinCode, targetBinCode);
+        if (route == null) {
+            agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, "出库任务参数错误");
+            releaseOutsideStation(targetBinCode);
+            triggerOutsideQueueDispatch();
+            return;
+        }
+        try {
+            String step1OutId = buildOutboundStepOutId(taskNo, 1);
+            AgvOpenTaskBo first = buildPickDropTask(step1OutId,
+                route.firstStep.fromBinCode,
+                route.firstStep.toBinCode,
+                null,
+                route.firstStep.agvRange);
+            Map<String, Object> agvResp = agvOpenTaskService.sendTask(first);
+            String code = MapUtil.getStr(agvResp, "code");
+            String message = MapUtil.getStr(agvResp, "message");
+            if (!"20000".equals(code)) {
+                agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, StrUtil.emptyToDefault(message, "AGV任务下发失败"));
+                releaseOutsideStation(targetBinCode);
+                triggerOutsideQueueDispatch();
+                return;
+            }
+            dispatchOutboundFollowupSteps(taskNo, route, extractOutsideQueueMatCode(task.getRemark()),
+                task.getBizOrderNo(), palletNo);
+        } catch (Exception e) {
+            agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
+            releaseOutsideStation(targetBinCode);
+            triggerOutsideQueueDispatch();
+        }
     }
 
     private void tryDispatchNextInboundTask() {
@@ -2626,6 +2761,21 @@ public class PdaApiController {
         return null;
     }
 
+    private String buildOutsideQueueRemark(String matCode, String remark) {
+        if (StrUtil.isNotBlank(matCode)) {
+            return OUTSIDE_QUEUE_MAT_PREFIX + matCode;
+        }
+        return StrUtil.trimToNull(remark);
+    }
+
+    private String extractOutsideQueueMatCode(String remark) {
+        String normalizedRemark = StrUtil.trimToNull(remark);
+        if (normalizedRemark == null || !normalizedRemark.startsWith(OUTSIDE_QUEUE_MAT_PREFIX)) {
+            return null;
+        }
+        return StrUtil.emptyToNull(normalizedRemark.substring(OUTSIDE_QUEUE_MAT_PREFIX.length()));
+    }
+
     private boolean dispatchInboundStep(String taskNo, int stepIndex, InboundStep step, String targetBinCode, String matCode) {
         try {
             String outId = buildInboundStepOutId(taskNo, stepIndex);
@@ -2963,6 +3113,7 @@ public class PdaApiController {
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
                 releaseOutsideStation(route.targetBinCode);
             } finally {
+                triggerOutsideQueueDispatch();
                 triggerInboundQueueDispatch();
             }
         }, inboundExecutor);
@@ -3015,6 +3166,7 @@ public class PdaApiController {
                 agvTaskService.updateTaskStatusByTaskNo(taskNo, 3, e.getMessage());
                 releaseOutsideStation(route.targetBinCode);
             } finally {
+                triggerOutsideQueueDispatch();
                 triggerInboundQueueDispatch();
             }
         }, inboundExecutor);
