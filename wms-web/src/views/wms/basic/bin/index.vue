@@ -8,6 +8,11 @@
         <el-form-item label="出厂编号" prop="boundFactoryNo">
           <el-input v-model="queryParams.boundFactoryNo" placeholder="请输入绑定出厂编号" clearable @keyup.enter="handleQuery" />
         </el-form-item>
+        <el-form-item label="库位类型" prop="binType">
+          <el-select v-model="queryParams.binType" placeholder="请选择库位类型" clearable>
+            <el-option v-for="item in binTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="作业状态" prop="status">
           <el-select v-model="queryParams.status" placeholder="请选择作业状态" clearable>
             <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
@@ -264,6 +269,7 @@ const data = reactive({
     pageNum: 1,
     pageSize: 50,
     binCode: undefined,
+    binType: undefined,
     status: undefined,
     storageStatus: undefined,
     boundFactoryNo: undefined,
