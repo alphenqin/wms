@@ -813,7 +813,7 @@ public class PdaApiController {
             if (allocatedStation == null) {
                 return R.fail(409, "库外站点已满，请先空托回库");
             }
-            String targetBinCode = allocatedStation.getStationCode();
+            String targetBinCode = normalizeOutsideStationCode(allocatedStation.getStationCode());
             if (!isOutsideSiteAllowedForPalletType(targetBinCode, palletType)) {
                 releaseOutsideStation(targetBinCode);
                 return R.fail(400, "送检目标站点与托盘类型不匹配");
@@ -1126,7 +1126,7 @@ public class PdaApiController {
             if (allocatedStation == null) {
                 return R.fail(409, "库外站点已满，请先空托回库");
             }
-            String targetBinCode = allocatedStation.getStationCode();
+            String targetBinCode = normalizeOutsideStationCode(allocatedStation.getStationCode());
             if (!isOutsideSiteAllowedForPalletType(targetBinCode, palletType)) {
                 releaseOutsideStation(targetBinCode);
                 return R.fail(400, "出库目标站点与托盘类型不匹配");
@@ -1736,15 +1736,24 @@ public class PdaApiController {
     }
 
     private void ensureOutsideStation(String stationCode, String palletType) {
+        String normalizedStationCode = normalizeOutsideStationCode(stationCode);
         LambdaQueryWrapper<OutsideStation> wrapper = Wrappers.lambdaQuery();
-        wrapper.eq(OutsideStation::getStationCode, stationCode);
+        wrapper.likeRight(OutsideStation::getStationCode, extractOutsideStationPrefix(normalizedStationCode));
         wrapper.last("limit 1");
         OutsideStation existing = outsideStationMapper.selectOne(wrapper);
         if (existing != null) {
+            String existingStationCode = normalizeOutsideStationCode(existing.getStationCode());
+            if (!StrUtil.equals(existingStationCode, existing.getStationCode())
+                || !StrUtil.equals(palletType, existing.getPalletType())) {
+                outsideStationMapper.update(null, Wrappers.lambdaUpdate(OutsideStation.class)
+                    .eq(OutsideStation::getId, existing.getId())
+                    .set(OutsideStation::getStationCode, existingStationCode)
+                    .set(OutsideStation::getPalletType, palletType));
+            }
             return;
         }
         OutsideStation station = new OutsideStation();
-        station.setStationCode(stationCode);
+        station.setStationCode(normalizedStationCode);
         station.setPalletType(palletType);
         station.setStatus(OUTSIDE_STATION_STATUS_IDLE);
         outsideStationMapper.insert(station);
@@ -1763,8 +1772,10 @@ public class PdaApiController {
             if (station == null) {
                 return null;
             }
+            String normalizedStationCode = normalizeOutsideStationCode(station.getStationCode());
             outsideStationMapper.update(null, Wrappers.lambdaUpdate(OutsideStation.class)
                 .eq(OutsideStation::getId, station.getId())
+                .set(OutsideStation::getStationCode, normalizedStationCode)
                 .set(OutsideStation::getStatus, OUTSIDE_STATION_STATUS_OCCUPIED)
                 .set(OutsideStation::getSourceBinCode, sourceBinCode)
                 .set(OutsideStation::getPalletNo, StrUtil.trimToNull(palletNo))
@@ -1774,6 +1785,7 @@ public class PdaApiController {
                 .set(OutsideStation::getErrorMsg, null));
 
             station.setStatus(OUTSIDE_STATION_STATUS_OCCUPIED);
+            station.setStationCode(normalizedStationCode);
             station.setSourceBinCode(sourceBinCode);
             station.setPalletNo(StrUtil.trimToNull(palletNo));
             station.setSourceTaskNo(sourceTaskNo);
@@ -1791,7 +1803,7 @@ public class PdaApiController {
         }
         synchronized (outsideStationLock) {
             LambdaQueryWrapper<OutsideStation> wrapper = Wrappers.lambdaQuery();
-            wrapper.eq(OutsideStation::getStationCode, normalizedStationCode);
+            wrapper.likeRight(OutsideStation::getStationCode, extractOutsideStationPrefix(normalizedStationCode));
             wrapper.last("limit 1");
             OutsideStation station = outsideStationMapper.selectOne(wrapper);
             if (station == null) {
@@ -2005,7 +2017,7 @@ public class PdaApiController {
     }
 
     private String resolvePalletTypeByOutsideSite(String outsideSite) {
-        Integer binType = resolveInspectionTargetBinType(outsideSite);
+        Integer binType = resolveInspectionTargetBinType(normalizeOutsideStationCode(outsideSite));
         if (Objects.equals(binType, BIN_TYPE_SMALL_PALLET)) {
             return PALLET_TYPE_SMALL_CODE;
         }
@@ -2064,23 +2076,57 @@ public class PdaApiController {
     }
 
     private Integer resolveInspectionTargetBinType(String inspectionTargetBin) {
-        if (OUTSIDE_SMALL_PALLET_BINS.contains(inspectionTargetBin)) {
+        String normalizedTargetBin = normalizeOutsideStationCode(inspectionTargetBin);
+        if (OUTSIDE_SMALL_PALLET_BINS.contains(normalizedTargetBin)) {
             return BIN_TYPE_SMALL_PALLET;
         }
-        if (OUTSIDE_LARGE_PALLET_BINS.contains(inspectionTargetBin)) {
+        if (OUTSIDE_LARGE_PALLET_BINS.contains(normalizedTargetBin)) {
             return BIN_TYPE_LARGE_PALLET;
         }
         return null;
     }
 
     private boolean isOutsideSiteAllowedForPalletType(String outsideSite, String palletTypeCode) {
+        String normalizedOutsideSite = normalizeOutsideStationCode(outsideSite);
         if (StrUtil.equalsIgnoreCase(palletTypeCode, PALLET_TYPE_SMALL_CODE)) {
-            return OUTSIDE_SMALL_PALLET_BINS.contains(outsideSite);
+            return OUTSIDE_SMALL_PALLET_BINS.contains(normalizedOutsideSite);
         }
         if (StrUtil.equalsIgnoreCase(palletTypeCode, PALLET_TYPE_LARGE_CODE)) {
-            return OUTSIDE_LARGE_PALLET_BINS.contains(outsideSite);
+            return OUTSIDE_LARGE_PALLET_BINS.contains(normalizedOutsideSite);
         }
         return false;
+    }
+
+    private String normalizeOutsideStationCode(String stationCode) {
+        String normalized = StrUtil.trimToNull(stationCode);
+        if (normalized == null) {
+            return null;
+        }
+        if (normalized.startsWith("Z10")) {
+            return "Z10-装卸点";
+        }
+        if (normalized.startsWith("Z6")) {
+            return "Z6-装卸点";
+        }
+        if (normalized.startsWith("Z7")) {
+            return "Z7-装卸点";
+        }
+        if (normalized.startsWith("Z8")) {
+            return "Z8-装卸点";
+        }
+        if (normalized.startsWith("Z9")) {
+            return "Z9-装卸点";
+        }
+        return normalized;
+    }
+
+    private String extractOutsideStationPrefix(String stationCode) {
+        String normalized = StrUtil.trimToNull(stationCode);
+        if (normalized == null) {
+            return null;
+        }
+        int separatorIndex = normalized.indexOf("-");
+        return separatorIndex > 0 ? normalized.substring(0, separatorIndex) : normalized;
     }
 
     private boolean isSmallPalletType(String typeCode) {
