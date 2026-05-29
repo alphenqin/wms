@@ -74,6 +74,7 @@ public class PdaApiController {
     private final AgvOpenTaskService agvOpenTaskService;
     private final WmsConfigService wmsConfigService;
     private final PalletMapper palletMapper;
+    private final BinMapper binMapper;
     private final ValveMapper valveMapper;
     private final AgvTaskMapper agvTaskMapper;
     private final OutsideEmptyPalletMapper outsideEmptyPalletMapper;
