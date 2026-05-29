@@ -543,29 +543,9 @@ public class PdaApiController {
             // 转换为响应DTO
             PdaValveQueryResponse response = new PdaValveQueryResponse();
             Map<String, Integer> binTypeCache = new HashMap<>();
-            List<PdaValveInfo> list = result.getRecords().stream().map(valve -> {
-                PdaValveInfo info = new PdaValveInfo();
-                info.setValveNo(valve.getValveNo());
-                info.setVendorName(valve.getManufacturer());
-                info.setBinCode(valve.getCurrentBinCode());
-                info.setBinType(resolveValveBinType(valve, binTypeCache));
-                info.setValveStatus(convertValveStatusToString(valve.getStatus()));
-                info.setInspectionTargetBin(valve.getInspectionTargetBin());
-                info.setRemark(valve.getRemark());
-                if (valve.getInspectionDate() != null) {
-                    info.setInspectionDate(DateUtil.format(valve.getInspectionDate(), "yyyy-MM-dd"));
-                }
-                if (valve.getReturnDate() != null) {
-                    info.setReturnDate(DateUtil.format(valve.getReturnDate(), "yyyy-MM-dd"));
-                }
-                
-                info.setInboundDate(resolveValveInboundDate(valve));
-                
-                // 物料编码（可以从物料类型表获取，这里先使用出厂编号）
-                info.setMatCode(StrUtil.isNotBlank(valve.getValveNo()) ? "MAT-" + valve.getValveNo() : null);
-                
-                return info;
-            }).collect(Collectors.toList());
+            List<PdaValveInfo> list = result.getRecords().stream()
+                .map(valve -> convertPdaValveInfoSafely(valve, binTypeCache))
+                .collect(Collectors.toList());
 
             response.setList(list);
             response.setTotal(result.getTotal());
@@ -575,8 +555,40 @@ public class PdaApiController {
             return R.ok(response);
         } catch (Exception e) {
             log.error("阀门查询失败", e);
-            return R.fail(500, "阀门查询失败: " + e.getMessage());
+            return R.fail(500, "阀门查询失败: " + StrUtil.emptyToDefault(e.getMessage(), e.getClass().getSimpleName()));
         }
+    }
+
+    private PdaValveInfo convertPdaValveInfoSafely(Valve valve, Map<String, Integer> binTypeCache) {
+        PdaValveInfo info = new PdaValveInfo();
+        if (valve == null) {
+            return info;
+        }
+        try {
+            info.setValveNo(valve.getValveNo());
+            info.setVendorName(valve.getManufacturer());
+            info.setBinCode(valve.getCurrentBinCode());
+            info.setBinType(resolveValveBinType(valve, binTypeCache));
+            info.setValveStatus(convertValveStatusToString(valve.getStatus()));
+            info.setInspectionTargetBin(valve.getInspectionTargetBin());
+            info.setRemark(valve.getRemark());
+            if (valve.getInspectionDate() != null) {
+                info.setInspectionDate(DateUtil.format(valve.getInspectionDate(), "yyyy-MM-dd"));
+            }
+            if (valve.getReturnDate() != null) {
+                info.setReturnDate(DateUtil.format(valve.getReturnDate(), "yyyy-MM-dd"));
+            }
+            info.setInboundDate(resolveValveInboundDate(valve));
+            info.setMatCode(StrUtil.isNotBlank(valve.getValveNo()) ? "MAT-" + valve.getValveNo() : null);
+        } catch (Exception e) {
+            log.warn("PDA阀门查询转换单条样品失败: valveId={}, valveNo={}",
+                valve.getId(), valve.getValveNo(), e);
+            info.setValveNo(valve.getValveNo());
+            info.setVendorName(valve.getManufacturer());
+            info.setBinCode(valve.getCurrentBinCode());
+            info.setValveStatus(convertValveStatusToString(valve.getStatus()));
+        }
+        return info;
     }
 
     private String resolveValveInboundDate(Valve valve) {
