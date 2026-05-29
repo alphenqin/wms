@@ -733,7 +733,7 @@ public class PdaApiController {
             }
         }
         boolean valveReturnRequest = taskType == 3 && isValveReturnRequest(request);
-        if (taskType != 1 && !valveReturnRequest && isInboundLocked()) {
+        if (taskType != 1 && taskType != 4 && !valveReturnRequest && isInboundLocked()) {
             return R.fail(409, "入库任务执行中，请稍后再试");
         }
         String fromBinCode = StrUtil.trimToNull(request.getFromBinCode());
@@ -1208,6 +1208,10 @@ public class PdaApiController {
             if (isInboundOrValveReturnTask(taskVo.getTaskType(), taskVo.getRemark())) {
                 triggerInboundQueueDispatch();
             }
+            if (isOutsideQueuedTask(taskVo.getTaskType())) {
+                releaseOutsideStation(taskVo.getToBinCode());
+                triggerOutsideQueueDispatch();
+            }
             recordOperation(9, deviceCode, outId, outId, null, 1, "任务取消成功", null);
             return R.ok();
         } catch (Exception e) {
@@ -1522,6 +1526,10 @@ public class PdaApiController {
     private boolean isInboundOrValveReturnTask(Integer taskType, String remark) {
         return Objects.equals(taskType, 1)
             || (Objects.equals(taskType, 3) && VALVE_RETURN_REMARK.equalsIgnoreCase(StrUtil.trimToEmpty(remark)));
+    }
+
+    private boolean isOutsideQueuedTask(Integer taskType) {
+        return Objects.equals(taskType, 2) || Objects.equals(taskType, 4);
     }
 
     private boolean isInboundLocked() {
@@ -2039,8 +2047,16 @@ public class PdaApiController {
         String currentBinCode = StrUtil.trimToNull(valve.getCurrentBinCode());
         if (currentBinCode != null) {
             Integer binType = binTypeCache.computeIfAbsent(currentBinCode, code -> {
-                BinVo bin = binService.queryByBinCode(code);
-                return bin == null ? null : bin.getBinType();
+                try {
+                    Bin bin = binMapper.selectOne(Wrappers.<Bin>lambdaQuery()
+                        .eq(Bin::getBinCode, code)
+                        .last("limit 1"));
+                    return bin == null ? null : bin.getBinType();
+                } catch (Exception e) {
+                    log.warn("PDA阀门查询解析库位类型失败: valveNo={}, binCode={}",
+                        valve.getValveNo(), code, e);
+                    return null;
+                }
             });
             if (binType != null) {
                 return binType;
@@ -2150,6 +2166,9 @@ public class PdaApiController {
     private void tryDispatchNextOutsideTask() {
         AgvTask nextTask;
         synchronized (outsideQueueLock) {
+            if (isInboundLocked()) {
+                return;
+            }
             if (countExecutingOutsideTasks() > 0) {
                 return;
             }

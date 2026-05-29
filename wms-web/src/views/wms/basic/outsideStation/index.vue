@@ -65,7 +65,6 @@
 
       <el-table v-loading="loading" :data="outsideStationList" @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="55" align="center" />
-        <el-table-column label="ID" prop="id" width="90" />
         <el-table-column label="库外站点" prop="stationCode" min-width="130" />
         <el-table-column label="托盘类型" prop="palletType" width="100">
           <template #default="scope">
