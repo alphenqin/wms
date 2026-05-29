@@ -1221,8 +1221,7 @@ public class PdaApiController {
             if (isInboundOrValveReturnTask(taskVo.getTaskType(), taskVo.getRemark())) {
                 triggerInboundQueueDispatch();
             }
-            if (isOutsideQueuedTask(taskVo.getTaskType())) {
-                releaseOutsideStation(taskVo.getToBinCode());
+            if (releaseOutsideStationForCanceledTask(taskVo)) {
                 triggerOutsideQueueDispatch();
             }
             recordOperation(9, deviceCode, outId, outId, null, 1, "任务取消成功", null);
@@ -1543,6 +1542,30 @@ public class PdaApiController {
 
     private boolean isOutsideQueuedTask(Integer taskType) {
         return Objects.equals(taskType, 2) || Objects.equals(taskType, 4);
+    }
+
+    private boolean releaseOutsideStationForCanceledTask(AgvTaskVo taskVo) {
+        if (taskVo == null) {
+            return false;
+        }
+        boolean released = false;
+        if (isOutsideQueuedTask(taskVo.getTaskType())) {
+            releaseOutsideStation(taskVo.getToBinCode());
+            released = true;
+        }
+        if (isOutsideEmptyReturnTask(taskVo.getRemark())) {
+            releaseOutsideStation(taskVo.getFromBinCode());
+            released = true;
+        }
+        return released;
+    }
+
+    private boolean isOutsideEmptyReturnTask(String remark) {
+        String normalized = StrUtil.trimToEmpty(remark);
+        return INSPECTION_EMPTY_RETURN_REMARK.equalsIgnoreCase(normalized)
+            || INSPECTION_EMPTY_RETURN_REMARK_LEGACY.equalsIgnoreCase(normalized)
+            || OUTBOUND_EMPTY_RETURN_REMARK.equalsIgnoreCase(normalized)
+            || OUTSIDE_EMPTY_RETURN_REMARK.equalsIgnoreCase(normalized);
     }
 
     private boolean isInboundLocked() {
