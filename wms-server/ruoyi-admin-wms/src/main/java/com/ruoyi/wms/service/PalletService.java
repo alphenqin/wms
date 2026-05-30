@@ -131,7 +131,7 @@ public class PalletService extends ServiceImpl<PalletMapper, Pallet> {
     }
 
     /**
-     * 查询指定类型的首个可用空托盘，优先同层，再从指定排开始按排号轮转选择。
+     * 查询指定类型的首个可用空托盘，指定层数时只选择同层，再从指定排开始按排号轮转选择。
      */
     public PalletVo queryFirstAvailableByTypeFromCodeAndPreferredLevel(Long palletTypeId, String startCode,
                                                                        Integer preferredLevel, String preferredBinCode,
@@ -155,6 +155,7 @@ public class PalletService extends ServiceImpl<PalletMapper, Pallet> {
         }
         pallets = pallets.stream()
             .filter(this::isLocatedOnEmptyPalletBin)
+            .filter(pallet -> isOnPreferredLevel(pallet.getCurrentBinCode(), preferredLevel))
             .sorted(emptyPalletBinComparator(preferredLevel, preferredBinCode))
             .collect(Collectors.toList());
         Pallet pallet = pallets.isEmpty() ? null : pallets.get(0);
@@ -181,6 +182,14 @@ public class PalletService extends ServiceImpl<PalletMapper, Pallet> {
             return nullLast(level);
         }
         return Objects.equals(level, preferredLevel) ? 0 : 10000 + level;
+    }
+
+    private boolean isOnPreferredLevel(String binCode, Integer preferredLevel) {
+        if (preferredLevel == null) {
+            return true;
+        }
+        Integer level = extractBinLevel(binCode);
+        return Objects.equals(level, preferredLevel);
     }
 
     private int rowPriority(String binCode, Integer preferredRow) {
