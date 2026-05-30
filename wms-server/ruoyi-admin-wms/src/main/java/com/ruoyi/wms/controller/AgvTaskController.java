@@ -1,5 +1,6 @@
 package com.ruoyi.wms.controller;
 
+import cn.hutool.core.util.StrUtil;
 import cn.dev33.satoken.annotation.SaCheckPermission;
 import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.validate.AddGroup;
@@ -11,7 +12,11 @@ import com.ruoyi.common.log.enums.BusinessType;
 import com.ruoyi.common.mybatis.core.page.PageQuery;
 import com.ruoyi.common.mybatis.core.page.TableDataInfo;
 import com.ruoyi.common.web.core.BaseController;
+import com.ruoyi.wms.domain.entity.OutsideStation;
+import com.ruoyi.wms.mapper.OutsideStationMapper;
 import com.ruoyi.wms.service.AgvTaskService;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +34,13 @@ import java.util.List;
 public class AgvTaskController extends BaseController {
 
     private final AgvTaskService agvTaskService;
+    private final OutsideStationMapper outsideStationMapper;
+
+    private static final String OUTSIDE_STATION_STATUS_IDLE = "IDLE";
+    private static final String INSPECTION_EMPTY_RETURN_REMARK = "INSPECTION_EMPTY_RETURN";
+    private static final String INSPECTION_EMPTY_RETURN_REMARK_LEGACY = "EMPTY_RETURN_FROM_INSPECTION";
+    private static final String OUTBOUND_EMPTY_RETURN_REMARK = "OUTBOUND_EMPTY_RETURN";
+    private static final String OUTSIDE_EMPTY_RETURN_REMARK = "OUTSIDE_EMPTY_RETURN";
 
     @SaCheckPermission("wms:agvTask:list")
     @GetMapping("/list")
@@ -104,8 +116,66 @@ public class AgvTaskController extends BaseController {
     @Log(title = "AGV任务", businessType = BusinessType.UPDATE)
     @PutMapping("/{id}/cancel")
     public R<Void> cancelTask(@PathVariable Long id) {
+        AgvTaskVo taskVo = agvTaskService.queryById(id);
         agvTaskService.cancelTaskWithAgv(id);
+        releaseOutsideStationForCanceledTask(taskVo);
         return R.ok();
+    }
+
+    private void releaseOutsideStationForCanceledTask(AgvTaskVo taskVo) {
+        if (taskVo == null) {
+            return;
+        }
+        if (isOutsideQueuedTask(taskVo.getTaskType())) {
+            releaseOutsideStation(taskVo.getToBinCode());
+        }
+        if (isOutsideEmptyReturnTask(taskVo.getRemark())) {
+            releaseOutsideStation(taskVo.getFromBinCode());
+        }
+    }
+
+    private boolean isOutsideQueuedTask(Integer taskType) {
+        return Integer.valueOf(2).equals(taskType) || Integer.valueOf(4).equals(taskType);
+    }
+
+    private boolean isOutsideEmptyReturnTask(String remark) {
+        String normalized = StrUtil.trimToEmpty(remark);
+        return INSPECTION_EMPTY_RETURN_REMARK.equalsIgnoreCase(normalized)
+            || INSPECTION_EMPTY_RETURN_REMARK_LEGACY.equalsIgnoreCase(normalized)
+            || OUTBOUND_EMPTY_RETURN_REMARK.equalsIgnoreCase(normalized)
+            || OUTSIDE_EMPTY_RETURN_REMARK.equalsIgnoreCase(normalized);
+    }
+
+    private void releaseOutsideStation(String stationCode) {
+        String normalizedStationCode = StrUtil.trimToNull(stationCode);
+        if (normalizedStationCode == null) {
+            return;
+        }
+        LambdaQueryWrapper<OutsideStation> wrapper = Wrappers.lambdaQuery();
+        wrapper.likeRight(OutsideStation::getStationCode, extractOutsideStationPrefix(normalizedStationCode));
+        wrapper.last("limit 1");
+        OutsideStation station = outsideStationMapper.selectOne(wrapper);
+        if (station == null) {
+            return;
+        }
+        outsideStationMapper.update(null, Wrappers.lambdaUpdate(OutsideStation.class)
+            .eq(OutsideStation::getId, station.getId())
+            .set(OutsideStation::getStatus, OUTSIDE_STATION_STATUS_IDLE)
+            .set(OutsideStation::getSourceBinCode, null)
+            .set(OutsideStation::getPalletNo, null)
+            .set(OutsideStation::getSourceTaskNo, null)
+            .set(OutsideStation::getSourceType, null)
+            .set(OutsideStation::getReturnTaskNo, null)
+            .set(OutsideStation::getErrorMsg, null));
+    }
+
+    private String extractOutsideStationPrefix(String stationCode) {
+        String normalized = StrUtil.trimToNull(stationCode);
+        if (normalized == null) {
+            return null;
+        }
+        int separatorIndex = normalized.indexOf("-");
+        return separatorIndex > 0 ? normalized.substring(0, separatorIndex) : normalized;
     }
 
     /**
