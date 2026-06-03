@@ -769,7 +769,7 @@ public class PdaApiController {
             if (request.getFirstFloor() != null && !isBinOnRequestedFloor(targetBinCode, request.getFirstFloor())) {
                 return R.fail(400, request.getFirstFloor() ? "目标库位不是一层库位" : "目标库位不是二/三层库位");
             }
-            if (hasActiveInboundTaskAtTargetBin(targetBinCode)) {
+            if (hasActiveStoragePlacementTaskAtTargetBin(targetBinCode)) {
                 return R.fail(409, "该目标库位已有入库/回库任务排队或执行中，请重新选择库位");
             }
             String palletType = resolveInboundPalletTypeByLoadBin(fromBinCode);
@@ -939,7 +939,7 @@ public class PdaApiController {
             if (request.getStorageLevel() != null && !isBinOnRequestedLevel(targetBinCode, request.getStorageLevel())) {
                 return R.fail(400, "目标库位不是" + formatStorageLevel(request.getStorageLevel()) + "库位");
             }
-            if (hasActiveInboundTaskAtTargetBin(targetBinCode)) {
+            if (hasActiveStoragePlacementTaskAtTargetBin(targetBinCode)) {
                 return R.fail(409, "该目标库位已有入库/回库任务排队或执行中，请重新选择库位");
             }
             String effectivePalletNo = palletNo != null ? palletNo : targetBinCode;
@@ -980,6 +980,9 @@ public class PdaApiController {
             String targetBinCode = toBinCode;
             if (targetBinCode == null) {
                 return R.fail(400, "目标站点不能为空");
+            }
+            if (hasActiveStoragePlacementTaskAtTargetBin(targetBinCode)) {
+                return R.fail(409, "该目标库位已有入库/回库任务排队或执行中，请重新选择库位");
             }
             String effectivePalletNo = palletNo != null ? palletNo : targetBinCode;
             String palletType = resolvePalletTypeCodeFromBinCode(targetBinCode);
@@ -1041,6 +1044,9 @@ public class PdaApiController {
             String targetBinCode = toBinCode;
             if (targetBinCode == null) {
                 return R.fail(400, "目标站点不能为空");
+            }
+            if (hasActiveStoragePlacementTaskAtTargetBin(targetBinCode)) {
+                return R.fail(409, "该目标库位已有入库/回库任务排队或执行中，请重新选择库位");
             }
             String effectivePalletNo = palletNo != null ? palletNo : targetBinCode;
             String palletType = resolvePalletTypeCodeFromBinCode(targetBinCode);
@@ -1944,6 +1950,10 @@ public class PdaApiController {
                 markOutsideEmptyPalletFailed(record.getId(), null, "库外空托盘参数错误");
                 return;
             }
+            if (hasActiveStoragePlacementTaskAtTargetBin(targetBinCode)) {
+                markOutsideEmptyPalletFailed(record.getId(), null, "目标库位已有入库/回库任务排队或执行中");
+                return;
+            }
             InspectionRoute route = buildInspectionEmptyReturnRoute(palletType, stationCode, targetBinCode);
             if (route == null) {
                 markOutsideEmptyPalletFailed(record.getId(), null, "空托回库路径参数错误");
@@ -2429,14 +2439,20 @@ public class PdaApiController {
         return agvTaskMapper.selectCount(wrapper) > 0;
     }
 
-    private boolean hasActiveInboundTaskAtTargetBin(String targetBinCode) {
+    private boolean hasActiveStoragePlacementTaskAtTargetBin(String targetBinCode) {
         String normalizedTargetBin = StrUtil.trimToNull(targetBinCode);
         if (normalizedTargetBin == null) {
             return false;
         }
         LambdaQueryWrapper<AgvTask> wrapper = Wrappers.lambdaQuery();
         wrapper.and(w -> w.eq(AgvTask::getTaskType, 1)
-            .or(v -> v.eq(AgvTask::getTaskType, 3).eq(AgvTask::getRemark, VALVE_RETURN_REMARK)));
+            .or(v -> v.eq(AgvTask::getTaskType, 3)
+                .in(AgvTask::getRemark,
+                    VALVE_RETURN_REMARK,
+                    INSPECTION_EMPTY_RETURN_REMARK,
+                    INSPECTION_EMPTY_RETURN_REMARK_LEGACY,
+                    OUTBOUND_EMPTY_RETURN_REMARK,
+                    OUTSIDE_EMPTY_RETURN_REMARK)));
         wrapper.in(AgvTask::getStatus, 0, 1);
         wrapper.eq(AgvTask::getToBinCode, normalizedTargetBin);
         return agvTaskMapper.selectCount(wrapper) > 0;
@@ -3701,7 +3717,7 @@ public class PdaApiController {
                 .filter(binCode -> isBinOnRequestedLevel(binCode, request.getStorageLevel()))
                 .filter(binCode -> isBinOnRequestedFloor(binCode, request.getFirstFloor()))
                 .filter(binCode -> isWmsAvailableInboundBin(binCode, palletTypeCode))
-                .filter(binCode -> !hasActiveInboundTaskAtTargetBin(binCode))
+                .filter(binCode -> !hasActiveStoragePlacementTaskAtTargetBin(binCode))
                 .sorted(inboundBinComparator(palletTypeCode))
                 .findFirst()
                 .orElse(null);
@@ -3715,7 +3731,7 @@ public class PdaApiController {
                 && isBinOnRequestedLevel(binCode, request.getStorageLevel())
                 && isBinOnRequestedFloor(binCode, request.getFirstFloor())
                 && isWmsAvailableInboundBin(binCode, palletTypeCode)
-                && !hasActiveInboundTaskAtTargetBin(binCode)) {
+                && !hasActiveStoragePlacementTaskAtTargetBin(binCode)) {
                 return binCode;
             }
         }
@@ -3801,7 +3817,7 @@ public class PdaApiController {
             .map(BinVo::getBinCode)
             .filter(binCode -> isBinOnRequestedLevel(binCode, request.getStorageLevel()))
             .filter(binCode -> isBinOnRequestedFloor(binCode, request.getFirstFloor()))
-            .filter(binCode -> !hasActiveInboundTaskAtTargetBin(binCode))
+            .filter(binCode -> !hasActiveStoragePlacementTaskAtTargetBin(binCode))
             .sorted(inboundBinComparator(palletTypeCode))
             .findFirst()
             .orElse(null);
