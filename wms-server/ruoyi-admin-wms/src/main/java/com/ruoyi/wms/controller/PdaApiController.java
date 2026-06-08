@@ -1941,17 +1941,18 @@ public class PdaApiController {
         String taskNo = null;
         try {
             String stationCode = StrUtil.trimToNull(record.getStationCode());
-            String targetBinCode = StrUtil.trimToNull(record.getTargetBinCode());
+            String originalBinCode = StrUtil.trimToNull(record.getTargetBinCode());
             String palletType = StrUtil.trimToNull(record.getPalletType());
             if (palletType == null) {
                 palletType = resolvePalletTypeByOutsideSite(stationCode);
             }
-            if (stationCode == null || targetBinCode == null || palletType == null) {
+            if (stationCode == null || palletType == null) {
                 markOutsideEmptyPalletFailed(record.getId(), null, "库外空托盘参数错误");
                 return;
             }
-            if (hasActiveStoragePlacementTaskAtTargetBin(targetBinCode)) {
-                markOutsideEmptyPalletFailed(record.getId(), null, "目标库位已有入库/回库任务排队或执行中");
+            String targetBinCode = resolveOutsideEmptyReturnTargetBin(palletType, originalBinCode);
+            if (targetBinCode == null) {
+                markOutsideEmptyPalletFailed(record.getId(), null, "未找到可用空库位");
                 return;
             }
             InspectionRoute route = buildInspectionEmptyReturnRoute(palletType, stationCode, targetBinCode);
@@ -2015,6 +2016,25 @@ public class PdaApiController {
             }
             markOutsideEmptyPalletFailed(record.getId(), taskNo, e.getMessage());
         }
+    }
+
+    private String resolveOutsideEmptyReturnTargetBin(String palletTypeCode, String originalBinCode) {
+        PdaBinAvailableRequest request = new PdaBinAvailableRequest();
+        request.setPalletType(palletTypeCode);
+        request.setStorageLevel(extractBinLevel(originalBinCode));
+
+        List<String> excludedBinCodes = StrUtil.isBlank(originalBinCode)
+            ? Collections.emptyList()
+            : List.of(originalBinCode);
+        String selectedBin = selectFirstWmsAvailableInboundBinCode(request, palletTypeCode, excludedBinCodes);
+        if (StrUtil.isNotBlank(selectedBin)) {
+            return selectedBin;
+        }
+        if (request.getStorageLevel() != null) {
+            request.setStorageLevel(null);
+            return selectFirstWmsAvailableInboundBinCode(request, palletTypeCode, excludedBinCodes);
+        }
+        return null;
     }
 
     private void markOutsideEmptyPalletFailed(Long id, String taskNo, String errorMsg) {
@@ -3810,11 +3830,23 @@ public class PdaApiController {
     }
 
     private String selectFirstWmsAvailableInboundBinCode(PdaBinAvailableRequest request, String palletTypeCode) {
+        return selectFirstWmsAvailableInboundBinCode(request, palletTypeCode, Collections.emptyList());
+    }
+
+    private String selectFirstWmsAvailableInboundBinCode(PdaBinAvailableRequest request, String palletTypeCode,
+                                                         Collection<String> excludedBinCodes) {
+        Set<String> normalizedExcludedBinCodes = excludedBinCodes == null
+            ? Collections.emptySet()
+            : excludedBinCodes.stream()
+                .map(StrUtil::trimToNull)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
         return binService.queryAvailableBins(request.getWarehouseId(), request.getAreaId()).stream()
             .filter(bin -> bin != null && StrUtil.isNotBlank(bin.getBinCode()))
             .filter(bin -> isWmsBinTypeAllowedForPalletType(bin.getBinType(), palletTypeCode))
             .filter(bin -> StrUtil.isBlank(bin.getBoundFactoryNo()))
             .map(BinVo::getBinCode)
+            .filter(binCode -> !normalizedExcludedBinCodes.contains(StrUtil.trim(binCode)))
             .filter(binCode -> isBinOnRequestedLevel(binCode, request.getStorageLevel()))
             .filter(binCode -> isBinOnRequestedFloor(binCode, request.getFirstFloor()))
             .filter(binCode -> !hasActiveStoragePlacementTaskAtTargetBin(binCode))
